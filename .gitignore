@@ -5,3 +5,15 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.db
+
+# JavaScript dependencies and generated output
+node_modules/
+frontend/dist/
+
+# Python lint cache
+.ruff_cache/
+
+# Personal learning curriculum - not part of the application
+auth-system-design/
+AUTHENTICATION_SYSTEM_DESIGN_ROADMAP.md
+
