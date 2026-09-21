@@ -1,0 +1,30 @@
+{
+  "name": "parenting-voice-assistant",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky",
+    "check": "node scripts/check.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vinit-Rabadiya/parenting-voice-assistant.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Vinit-Rabadiya/parenting-voice-assistant/issues"
+  },
+  "homepage": "https://github.com/Vinit-Rabadiya/parenting-voice-assistant#readme",
+  "private": true,
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}
