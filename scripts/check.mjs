@@ -1,7 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
+const pythonRelativePath =
+  process.platform === "win32" ? "Scripts/python.exe" : "bin/python";
+
+const localPython = [".venv", "venv"]
+  .map((folder) => join(projectRoot, folder, pythonRelativePath))
+  .find((candidate) => existsSync(candidate));
+
+const pythonCommand = localPython ?? "python";
 const npmPath = process.env.npm_execpath;
 
 if (!npmPath) {
@@ -29,7 +39,7 @@ function runCheck(label, command, args) {
   }
 }
 
-runCheck("Python lint", "python", ["-m", "ruff", "check", "."]);
+runCheck("Python lint", pythonCommand, ["-m", "ruff", "check", "."]);
 
 runCheck("Frontend lint", process.execPath, [
   npmPath,
