@@ -1,10 +1,11 @@
 import "./App.css";
+import GoogleSignInButton from "./components/GoogleSignInButton";
 
 function App() {
   return (
     <main>
       <h1>Parenting Voice Assistant</h1>
-      <p>Authentication setup in progress.</p>
+      <GoogleSignInButton />
     </main>
   );
 }
