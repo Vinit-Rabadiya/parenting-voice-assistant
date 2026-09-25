@@ -2,10 +2,10 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBYctxD03Vlb2A71t4KclW1tGhyIWtdrrE",
-  authDomain: "voice-interaction-system.firebaseapp.com",
-  projectId: "voice-interaction-system",
-  appId: "1:489399450516:web:7d2c793ba3f6207be96d81",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
