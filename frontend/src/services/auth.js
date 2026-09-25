@@ -3,6 +3,7 @@ import {
   signInWithPopup,
   createUserWithEmailAndPassword,
   sendEmailVerification,
+  reload,
 } from "firebase/auth";
 import { auth } from "./firebase";
 const provider = new GoogleAuthProvider();
@@ -17,8 +18,17 @@ export const signUpWithEmail = async (email, password) => {
   try {
     await sendEmailVerification(result.user);
     verificationEmailRequested = true;
-  } catch  {
+  } catch {
     verificationEmailRequested = false;
   }
   return { user: result.user, verificationEmailRequested };
+};
+
+export const checkEmailVerification = async () => {
+  const user = auth.currentUser;
+  if (user === null) {
+    throw new Error("Sign in before checking email verification.");
+  }
+  await reload(user);
+  return user.emailVerified;
 };

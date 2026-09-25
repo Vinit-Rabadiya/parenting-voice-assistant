@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { signUpWithEmail } from "../services/auth";
 
-function SignUpForm() {
+function SignUpForm({ onAccountCreated }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,15 +25,24 @@ function SignUpForm() {
           "Account created, but we couldn’t send the verification email.",
         );
       }
-    } catch {
-      setMessage(
-        "Could not complete signup. Please try again or sign in if you already have an account.",
-      );
+      onAccountCreated(result);
+    } catch (error) {
+      if (
+        error.code === "auth/weak-password" ||
+        error.code === "auth/password-does-not-meet-requirements"
+      ) {
+        setMessage(
+          "Use at least 8 characters, including an uppercase letter, a lowercase letter, a number, and a special character.",
+        );
+      } else {
+        setMessage(
+          "Could not complete signup. Please try again or sign in if you already have an account.",
+        );
+      }
     } finally {
       setBusy(false);
     }
   }
-
   return (
     <form onSubmit={handleSubmit}>
       <label>
@@ -52,7 +61,10 @@ function SignUpForm() {
           onChange={(e) => setPassword(e.target.value)}
         />
       </label>
-
+      <p>
+        Use at least 8 characters, including an uppercase letter, a lowercase
+        letter, a number, and a special character.
+      </p>
       <button type="submit" disabled={busy}>
         Create Account
       </button>
