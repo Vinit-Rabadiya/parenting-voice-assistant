@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { checkEmailVerification } from "../services/auth";
 import { resendVerificationEmail } from "../services/auth";
 function AccountPage({ verificationEmailRequested }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
+
+  useEffect(() => {
+    if (resendSecondsLeft <= 0) return;
+    const timerID = setTimeout(() => {
+      setResendSecondsLeft((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => clearTimeout(timerID);
+  }, [resendSecondsLeft]);
 
   async function handleCheckVerification() {
     if (busy) return;
@@ -29,7 +37,7 @@ function AccountPage({ verificationEmailRequested }) {
   }
 
   async function handleResendVerification() {
-    if (busy) {
+    if (busy || resendSecondsLeft > 0) {
       return;
     }
     setBusy(true);
@@ -42,6 +50,8 @@ function AccountPage({ verificationEmailRequested }) {
         setMessage(
           "Verification email requested. Check your inbox and spam folder.",
         );
+
+        setResendSecondsLeft(60);
       }
     } catch {
       setMessage(
@@ -67,9 +77,16 @@ function AccountPage({ verificationEmailRequested }) {
       </button>
       <p role="status">{message}</p>
 
-      <button type="button" disabled={busy} onClick={handleResendVerification}>
+      <button
+        type="button"
+        disabled={busy || resendSecondsLeft > 0}
+        onClick={handleResendVerification}
+      >
         Resend Verification Email
       </button>
+      {resendSecondsLeft > 0 ? (
+        <p>Resend in {resendSecondsLeft} seconds</p>
+      ) : null}
     </section>
   );
 }
