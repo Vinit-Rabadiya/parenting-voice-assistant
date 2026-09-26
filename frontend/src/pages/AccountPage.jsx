@@ -1,13 +1,20 @@
 import { useState, useEffect } from "react";
 import { checkEmailVerification } from "../services/auth";
 import { resendVerificationEmail } from "../services/auth";
-import { logOut } from "../services/auth";
+import {
+  logOut,
+  beginTotpEnrollment,
+  confirmTotpEnrollment,
+} from "../services/auth";
 function AccountPage({ verificationEmailRequested, email }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
   const [emailVerified, setEmailVerified] = useState(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const [pendingEnrollment, setPendingEnrollment] = useState(null);
+  const [enrollmentCode, setEnrollmentCode] = useState("");
+  const [enrollmentComplete, setEnrollmentComplete] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +117,50 @@ function AccountPage({ verificationEmailRequested, email }) {
     }
   }
 
+  async function handleBeginEnrollment() {
+    if (busy) return;
+    setBusy(true);
+    setMessage("");
+    setEnrollmentCode("");
+
+    try {
+      const pending = await beginTotpEnrollment();
+      setPendingEnrollment(pending);
+    } catch (error) {
+      setMessage(
+        error.code === "auth/requires-recent-login"
+          ? "Log out and log in again before setting up your authenticator."
+          : "Couldn’t start authenticator setup. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleConfirmEnrollment(event) {
+    event.preventDefault();
+    if (busy || !pendingEnrollment) return;
+
+    setBusy(true);
+    setMessage("");
+
+    try {
+      await confirmTotpEnrollment(pendingEnrollment, enrollmentCode);
+      setPendingEnrollment(null);
+      setEnrollmentComplete(true);
+      setMessage(
+        "Authenticator added. Log out, then log in to test your code.",
+      );
+    } catch {
+      setMessage(
+        "Couldn’t confirm setup. Try a fresh code, or cancel and start setup again.",
+      );
+    } finally {
+      setEnrollmentCode("");
+      setBusy(false);
+    }
+  }
+
   if (checkingStatus) {
     return <p role="status">Checking email verification…</p>;
   }
@@ -119,7 +170,70 @@ function AccountPage({ verificationEmailRequested, email }) {
       <h1>Verify your email.</h1>
       <p>Account Email: {email}</p>
       {emailVerified ? (
-        <p>Email verified. Authenticator setup is next.</p>
+        <div>
+          <p>Email verified.</p>
+
+          {enrollmentComplete ? (
+            <p>
+              Authenticator enrollment completed. Log out and test MFA login.
+            </p>
+          ) : pendingEnrollment ? (
+            <form onSubmit={handleConfirmEnrollment}>
+              <p>
+                In your authenticator app, add an account using a setup key.
+                Choose a time-based code and use your account email as its
+                label.
+              </p>
+
+              <p>Setup key:</p>
+              <code>{pendingEnrollment.secret.secretKey}</code>
+
+              <p>
+                Keep access to your authenticator. A password-reset email will
+                not recover a lost authenticator.
+              </p>
+
+              <label>
+                Authenticator code
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={enrollmentCode}
+                  onChange={(event) => setEnrollmentCode(event.target.value)}
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  required
+                  disabled={busy}
+                />
+              </label>
+
+              <button type="submit" disabled={busy}>
+                Confirm authenticator
+              </button>
+
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setPendingEnrollment(null);
+                  setEnrollmentCode("");
+                  setMessage("");
+                }}
+              >
+                Cancel setup
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={handleBeginEnrollment}
+            >
+              Set up authenticator
+            </button>
+          )}
+        </div>
       ) : (
         <div>
           {verificationEmailRequested === true ? (

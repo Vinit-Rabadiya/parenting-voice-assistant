@@ -18,3 +18,5 @@ frontend/dist/
 auth-system-design/
 AUTHENTICATION_SYSTEM_DESIGN_ROADMAP.md
 
+# Private administrative credentials
+.secrets/

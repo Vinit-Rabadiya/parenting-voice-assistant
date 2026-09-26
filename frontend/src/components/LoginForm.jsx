@@ -2,7 +2,7 @@ import { useState } from "react";
 import { signInWithEmail } from "../services/auth";
 import { requestPasswordReset } from "../services/auth";
 
-function LoginForm() {
+function LoginForm({ onMfaRequired }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -16,7 +16,11 @@ function LoginForm() {
     setMessage("");
 
     try {
-      await signInWithEmail(email, password);
+      const result = await signInWithEmail(email, password);
+      if (result.next === "mfa-required") {
+        setPassword("");
+        onMfaRequired(result.resolver);
+      }
     } catch {
       setMessage(
         "Couldn’t log in. Check your email and password, then try again.",
