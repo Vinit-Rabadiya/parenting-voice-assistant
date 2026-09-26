@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { checkEmailVerification } from "../services/auth";
 import { resendVerificationEmail } from "../services/auth";
-function AccountPage({ verificationEmailRequested }) {
+function AccountPage({ verificationEmailRequested, email }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
+  const [emailVerified, setEmailVerified] = useState(null);
 
   useEffect(() => {
     if (resendSecondsLeft <= 0) return;
@@ -20,6 +21,7 @@ function AccountPage({ verificationEmailRequested }) {
     setMessage("");
     try {
       const isVerified = await checkEmailVerification();
+      setEmailVerified(isVerified);
       if (isVerified === true) {
         setMessage("Your email is verified. Authenticator setup is next.");
       } else {
@@ -45,6 +47,7 @@ function AccountPage({ verificationEmailRequested }) {
     try {
       const result = await resendVerificationEmail();
       if (result.status === "already-verified") {
+        setEmailVerified(true);
         setMessage("Your email is already verified.");
       } else if (result.status === "email-requested") {
         setMessage(
@@ -65,28 +68,38 @@ function AccountPage({ verificationEmailRequested }) {
   return (
     <section>
       <h1>Verify your email.</h1>
-
-      {verificationEmailRequested ? (
-        <p>Check your inbox and spam folder for the verification link.</p>
+      <p>Account Email: {email}</p>
+      {emailVerified ? (
+        <p>Email verified. Authenticator setup is next.</p>
       ) : (
-        <p>Account created, but we couldn’t send the verification email.</p>
+        <div>
+          {verificationEmailRequested ? (
+            <p>Check your inbox and spam folder for the verification link.</p>
+          ) : (
+            <p>Account created, but we couldn’t send the verification email.</p>
+          )}
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleCheckVerification}
+          >
+            Check Verification Status
+          </button>
+
+          <button
+            type="button"
+            disabled={busy || resendSecondsLeft > 0}
+            onClick={handleResendVerification}
+          >
+            Resend Verification Email
+          </button>
+          {resendSecondsLeft > 0 ? (
+            <p>Resend in {resendSecondsLeft} seconds</p>
+          ) : null}
+        </div>
       )}
-
-      <button type="button" disabled={busy} onClick={handleCheckVerification}>
-        Check Verification Status
-      </button>
       <p role="status">{message}</p>
-
-      <button
-        type="button"
-        disabled={busy || resendSecondsLeft > 0}
-        onClick={handleResendVerification}
-      >
-        Resend Verification Email
-      </button>
-      {resendSecondsLeft > 0 ? (
-        <p>Resend in {resendSecondsLeft} seconds</p>
-      ) : null}
     </section>
   );
 }

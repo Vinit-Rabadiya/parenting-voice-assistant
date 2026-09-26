@@ -14,6 +14,7 @@ function App() {
       {signupResult ? (
         <AccountPage
           verificationEmailRequested={signupResult.verificationEmailRequested}
+          email={signupResult.user.email}
         />
       ) : (
         <SignUpForm onAccountCreated={setSignupResult} />
