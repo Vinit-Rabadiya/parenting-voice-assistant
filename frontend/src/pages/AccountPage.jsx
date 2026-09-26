@@ -7,6 +7,36 @@ function AccountPage({ verificationEmailRequested, email }) {
   const [message, setMessage] = useState("");
   const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
   const [emailVerified, setEmailVerified] = useState(null);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadVerificationStatus() {
+      try {
+        const verified = await checkEmailVerification();
+
+        if (!cancelled) {
+          setEmailVerified(verified);
+        }
+      } catch {
+        if (!cancelled) {
+          setMessage(
+            "Couldn’t check your email status. Please try the check button.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setCheckingStatus(false);
+        }
+      }
+    }
+    loadVerificationStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (resendSecondsLeft <= 0) return;
@@ -78,6 +108,10 @@ function AccountPage({ verificationEmailRequested, email }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (checkingStatus) {
+    return <p role="status">Checking email verification…</p>;
   }
 
   return (
