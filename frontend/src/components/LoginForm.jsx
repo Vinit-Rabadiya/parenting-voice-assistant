@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { signInWithEmail } from "../services/auth";
+import { requestPasswordReset } from "../services/auth";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -19,6 +20,29 @@ function LoginForm() {
     } catch {
       setMessage(
         "Couldn’t log in. Check your email and password, then try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function handlePasswordReset() {
+    if (busy) return;
+
+    if (email.trim() === "") {
+      setMessage("Enter your email address above first.");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+
+    try {
+      await requestPasswordReset(email.trim());
+      setMessage(
+        "If an eligible account exists, you’ll receive a password-reset email. Check your inbox and spam folder.",
+      );
+    } catch {
+      setMessage(
+        "Couldn’t request a password reset. Check the email address and try again later.",
       );
     } finally {
       setBusy(false);
@@ -44,6 +68,9 @@ function LoginForm() {
       </label>
       <button type="submit" disabled={busy}>
         Log in
+      </button>
+      <button type="button" disabled={busy} onClick={handlePasswordReset}>
+        Forgot Password?
       </button>
       <p role="status">{message} </p>
     </form>
