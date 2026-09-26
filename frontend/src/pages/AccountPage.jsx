@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { resendVerificationEmail } from "../services/auth";
+import { getCurrentAccount } from "../services/api";
 import {
   logOut,
   beginTotpEnrollment,
@@ -173,6 +174,21 @@ function AccountPage({ verificationEmailRequested, email }) {
     return <p role="status">Checking email verification…</p>;
   }
 
+  async function handleBackendCheck() {
+    if (busy) return;
+    setBusy(true);
+    setMessage("");
+
+    try {
+      await getCurrentAccount();
+      setMessage("Backend accepted your verified MFA login.");
+    } catch (error) {
+      setMessage(error.message || "Couldn’t reach the backend.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section>
       <h1>Verify your email.</h1>
@@ -278,6 +294,9 @@ function AccountPage({ verificationEmailRequested, email }) {
       <p role="status">{message}</p>
       <button type="button" disabled={busy} onClick={handleLogOut}>
         Log Out
+      </button>
+      <button type="button" disabled={busy} onClick={handleBackendCheck}>
+        Check backend access
       </button>
     </section>
   );
