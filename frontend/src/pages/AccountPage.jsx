@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { checkEmailVerification } from "../services/auth";
-function VerifyEmailPage({ verificationEmailRequested }) {
+import { resendVerificationEmail } from "../services/auth";
+function AccountPage({ verificationEmailRequested }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  
 
   async function handleCheckVerification() {
     if (busy) return;
@@ -26,6 +28,30 @@ function VerifyEmailPage({ verificationEmailRequested }) {
     }
   }
 
+  async function handleResendVerification() {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await resendVerificationEmail();
+      if (result.status === "already-verified") {
+        setMessage("Your email is already verified.");
+      } else if (result.status === "email-requested") {
+        setMessage(
+          "Verification email requested. Check your inbox and spam folder.",
+        );
+      }
+    } catch {
+      setMessage(
+        "Couldn’t resend the verification email. Please try again later.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section>
       <h1>Verify your email.</h1>
@@ -40,8 +66,12 @@ function VerifyEmailPage({ verificationEmailRequested }) {
         Check Verification Status
       </button>
       <p role="status">{message}</p>
+
+      <button type="button" disabled={busy} onClick={handleResendVerification}>
+        Resend Verification Email
+      </button>
     </section>
   );
 }
 
-export default VerifyEmailPage;
+export default AccountPage;

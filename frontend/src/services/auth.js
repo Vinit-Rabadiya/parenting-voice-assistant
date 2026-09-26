@@ -32,3 +32,14 @@ export const checkEmailVerification = async () => {
   await reload(user);
   return user.emailVerified;
 };
+
+export async function resendVerificationEmail() {
+  const user = auth.currentUser;
+  if (user === null) {
+    throw new Error("Sign-in is required");
+  }
+  await reload(user);
+  if (user.emailVerified) return { status: "already-verified" };
+  await sendEmailVerification(user);
+  return { status: "email-requested" };
+}

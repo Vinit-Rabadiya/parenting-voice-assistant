@@ -2,7 +2,7 @@ import "./App.css";
 import GoogleSignInButton from "./components/GoogleSignInButton";
 import { useState } from "react";
 import SignUpForm from "./components/SignUpForm";
-import VerifyEmailPage from "./pages/VerifyEmailPage";
+import AccountPage from "./pages/AccountPage";
 
 function App() {
   const [signupResult, setSignupResult] = useState(null);
@@ -12,7 +12,7 @@ function App() {
       <GoogleSignInButton />
 
       {signupResult ? (
-        <VerifyEmailPage
+        <AccountPage
           verificationEmailRequested={signupResult.verificationEmailRequested}
         />
       ) : (
