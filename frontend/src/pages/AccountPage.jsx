@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { checkEmailVerification } from "../services/auth";
 import { resendVerificationEmail } from "../services/auth";
 import {
   logOut,
   beginTotpEnrollment,
   confirmTotpEnrollment,
+  getAccountSecurityStatus,
 } from "../services/auth";
 function AccountPage({ verificationEmailRequested, email }) {
   const [busy, setBusy] = useState(false);
@@ -14,17 +14,18 @@ function AccountPage({ verificationEmailRequested, email }) {
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [pendingEnrollment, setPendingEnrollment] = useState(null);
   const [enrollmentCode, setEnrollmentCode] = useState("");
-  const [enrollmentComplete, setEnrollmentComplete] = useState(false);
+  const [enrollmentComplete, setEnrollmentComplete] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadVerificationStatus() {
       try {
-        const verified = await checkEmailVerification();
+        const status = await getAccountSecurityStatus();
 
         if (!cancelled) {
-          setEmailVerified(verified);
+          setEmailVerified(status.emailVerified);
+          setEnrollmentComplete(status.totpEnrolled);
         }
       } catch {
         if (!cancelled) {
@@ -58,10 +59,17 @@ function AccountPage({ verificationEmailRequested, email }) {
     setBusy(true);
     setMessage("");
     try {
-      const isVerified = await checkEmailVerification();
+      const status = await getAccountSecurityStatus();
+      const isVerified = status.emailVerified;
+
       setEmailVerified(isVerified);
+      setEnrollmentComplete(status.totpEnrolled);
       if (isVerified === true) {
-        setMessage("Your email is verified. Authenticator setup is next.");
+        setMessage(
+          status.totpEnrolled
+            ? "Email verified. Authenticator is enrolled."
+            : "Email verified. Set up your authenticator next.",
+        );
       } else {
         setMessage(
           "Your email isn’t verified yet. Open the email link, then check again.",

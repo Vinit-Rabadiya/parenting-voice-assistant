@@ -162,3 +162,20 @@ export const confirmTotpEnrollment = async (pending, code) => {
 
   await multiFactor(user).enroll(assertion, "Authenticator");
 };
+
+export const getAccountSecurityStatus = async () => {
+  const user = auth.currentUser;
+
+  if (!user) {
+    throw new Error("Log in to check your account.");
+  }
+
+  await reload(user);
+
+  return {
+    emailVerified: user.emailVerified,
+    totpEnrolled: multiFactor(user).enrolledFactors.some(
+      (factor) => factor.factorId === TotpMultiFactorGenerator.FACTOR_ID,
+    ),
+  };
+};
