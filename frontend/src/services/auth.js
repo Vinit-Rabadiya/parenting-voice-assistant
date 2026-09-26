@@ -5,6 +5,7 @@ import {
   sendEmailVerification,
   reload,
   signInWithEmailAndPassword,
+  signOut,
 } from "firebase/auth";
 import { auth } from "./firebase";
 
@@ -41,7 +42,7 @@ export const checkEmailVerification = async () => {
   return user.emailVerified;
 };
 
-export async function resendVerificationEmail() {
+export const resendVerificationEmail = async () => {
   const user = auth.currentUser;
   if (user === null) {
     throw new Error("Sign-in is required");
@@ -50,4 +51,8 @@ export async function resendVerificationEmail() {
   if (user.emailVerified) return { status: "already-verified" };
   await sendEmailVerification(user);
   return { status: "email-requested" };
-}
+};
+
+export const logOut = async () => {
+  await signOut(auth);
+};

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { checkEmailVerification } from "../services/auth";
 import { resendVerificationEmail } from "../services/auth";
+import { logOut } from "../services/auth";
 function AccountPage({ verificationEmailRequested, email }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -65,6 +66,20 @@ function AccountPage({ verificationEmailRequested, email }) {
     }
   }
 
+  async function handleLogOut() {
+    if (busy) return;
+    setBusy(true);
+    setMessage("");
+
+    try {
+      await logOut();
+    } catch {
+      setMessage("Couldn't log out. Please try again");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section>
       <h1>Verify your email.</h1>
@@ -105,6 +120,9 @@ function AccountPage({ verificationEmailRequested, email }) {
         </div>
       )}
       <p role="status">{message}</p>
+      <button type="button" disabled={busy} onClick={handleLogOut}>
+        Log Out
+      </button>
     </section>
   );
 }
