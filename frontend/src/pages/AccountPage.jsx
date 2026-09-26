@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { checkEmailVerification } from "../services/auth";
 import { resendVerificationEmail } from "../services/auth";
+import { getCurrentAccount } from "../services/api";
 import {
   logOut,
   beginTotpEnrollment,
   confirmTotpEnrollment,
+  getAccountSecurityStatus,
 } from "../services/auth";
+import QRCode from "qrcode";
 function AccountPage({ verificationEmailRequested, email }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -14,17 +16,18 @@ function AccountPage({ verificationEmailRequested, email }) {
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [pendingEnrollment, setPendingEnrollment] = useState(null);
   const [enrollmentCode, setEnrollmentCode] = useState("");
-  const [enrollmentComplete, setEnrollmentComplete] = useState(false);
+  const [enrollmentComplete, setEnrollmentComplete] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadVerificationStatus() {
       try {
-        const verified = await checkEmailVerification();
+        const status = await getAccountSecurityStatus();
 
         if (!cancelled) {
-          setEmailVerified(verified);
+          setEmailVerified(status.emailVerified);
+          setEnrollmentComplete(status.totpEnrolled);
         }
       } catch {
         if (!cancelled) {
@@ -58,10 +61,17 @@ function AccountPage({ verificationEmailRequested, email }) {
     setBusy(true);
     setMessage("");
     try {
-      const isVerified = await checkEmailVerification();
+      const status = await getAccountSecurityStatus();
+      const isVerified = status.emailVerified;
+
       setEmailVerified(isVerified);
+      setEnrollmentComplete(status.totpEnrolled);
       if (isVerified === true) {
-        setMessage("Your email is verified. Authenticator setup is next.");
+        setMessage(
+          status.totpEnrolled
+            ? "Email verified. Authenticator is enrolled."
+            : "Email verified. Set up your authenticator next.",
+        );
       } else {
         setMessage(
           "Your email isn’t verified yet. Open the email link, then check again.",
@@ -125,7 +135,18 @@ function AccountPage({ verificationEmailRequested, email }) {
 
     try {
       const pending = await beginTotpEnrollment();
-      setPendingEnrollment(pending);
+
+      const setupUri = pending.secret.generateQrCodeUrl(
+        email,
+        "Parenting Voice Assistant",
+      );
+
+      const qrDataUrl = await QRCode.toDataURL(setupUri, {
+        width: 240,
+        margin: 4,
+      });
+
+      setPendingEnrollment({ ...pending, qrDataUrl });
     } catch (error) {
       setMessage(
         error.code === "auth/requires-recent-login"
@@ -165,6 +186,21 @@ function AccountPage({ verificationEmailRequested, email }) {
     return <p role="status">Checking email verification…</p>;
   }
 
+  async function handleBackendCheck() {
+    if (busy) return;
+    setBusy(true);
+    setMessage("");
+
+    try {
+      await getCurrentAccount();
+      setMessage("Backend accepted your verified MFA login.");
+    } catch (error) {
+      setMessage(error.message || "Couldn’t reach the backend.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section>
       <h1>Verify your email.</h1>
@@ -180,11 +216,16 @@ function AccountPage({ verificationEmailRequested, email }) {
           ) : pendingEnrollment ? (
             <form onSubmit={handleConfirmEnrollment}>
               <p>
-                In your authenticator app, add an account using a setup key.
-                Choose a time-based code and use your account email as its
-                label.
+                Scan this QR code with your authenticator app, then enter its
+                six-digit code below. If you cannot scan it, use the setup key
+                instead.
               </p>
-
+              <img
+                src={pendingEnrollment.qrDataUrl}
+                alt="QR code for setting up your authenticator"
+                width={240}
+                height={240}
+              />
               <p>Setup key:</p>
               <code>{pendingEnrollment.secret.secretKey}</code>
 
@@ -270,6 +311,9 @@ function AccountPage({ verificationEmailRequested, email }) {
       <p role="status">{message}</p>
       <button type="button" disabled={busy} onClick={handleLogOut}>
         Log Out
+      </button>
+      <button type="button" disabled={busy} onClick={handleBackendCheck}>
+        Check backend access
       </button>
     </section>
   );

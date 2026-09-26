@@ -16,6 +16,8 @@ class Settings:
     PORT: int = int(os.getenv("PORT", 8000))
 
     GROQ_API_KEY: str | None = os.getenv("GROQ_API_KEY")
+    FIREBASE_PROJECT_ID: str | None = os.getenv("FIREBASE_PROJECT_ID")
+    FIREBASE_ADMIN_KEY_PATH: str | None = os.getenv("FIREBASE_ADMIN_KEY_PATH")
     GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
 
     DB_PATH: Path = Path(__file__).resolve().parent.parent / "mamacare.db"
