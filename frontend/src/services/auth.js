@@ -4,14 +4,22 @@ import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
   reload,
+  signInWithEmailAndPassword,
 } from "firebase/auth";
 import { auth } from "./firebase";
+
 const provider = new GoogleAuthProvider();
 
 export const signInWithGoogle = async () => {
   const result = await signInWithPopup(auth, provider);
   return result.user;
 };
+
+export const signInWithEmail = async (email, password) => {
+  const result = await signInWithEmailAndPassword(auth, email, password);
+  return result.user;
+};
+
 export const signUpWithEmail = async (email, password) => {
   const result = await createUserWithEmailAndPassword(auth, email, password);
   let verificationEmailRequested;

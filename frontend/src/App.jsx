@@ -1,10 +1,9 @@
 import "./App.css";
-import GoogleSignInButton from "./components/GoogleSignInButton";
 import { useState, useEffect } from "react";
-import SignUpForm from "./components/SignUpForm";
 import AccountPage from "./pages/AccountPage";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./services/firebase";
+import AuthPage from "./pages/AuthPage";
 
 function App() {
   const [signupResult, setSignupResult] = useState(null);
@@ -38,8 +37,7 @@ function App() {
         />
       ) : (
         <>
-          <GoogleSignInButton />
-          <SignUpForm onAccountCreated={setSignupResult} />
+          <AuthPage onAccountCreated={setSignupResult} />
         </>
       )}
     </main>
