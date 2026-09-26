@@ -7,6 +7,7 @@ import {
   confirmTotpEnrollment,
   getAccountSecurityStatus,
 } from "../services/auth";
+import QRCode from "qrcode";
 function AccountPage({ verificationEmailRequested, email }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -134,7 +135,18 @@ function AccountPage({ verificationEmailRequested, email }) {
 
     try {
       const pending = await beginTotpEnrollment();
-      setPendingEnrollment(pending);
+
+      const setupUri = pending.secret.generateQrCodeUrl(
+        email,
+        "Parenting Voice Assistant",
+      );
+
+      const qrDataUrl = await QRCode.toDataURL(setupUri, {
+        width: 240,
+        margin: 4,
+      });
+
+      setPendingEnrollment({ ...pending, qrDataUrl });
     } catch (error) {
       setMessage(
         error.code === "auth/requires-recent-login"
@@ -204,11 +216,16 @@ function AccountPage({ verificationEmailRequested, email }) {
           ) : pendingEnrollment ? (
             <form onSubmit={handleConfirmEnrollment}>
               <p>
-                In your authenticator app, add an account using a setup key.
-                Choose a time-based code and use your account email as its
-                label.
+                Scan this QR code with your authenticator app, then enter its
+                six-digit code below. If you cannot scan it, use the setup key
+                instead.
               </p>
-
+              <img
+                src={pendingEnrollment.qrDataUrl}
+                alt="QR code for setting up your authenticator"
+                width={240}
+                height={240}
+              />
               <p>Setup key:</p>
               <code>{pendingEnrollment.secret.secretKey}</code>
 
