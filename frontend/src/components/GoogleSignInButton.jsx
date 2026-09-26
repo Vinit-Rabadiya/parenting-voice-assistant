@@ -1,16 +1,22 @@
 import { useState } from "react";
 import { signInWithGoogle } from "../services/auth";
 
-export default function GoogleSignInButton() {
+export default function GoogleSignInButton({ onMfaRequired }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   async function handleSignIn() {
+    if (busy) return;
     setBusy(true);
     setMessage("Signing in with Google...");
     try {
-      await signInWithGoogle();
-      setMessage("Signed in successfully!");
+      const result = await signInWithGoogle();
+      if (result.next === "mfa-required") {
+        setMessage("Enter your authenticator code to finish logging in.");
+        onMfaRequired(result.resolver);
+      } else if (result.next === "signed-in") {
+        setMessage("Signed in successfully!");
+      }
     } catch (error) {
       if (error.code === "auth/popup-closed-by-user") {
         setMessage("Sign-in was cancelled. Please try again.");
