@@ -73,10 +73,15 @@ function AccountPage({ verificationEmailRequested, email }) {
         <p>Email verified. Authenticator setup is next.</p>
       ) : (
         <div>
-          {verificationEmailRequested ? (
+          {verificationEmailRequested === true ? (
             <p>Check your inbox and spam folder for the verification link.</p>
-          ) : (
+          ) : verificationEmailRequested === false ? (
             <p>Account created, but we couldn’t send the verification email.</p>
+          ) : (
+            <p>
+              Verify your email to continue. You can check its status or request
+              a verification email below.
+            </p>
           )}
 
           <button
