@@ -1,41 +1,28 @@
 import "./App.css";
-import { useState, useEffect } from "react";
+import { AuthProvider } from "./context/AuthProvider";
+import { useAuth } from "./hooks/useAuth";
 import AccountPage from "./pages/AccountPage";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./services/firebase";
 import AuthPage from "./pages/AuthPage";
 
-function App() {
-  // remember signup feedback separately from the currently signed-in user.
-  const [signupResult, setSignupResult] = useState(null);
-  const [user, setUser] = useState(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+function MainContent() {
+  const { user, checkingAuth, signupResult, setSignupResult } = useAuth();
 
-  // ask firebase to tell us who is signed in, including after a page reload.
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setCheckingAuth(false);
-    });
-    // stop listening when react removes this component.
-    return unsubscribe;
-  }, []);
-
-  // wait for firebase's first answer before choosing a screen.
+  // wait for firebase to finish checking who is signed in.
   if (checkingAuth) {
     return <p>Checking sign-in...</p>;
   }
+
   return (
     <main>
       <h1>Parenting Voice Assistant</h1>
 
-      {/* choose the screen; the backend still checks login on private requests. */}
+      {/* show account page if signed in, otherwise show auth page. */}
       {user ? (
         <AccountPage
-          // reset the page's memory when a different user logs in.
+          // start with fresh page state when the user changes.
           key={user.uid}
           email={user.email}
-          // show signup feedback only if it belongs to this user.
+          // pass email status only if it belongs to this user.
           verificationEmailRequested={
             signupResult?.user.uid === user.uid
               ? signupResult.verificationEmailRequested
@@ -43,11 +30,18 @@ function App() {
           }
         />
       ) : (
-        <>
-          <AuthPage onAccountCreated={setSignupResult} />
-        </>
+        <AuthPage onAccountCreated={setSignupResult} />
       )}
     </main>
   );
 }
+
+function App() {
+  return (
+    <AuthProvider>
+      <MainContent />
+    </AuthProvider>
+  );
+}
+
 export default App;
