@@ -1,7 +1,12 @@
 import os
+import sys
+from pathlib import Path
 import pytest
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
+
+# add project root to python path so test runner finds backend.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # set test environment variables so tests can run on their own.
 os.environ.setdefault("FIREBASE_PROJECT_ID", "test-project")
