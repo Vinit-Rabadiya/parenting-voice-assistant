@@ -15,7 +15,7 @@ const pythonCommand = localPython ?? "python";
 const npmPath = process.env.npm_execpath;
 
 if (!npmPath) {
-  console.error("Run this script using: npm run check");
+  console.error("Script must be executed within npm context (e.g., npm run check)");
   process.exit(1);
 }
 
@@ -39,8 +39,13 @@ function runCheck(label, command, args) {
   }
 }
 
+// check python code with ruff.
 runCheck("Python lint", pythonCommand, ["-m", "ruff", "check", "."]);
 
+// run backend tests with pytest.
+runCheck("Python tests", pythonCommand, ["-m", "pytest"]);
+
+// check frontend code with eslint.
 runCheck("Frontend lint", process.execPath, [
   npmPath,
   "--prefix",
@@ -49,6 +54,7 @@ runCheck("Frontend lint", process.execPath, [
   "lint",
 ]);
 
+// test building the frontend with vite.
 runCheck("Frontend build", process.execPath, [
   npmPath,
   "--prefix",

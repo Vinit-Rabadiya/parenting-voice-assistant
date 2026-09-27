@@ -1,29 +1,42 @@
 {
   "name": "parenting-voice-assistant",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "AI-powered voice assistant and coaching system for caregivers.",
+  "private": true,
+  "type": "commonjs",
   "directories": {
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "husky",
-    "check": "node scripts/check.mjs"
+    "dev:backend": "uvicorn backend.main:app --reload",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "test": "node scripts/check.mjs",
+    "test:backend": "pytest",
+    "test:frontend": "npm --prefix frontend run lint",
+    "lint": "node scripts/check.mjs",
+    "lint:backend": "ruff check .",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "build:frontend": "npm --prefix frontend run build",
+    "check": "node scripts/check.mjs",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Vinit-Rabadiya/parenting-voice-assistant.git"
   },
-  "keywords": [],
+  "keywords": [
+    "ai",
+    "voice-assistant",
+    "fastapi",
+    "react",
+    "firebase"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/Vinit-Rabadiya/parenting-voice-assistant/issues"
   },
   "homepage": "https://github.com/Vinit-Rabadiya/parenting-voice-assistant#readme",
-  "private": true,
   "devDependencies": {
     "firebase-admin": "^14.5.0",
     "husky": "^9.1.7"
