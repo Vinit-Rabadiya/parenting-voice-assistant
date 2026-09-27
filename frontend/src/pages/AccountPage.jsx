@@ -9,15 +9,19 @@ import {
 } from "../services/auth";
 import QRCode from "qrcode";
 function AccountPage({ verificationEmailRequested, email }) {
+  // remember this screen's progress, messages, and account setup details.
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
   const [emailVerified, setEmailVerified] = useState(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
+  // keep the setup key and qr only while setup is open.
   const [pendingEnrollment, setPendingEnrollment] = useState(null);
   const [enrollmentCode, setEnrollmentCode] = useState("");
+  // null means we have not checked whether an authenticator is set up yet.
   const [enrollmentComplete, setEnrollmentComplete] = useState(null);
 
+  // ask firebase for current account details whenever this page opens.
   useEffect(() => {
     let cancelled = false;
 
@@ -44,18 +48,22 @@ function AccountPage({ verificationEmailRequested, email }) {
     loadVerificationStatus();
 
     return () => {
+      // ignore the answer if the page was removed while we were waiting.
       cancelled = true;
     };
   }, []);
 
+  // count down before another resend; reloading resets this wait, not firebase's limits.
   useEffect(() => {
     if (resendSecondsLeft <= 0) return;
     const timerID = setTimeout(() => {
       setResendSecondsLeft((seconds) => Math.max(0, seconds - 1));
     }, 1000);
+    // cancel the old timer when replacing it or leaving the page.
     return () => clearTimeout(timerID);
   }, [resendSecondsLeft]);
 
+  // check the email and authenticator status again when the user presses the button.
   async function handleCheckVerification() {
     if (busy) return;
     setBusy(true);
@@ -86,6 +94,7 @@ function AccountPage({ verificationEmailRequested, email }) {
     }
   }
 
+  // request another verification email unless an action or countdown is still running.
   async function handleResendVerification() {
     if (busy || resendSecondsLeft > 0) {
       return;
@@ -102,6 +111,7 @@ function AccountPage({ verificationEmailRequested, email }) {
           "Verification email requested. Check your inbox and spam folder.",
         );
 
+        // start the wait after firebase accepts the email request.
         setResendSecondsLeft(60);
       }
     } catch {
@@ -113,6 +123,7 @@ function AccountPage({ verificationEmailRequested, email }) {
     }
   }
 
+  // logging out tells the app to show the login screen again.
   async function handleLogOut() {
     if (busy) return;
     setBusy(true);
@@ -127,6 +138,7 @@ function AccountPage({ verificationEmailRequested, email }) {
     }
   }
 
+  // start setup; the authenticator is added only after a correct code is confirmed.
   async function handleBeginEnrollment() {
     if (busy) return;
     setBusy(true);
@@ -136,16 +148,19 @@ function AccountPage({ verificationEmailRequested, email }) {
     try {
       const pending = await beginTotpEnrollment();
 
+      // this setup text contains the secret, so do not print or share it.
       const setupUri = pending.secret.generateQrCodeUrl(
         email,
         "Parenting Voice Assistant",
       );
 
+      // make the qr image in this browser without sending the secret to another website.
       const qrDataUrl = await QRCode.toDataURL(setupUri, {
         width: 240,
         margin: 4,
       });
 
+      // keep the key and qr together so cancel and completion can clear both.
       setPendingEnrollment({ ...pending, qrDataUrl });
     } catch (error) {
       setMessage(
@@ -158,6 +173,7 @@ function AccountPage({ verificationEmailRequested, email }) {
     }
   }
 
+  // check the code with firebase and remove setup details when the authenticator is added.
   async function handleConfirmEnrollment(event) {
     event.preventDefault();
     if (busy || !pendingEnrollment) return;
@@ -182,10 +198,12 @@ function AccountPage({ verificationEmailRequested, email }) {
     }
   }
 
+  // wait for the first account check before showing setup buttons.
   if (checkingStatus) {
     return <p role="status">Checking email verification…</p>;
   }
 
+  // test whether the backend accepts this login, regardless of what this page displays.
   async function handleBackendCheck() {
     if (busy) return;
     setBusy(true);
@@ -209,6 +227,7 @@ function AccountPage({ verificationEmailRequested, email }) {
         <div>
           <p>Email verified.</p>
 
+          {/* show the saved authenticator status, the setup form, or the setup button. */}
           {enrollmentComplete ? (
             <p>
               Authenticator enrollment completed. Log out and test MFA login.
@@ -257,6 +276,7 @@ function AccountPage({ verificationEmailRequested, email }) {
                 type="button"
                 disabled={busy}
                 onClick={() => {
+                  // clear the setup key, qr, and code when the user cancels.
                   setPendingEnrollment(null);
                   setEnrollmentCode("");
                   setMessage("");
@@ -277,6 +297,7 @@ function AccountPage({ verificationEmailRequested, email }) {
         </div>
       ) : (
         <div>
+          {/* after a reload, we may not know whether an email was requested earlier. */}
           {verificationEmailRequested === true ? (
             <p>Check your inbox and spam folder for the verification link.</p>
           ) : verificationEmailRequested === false ? (
@@ -309,6 +330,7 @@ function AccountPage({ verificationEmailRequested, email }) {
         </div>
       )}
       <p role="status">{message}</p>
+      {/* allow logout whether or not the email is verified. */}
       <button type="button" disabled={busy} onClick={handleLogOut}>
         Log Out
       </button>

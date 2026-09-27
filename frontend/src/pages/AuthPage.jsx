@@ -5,12 +5,15 @@ import GoogleSignInButton from "../components/GoogleSignInButton";
 import { completeTotpSignIn } from "../services/auth";
 
 function AuthPage({ onAccountCreated }) {
+  // choose login or signup here; each form calls the shared firebase functions.
   const [mode, setMode] = useState("login");
+  // remember the unfinished login while waiting for an authenticator code.
   const [mfaResolver, setMfaResolver] = useState(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
+  // send the authenticator code to finish login; the app then changes screens.
   const submitHandler = async (e) => {
     e.preventDefault();
     if (busy) return;
@@ -24,10 +27,12 @@ function AuthPage({ onAccountCreated }) {
         "Couldn’t complete verification. Try a fresh code or cancel and log in again.",
       );
     } finally {
+      // clear the typed code and make the button usable again.
       setCode("");
       setBusy(false);
     }
   };
+  // show code entry instead of login choices while firebase waits for the code.
   if (mfaResolver) {
     return (
       <section>
@@ -60,6 +65,7 @@ function AuthPage({ onAccountCreated }) {
           type="button"
           disabled={busy}
           onClick={() => {
+            // cancel this login attempt without removing the user's authenticator.
             setMfaResolver(null);
             setCode("");
             setMessage("");
@@ -74,6 +80,7 @@ function AuthPage({ onAccountCreated }) {
     <section>
       {mode === "login" ? <h1>Log In</h1> : <h1>Create Account</h1>}
 
+      {/* both login methods tell this page when an authenticator code is needed. */}
       <GoogleSignInButton onMfaRequired={setMfaResolver} />
 
       {mode === "login" ? (

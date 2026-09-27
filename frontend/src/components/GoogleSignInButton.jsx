@@ -2,6 +2,7 @@ import { useState } from "react";
 import { signInWithGoogle } from "../services/auth";
 
 export default function GoogleSignInButton({ onMfaRequired }) {
+  // remember whether this button is waiting and which message to show.
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -11,6 +12,7 @@ export default function GoogleSignInButton({ onMfaRequired }) {
     setMessage("Signing in with Google...");
     try {
       const result = await signInWithGoogle();
+      // google login may still need an authenticator code before it is complete.
       if (result.next === "mfa-required") {
         setMessage("Enter your authenticator code to finish logging in.");
         onMfaRequired(result.resolver);
@@ -18,6 +20,7 @@ export default function GoogleSignInButton({ onMfaRequired }) {
         setMessage("Signed in successfully!");
       }
     } catch (error) {
+      // explain errors in words the user can understand.
       if (error.code === "auth/popup-closed-by-user") {
         setMessage("Sign-in was cancelled. Please try again.");
       } else if (error.code === "auth/popup-blocked") {
@@ -26,6 +29,7 @@ export default function GoogleSignInButton({ onMfaRequired }) {
         setMessage("Could not sign in. Please try again.");
       }
     } finally {
+      // make the button usable again when the attempt finishes.
       setBusy(false);
     }
   }

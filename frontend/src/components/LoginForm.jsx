@@ -3,12 +3,14 @@ import { signInWithEmail } from "../services/auth";
 import { requestPasswordReset } from "../services/auth";
 
 function LoginForm({ onMfaRequired }) {
+  // remember what the user types while this form is open.
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   async function handleSubmit(e) {
+    // handle the form here without reloading the page.
     e.preventDefault();
     if (busy) return;
 
@@ -18,6 +20,7 @@ function LoginForm({ onMfaRequired }) {
     try {
       const result = await signInWithEmail(email, password);
       if (result.next === "mfa-required") {
+        // clear the password and ask the parent page to show the code-entry form.
         setPassword("");
         onMfaRequired(result.resolver);
       }
@@ -30,6 +33,7 @@ function LoginForm({ onMfaRequired }) {
     }
   }
   async function handlePasswordReset() {
+    // use the entered email to request a reset without needing the old password.
     if (busy) return;
 
     if (email.trim() === "") {
@@ -41,6 +45,7 @@ function LoginForm({ onMfaRequired }) {
 
     try {
       await requestPasswordReset(email.trim());
+      // show the same response whether or not the email belongs to an account.
       setMessage(
         "If an eligible account exists, you’ll receive a password-reset email. Check your inbox and spam folder.",
       );
@@ -73,6 +78,7 @@ function LoginForm({ onMfaRequired }) {
       <button type="submit" disabled={busy}>
         Log in
       </button>
+      {/* this button requests a reset instead of trying to log in. */}
       <button type="button" disabled={busy} onClick={handlePasswordReset}>
         Forgot Password?
       </button>

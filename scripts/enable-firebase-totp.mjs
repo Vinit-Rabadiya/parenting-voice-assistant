@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { cert, initializeApp, deleteApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 
+// run this tool to enable time-based authenticator setup in the firebase project.
 let app;
 
 try {
@@ -12,6 +13,7 @@ try {
     throw new Error("Missing project ID or key path");
   }
 
+  // check that the private key belongs to the intended project before making changes.
   const key = JSON.parse(readFileSync(keyPath, "utf8"));
 
   if (key.project_id !== projectId) {
@@ -26,10 +28,12 @@ try {
   const manager = getAuth(app).projectConfigManager();
   const current = await manager.getProjectConfig();
 
+  // keep settings for other verification methods when updating the authenticator setting.
   const otherProviders = (
     current.multiFactorConfig?.providerConfigs ?? []
   ).filter((provider) => !provider.totpProviderConfig);
 
+  // allow authenticator setup; users still have to add their own authenticator.
   await manager.updateProjectConfig({
     multiFactorConfig: {
       providerConfigs: [
@@ -37,6 +41,7 @@ try {
         {
           state: "ENABLED",
           totpProviderConfig: {
+            // allow codes from nearby time periods when device clocks differ slightly.
             adjacentIntervals: 1,
           },
         },
@@ -44,6 +49,7 @@ try {
     },
   });
 
+  // read the settings again to see whether the change was saved.
   const config = await manager.getProjectConfig();
 
   const providers = config.multiFactorConfig?.providerConfigs ?? [];
@@ -57,6 +63,7 @@ try {
   process.exitCode = 1;
 } finally {
   if (app) {
+    // clean up the local connection without deleting the firebase project.
     await deleteApp(app);
   }
 }

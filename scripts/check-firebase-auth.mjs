@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { cert, initializeApp, deleteApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 
+// run this tool to read firebase login settings without changing them.
 let app;
 
 try {
@@ -12,6 +13,7 @@ try {
     throw new Error("Missing project ID or key path");
   }
 
+  // read the private key file on this computer without printing its contents.
   const key = JSON.parse(readFileSync(keyPath, "utf8"));
 
   if (key.project_id !== projectId) {
@@ -23,6 +25,7 @@ try {
     projectId,
   });
 
+  // check the project's settings, not whether an individual user has set up an authenticator.
   const config = await getAuth(app).projectConfigManager().getProjectConfig();
 
   const providers = config.multiFactorConfig?.providerConfigs ?? [];
@@ -36,6 +39,7 @@ try {
   process.exitCode = 1;
 } finally {
   if (app) {
+    // clean up the local connection without deleting the firebase project.
     await deleteApp(app);
   }
 }

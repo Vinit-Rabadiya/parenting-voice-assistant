@@ -2,12 +2,14 @@ import { useState } from "react";
 import { signUpWithEmail } from "../services/auth";
 
 function SignUpForm({ onAccountCreated }) {
+  // this form collects details; the parent decides which screen appears next.
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   async function handleSubmit(e) {
+    // keep the page open and stop repeated submissions while waiting.
     e.preventDefault();
     if (busy) return;
 
@@ -16,6 +18,7 @@ function SignUpForm({ onAccountCreated }) {
 
     try {
       const result = await signUpWithEmail(email, password);
+      // the account can exist even if sending its verification email fails.
       if (result.verificationEmailRequested) {
         setMessage(
           "Account created. Check your inbox and spam folder for the verification link.",
@@ -25,8 +28,10 @@ function SignUpForm({ onAccountCreated }) {
           "Account created, but we couldn’t send the verification email.",
         );
       }
+      // tell the parent the account exists so it can show verification instructions.
       onAccountCreated(result);
     } catch (error) {
+      // explain which password requirements the user needs to meet.
       if (
         error.code === "auth/weak-password" ||
         error.code === "auth/password-does-not-meet-requirements"
@@ -40,11 +45,13 @@ function SignUpForm({ onAccountCreated }) {
         );
       }
     } finally {
+      // let the user correct the form and try again after an error.
       setBusy(false);
     }
   }
   return (
     <form onSubmit={handleSubmit}>
+      {/* show the remembered text and update it whenever the user types. */}
       <label>
         Email:
         <input
