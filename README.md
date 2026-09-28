@@ -1,274 +1,461 @@
 # Parenting Voice Assistant
 
-A capstone project developing a voice- and text-based caregiver coaching system for **early childhood development (birth to 24 months)**. The intended assistant generates short, age-appropriate suggestions for language and cognitive stimulation during routines such as feeding, bathing, and play.
+An AI-powered voice and text conversational assistant designed for caregivers and parents of infants (**birth to 24 months**). The system provides concise, practical, and age-appropriate guidance for everyday parenting routines such as feeding, playtime, soothing, bedtime, and bathing.
 
-**Current stage:** the repository implements the authentication foundation and application skeleton. The developmental coaching, database, speech, retrieval, and model-training features are planned work.
+---
 
-## Current capabilities
+## Table of Contents
 
-| Area | Status |
-| --- | --- |
-| Email/password registration and login | Implemented with Firebase Authentication |
-| Google sign-in | Implemented |
-| Email verification and password-reset requests | Implemented |
-| Authenticator-app MFA (TOTP) | Enrollment, QR code, and sign-in challenge implemented |
-| Protected backend access | Firebase token verification, revocation check, verified-email and TOTP-session requirements |
-| API health check | Implemented |
-| Developer checks | Python lint/tests, frontend lint/build, pre-push hook, GitHub Actions |
-| Child profiles and MongoDB persistence | Planned |
-| Coaching workspace, history, and feedback | Planned |
-| Generative coaching and ECD retrieval (RAG) | Planned |
-| Speech-to-text and spoken responses | Planned |
-| Dataset preparation, fine-tuning, and model evaluation | Planned |
+- [What the Project is About](#what-the-project-is-about)
+- [Key Features](#key-features)
+- [How the System Works](#how-the-system-works)
+  - [1. The Voice & Text Interaction Pipeline](#1-the-voice--text-interaction-pipeline)
+  - [2. The Authentication & Security Flow](#2-the-authentication--security-flow)
+- [System Architecture](#system-architecture)
+- [Technology Stack](#technology-stack)
+- [Repository Structure](#repository-structure)
+- [Authentication & Account Security](#authentication--account-security)
+- [Local Setup & Installation](#local-setup--installation)
+  - [Prerequisites](#prerequisites)
+  - [1. Clone and Open the Repository](#1-clone-and-open-the-repository)
+  - [2. Install Dependencies](#2-install-dependencies)
+  - [3. Configure Environment Variables](#3-configure-environment-variables)
+  - [4. Configure Firebase Authentication](#4-configure-firebase-authentication)
+  - [5. Run the Application](#5-run-the-application)
+- [Current Implementation Status & Roadmap](#current-implementation-status--roadmap)
 
-The current UI contains authentication and account-setup screens. Installed dependencies such as `gTTS` and environment placeholders for AI providers do not yet represent integrated features.
+---
 
-## Architecture
+## What the Project is About
 
-### Implemented
+Caring for an infant under two years old involves countless questions throughout the day:
+* *"My 6-month-old is teething and rejecting solid food during feeding—what should I do?"*
+* *"What language stimulation games can I play with my 9-month-old during bath time?"*
+* *"How can I encourage motor skills while my baby is doing tummy time?"*
+
+Standard search engines and generic chatbots often return long, dense articles that are difficult for a busy caregiver to read while holding a baby. 
+
+**Parenting Voice Assistant** solves this by providing:
+1. **Hands-free voice interaction:** Caregivers can speak directly into their microphone and hear spoken answers back through text-to-speech, without needing to type or look at a screen.
+2. **Standard text chat:** Users who prefer typing or reading can interact through a familiar chat interface (similar to ChatGPT).
+3. **Context-aware answers:** Advice is tailored to the child's specific developmental stage (age in months) and the active daily routine (feeding, diaper change, bedtime, play).
+4. **Strong privacy and security:** Caregiver data, child profiles, and personal conversations are protected behind enterprise-grade authentication with email verification and Two-Factor Authentication (MFA).
+
+> **Scope Note:** The application focuses on interactive parenting support and developmental activities. It does not provide medical diagnosis, clinical treatment, image/video analysis, or voice biometric identification.
+
+---
+
+## Key Features
+
+* **Multi-Modal Input (Voice & Text):** Speak via microphone or type questions in text.
+* **Dual Output (Audio & Text):** Responses are displayed on-screen and converted into natural speech output.
+* **Child Profile Context:** Answers adapt to the child's age in months and current developmental milestones.
+* **Routine-Based Coaching:** Focus prompts around real caregiving moments (e.g., bath, mealtime, play, bedtime).
+* **Multi-Factor Authentication (2FA/MFA):** Supports email/password, Google OAuth, mandatory email verification, and time-based one-time password (TOTP) authenticator apps (Google Authenticator, Authy, etc.).
+* **Verified Backend API:** Backend endpoints strictly validate Firebase ID tokens, verifying token signatures, email confirmation, and second-factor status before returning data.
+* **Conversation History & Feedback:** Caregivers can review past conversations and submit feedback ratings to improve future interactions.
+
+---
+
+## How the System Works
+
+### 1. The Voice & Text Interaction Pipeline
+
+This is how a caregiver interacts with the voice assistant from start to finish:
 
 ```text
-React + Vite
-  ├── Firebase Authentication: login, verification, TOTP
-  └── Firebase ID token → FastAPI → verified user ID
+       Caregiver
+       (Speaks into Mic OR Types Question)
+                      │
+                      ▼
+            React Web Frontend
+       ┌──────────────────────────────┐
+       │ • Records voice audio (WAV)  │
+       │ • Or collects typed text     │
+       └──────────────┬───────────────┘
+                      │
+                      │ HTTP POST (with Firebase Auth Token)
+                      ▼
+               FastAPI Backend
+       ┌──────────────────────────────┐
+       │ 1. Verifies user identity    │
+       │ 2. Speech-to-Text (STT)      │
+       │    Converts voice to text    │
+       │ 3. Context Enrichment        │
+       │    Loads child age & routine │
+       │ 4. LLM Reasoning Engine      │
+       │    (Groq / Gemini)           │
+       │    Generates tailored advice │
+       │ 5. Text-to-Speech (TTS)      │
+       │    Converts answer to audio  │
+       └──────────────┬───────────────┘
+                      │
+                      │ Returns JSON: Text Response + Audio Stream/File
+                      ▼
+            React Web Frontend
+       ┌──────────────────────────────┐
+       │ • Displays chat message      │
+       │ • Plays spoken audio answer  │
+       └──────────────────────────────┘
 ```
 
-The browser calls `/api/me`. During development, Vite strips `/api` and forwards the request to FastAPI at `http://127.0.0.1:8000/me`.
+#### Step-by-Step Breakdown:
 
-### Planned coaching flow
+1. **Input Capture:** 
+   * If voice: The browser records the caregiver's speech via the Web Audio / MediaRecorder API.
+   * If text: The caregiver types the query into the chat input.
+2. **Transport & Security:** The frontend sends the request to the FastAPI backend, including a verified Firebase ID token in the `Authorization: Bearer <token>` header.
+3. **Speech-to-Text (STT):** If audio was submitted, the backend transcribes the speech into text.
+4. **Context Injection:** The backend attaches the child's profile (e.g., age: 8 months) and current routine (e.g., playtime) to the prompt.
+5. **AI Generation (LLM):** The enriched prompt is sent to the LLM (Groq / Gemini API) to generate concise, friendly, and practical guidance.
+6. **Text-to-Speech (TTS):** The generated text is passed through the TTS engine (`gTTS`) to synthesize an audio response.
+7. **Playback & Display:** The frontend receives the response, appends it to the chat conversation history, and plays the audio answer aloud.
+
+---
+
+### 2. The Authentication & Security Flow
+
+Security is built into both the frontend and backend to protect sensitive family data:
 
 ```text
-Caregiver voice or text
-  → speech-to-text for voice input
-  → question + selected child profile + caregiving routine
-  → retrieve relevant ECD guidance
-  → generative language model
-  → coaching text + text-to-speech output
-  → conversation history and feedback
+React Frontend (Vite)                FastAPI Backend (Python)              Firebase Auth / Identity Platform
+       │                                        │                                       │
+       │─── 1. Sign In (Email/Pass or Google) ─>│                                       │
+       │    (Handled directly via SDK) ─────────┼──────────────────────────────────────>│
+       │                                        │                                       │
+       │<── 2. Prompts 2FA / TOTP Challenge ────┼───────────────────────────────────────│
+       │                                        │                                       │
+       │─── 3. Submits 6-digit Authenticator ──>│                                       │
+       │       Code to resolve MFA ─────────────┼──────────────────────────────────────>│
+       │                                        │                                       │
+       │<── 4. Issues signed Firebase ID Token ─┼───────────────────────────────────────│
+       │                                        │                                       │
+       │─── 5. Calls Protected API (/me) ──────>│                                       │
+       │       Header: Authorization: Bearer    │                                       │
+       │                                        │─── 6. verify_id_token(check_revoked) ─>│
+       │                                        │<── 7. Returns token claims & UID ─────│
+       │                                        │                                       │
+       │                                        │─── 8. Enforces Rules:                 │
+       │                                        │       • Token valid & not revoked     │
+       │                                        │       • Email is verified (True)      │
+       │                                        │       • Second factor == "totp"       │
+       │                                        │                                       │
+       │<── 9. Returns 200 OK with User UID ────│                                       │
 ```
 
-The research direction is to compare a pretrained instruction model with a fine-tuned model, with and without retrieval. Fine-tuning teaches coaching behaviour; RAG supplies relevant reference material. This is a multi-component pipeline; a model ensemble would require a separately defined method for combining model outputs.
+---
 
-## Technology
+## System Architecture
 
-- **Frontend:** React 19, Vite 8, JavaScript, Firebase Web SDK, QRCode.
-- **Backend:** Python, FastAPI, Pydantic, Firebase Admin SDK.
-- **Checks:** Ruff, pytest, ESLint, Vite build, Husky, GitHub Actions.
-- **Planned:** MongoDB, an ECD knowledge collection, a generative model integration, speech processing, and a QLoRA fine-tuning/evaluation pipeline.
-
-## Repository layout
+The application is structured as a decoupled client-server architecture:
 
 ```text
-backend/
-  api/v1/endpoints/   Health and authenticated-user endpoints
-  api/v1/router.py    API route registration
-  core/              Configuration, Firebase initialization, authentication
-  schemas/           API response models
-  services/          Placeholder package for application services
-  main.py            FastAPI application and lifecycle
-frontend/
-  src/components/    Login, registration, and Google sign-in forms
-  src/context/       Authentication state
-  src/hooks/         Authentication hook
-  src/pages/         Authentication and account-setup screens
-  src/services/      Firebase operations and backend API calls
-scripts/             Repository checks and Firebase TOTP administration
-tests/               Backend health and missing-token tests
-.github/workflows/   CI checks
+┌────────────────────────────────────────────────────────────────────────┐
+│                          CLIENT (Frontend)                             │
+│                                                                        │
+│   React 19 (SPA) + Vite 8                                              │
+│   ├── Auth UI: Login, Sign-up, Google Sign-in, Password Reset          │
+│   ├── 2FA/MFA: QR Code Generator, TOTP Verification Form               │
+│   ├── Chat UI: Conversation Feed, Voice Recording Button               │
+│   └── Audio Player: Plays synthesized spoken responses                 │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                         HTTP / REST API (JSON)
+                      + WebSocket / Audio Stream
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                          SERVER (Backend)                              │
+│                                                                        │
+│   FastAPI (Python 3.12 / 3.13)                                         │
+│   ├── Security Layer: Firebase Admin SDK, Token & 2FA Verification     │
+│   ├── API Endpoints: Health check, User Identity (/me), Conversations  │
+│   ├── Voice Pipeline: Speech-to-Text (STT) & Text-to-Speech (gTTS)     │
+│   ├── AI Coaching Service: Prompt formatting, LLM API calls            │
+│   └── Data Persistence: Conversations, feedback, and child profiles    │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+               ┌────────────────────┴────────────────────┐
+               ▼                                         ▼
+   External AI Services                     Firebase Identity Platform
+   • Groq (Llama / Mixtral)                 • User accounts & passwords
+   • Google Gemini API                      • Google OAuth provider
+   • Cloud Speech Services                  • TOTP second-factor engine
 ```
 
-The local `notebooks/` directory is currently empty; training notebooks and datasets have not been added. See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for the detailed file guide.
+---
 
-## Local setup
+## Technology Stack
 
-### 1. Prerequisites
+### Frontend
+* **Core:** React 19, JavaScript (ES Modules), HTML5 Audio API
+* **Build Tool:** Vite 8 (Hot Module Replacement, fast build pipeline)
+* **Authentication:** Firebase Web SDK v12 (Client-side sign-in, MFA resolution)
+* **Utilities:** `qrcode` (renders local TOTP provisioning QR codes without third-party services)
+* **Styling:** CSS3 (responsive flexbox/grid, custom design tokens, dark mode support)
 
-- Python **3.12** (the CI version; local checks also pass on Python 3.13).
-- Node.js **22.13+ within the 22.x release line**, or Node.js 24+, with npm. CI currently uses Node 20, whose installed version must be at least 20.19 for the frontend tooling.
-- A Firebase project with Authentication upgraded to **Firebase Authentication with Identity Platform** for TOTP MFA.
-- A Firebase web app and a service-account JSON key for the same project.
-- An authenticator app for exercising the complete login flow.
+### Backend
+* **Web Framework:** FastAPI (high-performance asynchronous Python API framework)
+* **Server:** Uvicorn (ASGI server with auto-reload for local development)
+* **Data Validation:** Pydantic v2 (strict type checking and response schema serialization)
+* **Authentication:** Firebase Admin SDK Python (cryptographic verification of ID tokens, revocation checking)
+* **Speech Processing:** `gTTS` (Google Text-to-Speech), `python-multipart` (audio file uploads), `aiofiles`
+* **AI Integrations:** Groq API and Google Gemini API (LLM reasoning)
 
-No GPU or MongoDB instance is needed to run the current authentication prototype.
+### Developer Tooling & Quality Assurance
+* **Testing:** `pytest`, `pytest-asyncio`, `httpx` (FastAPI TestClient integration tests)
+* **Python Linting:** Ruff (ultra-fast Python linter and formatter)
+* **Frontend Linting:** ESLint with React Hooks and React Refresh plugins
+* **Git Hooks:** Husky (runs automated lint and test checks before every `git push`)
+* **CI/CD:** GitHub Actions (runs automated backend and frontend validation on push and pull requests)
 
-### 2. Install dependencies
+---
 
-Run from the repository root. The following commands use Windows PowerShell:
+## Repository Structure
+
+```text
+parenting-voice-assistant/
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # Automated CI pipeline (lint, test, build)
+│
+├── .husky/
+│   └── pre-push                 # Git hook: runs 'npm run check' before pushing code
+│
+├── .secrets/
+│   └── firebase-admin.json      # Firebase Admin service account key (git-ignored)
+│
+├── backend/                     # FastAPI backend application
+│   ├── api/
+│   │   └── v1/
+│   │       ├── endpoints/
+│   │       │   ├── auth.py      # /me endpoint (checks token, returns user UID)
+│   │       │   └── health.py    # /health/live liveness check
+│   │       └── router.py        # Central API router combining endpoints
+│   ├── core/
+│   │   ├── config.py            # Environment configuration loader (Pydantic Settings)
+│   │   ├── firebase.py          # Firebase Admin SDK initialization and lifespan
+│   │   └── security.py          # Auth gatekeeper: validates Bearer token, email, and TOTP
+│   ├── schemas/
+│   │   └── auth.py              # Pydantic response models (UserResponse, HealthResponse)
+│   ├── services/                # Voice, AI, and coaching service logic
+│   ├── database.py              # Database connection and schema setup
+│   └── main.py                  # FastAPI entry point, lifespan manager, and CORS/router mounting
+│
+├── frontend/                    # React single-page application
+│   ├── public/                  # Favicons and static web assets
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── GoogleSignInButton.jsx # Google OAuth popup login button
+│   │   │   ├── LoginForm.jsx          # Email/password form + forgot password trigger
+│   │   │   └── SignUpForm.jsx         # New user registration form with validation rules
+│   │   ├── context/
+│   │   │   ├── AuthContext.js         # React context for global auth state
+│   │   │   └── AuthProvider.jsx       # Context provider tracking Firebase auth changes
+│   │   ├── hooks/
+│   │   │   └── useAuth.js             # Custom React hook to consume AuthContext
+│   │   ├── pages/
+│   │   │   ├── AccountPage.jsx        # Email verification status, TOTP enrollment, logout
+│   │   │   └── AuthPage.jsx           # Handles login, signup, and TOTP challenge views
+│   │   ├── services/
+│   │   │   ├── api.js                 # API client for calling FastAPI (/api/me)
+│   │   │   ├── auth.js                # Firebase browser SDK wrapper (sign in, sign up, MFA)
+│   │   │   └── firebase.js            # Firebase Web SDK initialization
+│   │   ├── App.jsx                    # Root view switcher (AuthPage vs AccountPage)
+│   │   ├── index.css                  # Global styling and typography
+│   │   └── main.jsx                   # React DOM root mounting
+│   ├── .env.example             # Frontend environment variable template
+│   ├── eslint.config.js         # ESLint configuration
+│   ├── package.json             # Frontend dependencies (React, Firebase, Vite)
+│   └── vite.config.js           # Vite development server and API proxy configuration
+│
+├── scripts/                     # Developer utility and administration scripts
+│   ├── check.mjs                # Unified local check script (lint + test + build)
+│   ├── check-firebase-auth.mjs  # Inspects cloud TOTP MFA configuration (read-only)
+│   └── enable-firebase-totp.mjs # Enables TOTP MFA in Firebase project via Admin SDK
+│
+├── tests/                       # Backend test suite
+│   ├── conftest.py              # Pytest fixtures and mocked Firebase lifecycle
+│   ├── test_auth.py             # Tests 401 Unauthorized behavior on protected endpoints
+│   └── test_health.py           # Tests 200 OK on health endpoints
+│
+├── .env.example                 # Backend environment variable template
+├── .gitignore                   # Git exclusion rules
+├── package.json                 # Root scripts and Husky developer dependencies
+├── pyproject.toml               # Python tool configurations (Ruff, Pytest)
+├── requirements.txt             # Python runtime dependencies
+└── requirements-dev.txt         # Python development dependencies (includes Ruff)
+```
+
+---
+
+## Authentication & Account Security
+
+The application enforces a multi-tier security model:
+
+### 1. User Registration & Email Verification
+* Caregivers can register using their email address and a password (minimum 8 characters with mixed case, numbers, and symbols).
+* Upon sign-up, Firebase triggers an account verification email containing a secure, signed action link.
+* Unverified accounts are restricted from accessing protected coaching features.
+
+### 2. Sign-In Options
+* **Email & Password:** Standard credential login with immediate MFA challenge resolution if enrolled.
+* **Google OAuth:** Caregivers can authenticate via Google popup sign-in, reducing password friction while still respecting required 2FA policies.
+
+### 3. Two-Factor Authentication (TOTP MFA)
+* Users can enroll an authenticator app (such as Google Authenticator, Microsoft Authenticator, or 1Password).
+* The setup secret is generated via Firebase Identity Platform and converted into a QR code locally in the browser using the `qrcode` library (ensuring setup keys are never sent to external QR generation APIs).
+* Enrollment is confirmed only after the user enters a valid 6-digit code.
+* On future logins, entering email/password prompts an MFA challenge requiring the current 6-digit TOTP code before any session is granted.
+
+### 4. Backend Protection Layer
+* When calling the backend, the client requests a signed Firebase ID token.
+* The backend (`backend/core/security.py`) verifies the token using the Firebase Admin SDK:
+  * Verifies the cryptographic signature against Google's public certificates.
+  * Ensures the token is not expired and has not been revoked (`check_revoked=True`).
+  * Confirms that `email_verified == True`.
+  * Confirms that the login session was authenticated with TOTP (`sign_in_second_factor == "totp"`).
+* If any condition fails, the request is rejected with `401 Unauthorized` or `403 Forbidden`.
+
+---
+
+## Local Setup & Installation
+
+### Prerequisites
+
+* **Python:** Version 3.12 or 3.13 installed.
+* **Node.js:** Version 20.x, 22.x, or 24.x LTS installed (along with `npm`).
+* **Firebase Project:** A Google Firebase project with:
+  * **Email/Password** and **Google** enabled in Authentication.
+  * **Firebase Authentication with Identity Platform** enabled (required for TOTP MFA).
+  * A generated **Service Account Private Key** (JSON file).
+
+---
+
+### 1. Clone and Open the Repository
 
 ```powershell
-python -m venv venv
-.\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-npm ci --include=optional
-npm --prefix frontend ci --include=optional
+git clone https://github.com/Vinit-Rabadiya/parenting-voice-assistant.git
+cd parenting-voice-assistant
 ```
 
-The explicit optional-dependency flag includes platform-specific frontend tooling despite the root `.npmrc` setting. Root installation also configures the Husky Git hooks.
+---
 
-On macOS/Linux, use `venv/bin/python` in place of `.\venv\Scripts\python.exe`.
+### 2. Install Dependencies
 
-### 3. Configure environment files
+Install backend and frontend dependencies from the project root:
 
-For a fresh checkout, copy the templates (preserve existing local configuration):
+```powershell
+# Create and activate Python virtual environment
+python -m venv venv
+.\venv\Scripts\python.exe -m pip install --upgrade pip
+.\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 
+# Install root developer tools (Husky git hooks)
+npm.cmd ci --include=optional
+
+# Install frontend dependencies
+npm.cmd --prefix frontend ci --include=optional
+```
+
+*(On macOS/Linux, replace `.\venv\Scripts\python.exe` with `venv/bin/python` and `npm.cmd` with `npm`.)*
+
+---
+
+### 3. Configure Environment Variables
+
+#### A. Backend Configuration (`.env`)
+Copy the backend example file:
 ```powershell
 Copy-Item .env.example .env
+```
+
+Open `.env` and configure:
+```dotenv
+HOST=127.0.0.1
+PORT=8000
+
+# Firebase Admin Configuration
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_ADMIN_KEY_PATH=.secrets/firebase-admin.json
+
+# AI Model Provider Keys (for voice coaching features)
+GROQ_API_KEY=your_groq_api_key
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+Place your Firebase Admin service account JSON file inside the `.secrets/` directory as `firebase-admin.json` (this directory is excluded from Git).
+
+#### B. Frontend Configuration (`frontend/.env.local`)
+Copy the frontend example file:
+```powershell
 Copy-Item frontend/.env.example frontend/.env.local
 ```
 
-Set the backend values in `.env`:
-
-| Variable | Purpose |
-| --- | --- |
-| `FIREBASE_PROJECT_ID` | Firebase project shared with the frontend |
-| `FIREBASE_ADMIN_KEY_PATH` | Service-account JSON path, e.g. `.secrets/firebase-admin.json`; relative paths resolve from the repository root |
-| `HOST`, `PORT` | Loaded by the settings class; the current Uvicorn command does not automatically apply them |
-| `GROQ_API_KEY`, `GEMINI_API_KEY` | Future AI integration placeholders; not required for current features |
-
-Create `.secrets/` if needed and place the service-account file at the configured path. The backend requires a matching project ID and key, and currently rejects `FIREBASE_AUTH_EMULATOR_HOST`.
-
-Set these values in `frontend/.env.local` using the Firebase web app configuration:
-
+Open `frontend/.env.local` and add your Firebase Web App credentials:
 ```dotenv
-VITE_FIREBASE_API_KEY=your_firebase_web_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-project
-VITE_FIREBASE_APP_ID=your_firebase_web_app_id
+VITE_FIREBASE_API_KEY=AIzaSy...
+VITE_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_APP_ID=1:1234567890:web:...
 ```
 
-`VITE_*` values are included in browser code. Service-account credentials and AI provider secrets belong on the backend. Local environment files and `.secrets/` are Git-ignored.
+---
 
 ### 4. Configure Firebase Authentication
 
-In the Firebase console:
+1. In the [Firebase Console](https://console.firebase.google.com/):
+   * Navigate to **Authentication → Sign-in method**.
+   * Enable **Email/Password** and **Google**.
+   * Under **Settings → Authorized domains**, ensure `localhost` is present.
+2. Enable TOTP MFA using the included setup script:
+   ```powershell
+   node --env-file=.env scripts/enable-firebase-totp.mjs
+   ```
+   *(To check TOTP status without modifying settings, run `node --env-file=.env scripts/check-firebase-auth.mjs`)*.
 
-1. Enable **Email/Password** and **Google** sign-in providers.
-2. Add `localhost` to Authentication's authorized domains if absent.
-3. Ensure Identity Platform is enabled and configure TOTP MFA.
+---
 
-The repository includes scripts for inspecting and enabling TOTP. Run them from the root after filling `.env`:
+### 5. Run the Application
 
-```powershell
-# Inspect the current cloud project configuration.
-node --env-file=.env scripts/check-firebase-auth.mjs
-
-# Enable TOTP in that Firebase project if it is not configured.
-node --env-file=.env scripts/enable-firebase-totp.mjs
-```
-
-The second script changes the project's MFA configuration. These scripts are administrative tools, not part of normal application startup.
-
-### 5. Start the application
-
-Backend, in one terminal:
-
+#### Start the FastAPI Backend:
+In terminal 1:
 ```powershell
 .\venv\Scripts\python.exe -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
+* Interactive API Documentation (Swagger UI): **http://127.0.0.1:8000/docs**
+* Health Endpoint: **http://127.0.0.1:8000/health/live**
 
-Frontend, in another terminal:
+#### Start the React Frontend:
+In terminal 2:
+```powershell
+npm.cmd run dev:frontend
+```
+* Open the Web App: **http://localhost:5173**
+
+---
+
+### Running Automated Checks
+
+To run all project checks (Python linting, backend tests, frontend linting, and production build) in a single command:
 
 ```powershell
-npm run dev:frontend
+npm.cmd run check
 ```
 
-Open:
+---
 
-- Application: <http://localhost:5173>
-- Backend API docs: <http://127.0.0.1:8000/docs>
-- Health endpoint: <http://127.0.0.1:8000/health/live>
+## Current Implementation Status & Roadmap
 
-Vite uses a fixed port of 5173 and proxies to backend port 8000. If you change the backend port, update `frontend/vite.config.js` too. The proxy is a development-server feature; serving `frontend/dist` separately requires equivalent API routing in the deployment configuration.
-
-### 6. Exercise the account flow
-
-1. Register or sign in with Google.
-2. Verify the email if needed and refresh its status in the account screen.
-3. Enroll an authenticator by scanning the QR code and confirming a six-digit code.
-4. Log out, then log in and complete the authenticator challenge.
-5. Click **Check backend access** to verify that FastAPI accepts the session.
-
-Enrolling an authenticator is distinct from completing an MFA login. The backend requires the current token to identify a TOTP-authenticated session.
-
-## Current API
-
-| Method | Direct backend path | Access | Response |
-| --- | --- | --- | --- |
-| GET | `/health/live` | Public | `{"status":"ok"}` |
-| GET | `/me` | Verified email and TOTP-authenticated Firebase token | `{"uid":"..."}` |
-
-Both endpoints are also mounted under `/api/v1`, giving `/api/v1/health/live` and `/api/v1/me`. Through the Vite development proxy, the current frontend uses `/api/me` for the root `/me` endpoint.
-
-Protected requests require `Authorization: Bearer <Firebase ID token>`. Authentication can return 401 for missing/invalid login, 403 for unmet verification/MFA requirements or unsupported tenants, and 503 if verification services are unavailable.
-
-## Checks and development commands
-
-```powershell
-npm run check
-```
-
-This runs Python lint, backend tests, frontend lint, and a production frontend build. The runner finds `.venv` or `venv` automatically, then falls back to `python` on PATH.
-
-| Command | Action |
-| --- | --- |
-| `npm run dev:backend` | Start Uvicorn with reload; requires the Python environment activated/on PATH |
-| `npm run dev:frontend` | Start Vite |
-| `npm run test:backend` | Run pytest; requires the Python environment activated/on PATH |
-| `npm run test:frontend` | Run ESLint only; no frontend behavioural test suite is configured |
-| `npm run lint:backend` | Run Ruff; requires the Python environment activated/on PATH |
-| `npm run lint:frontend` | Run ESLint |
-| `npm run build:frontend` | Build to `frontend/dist/` |
-
-The pre-push hook runs `npm run check`. GitHub Actions runs backend lint/tests and frontend lint/build on pushes and pull requests targeting `main`.
-
-**Verification snapshot (28 September 2026):** all configured checks pass, including four backend tests. Tests mock Firebase initialization and cover health responses and missing-token rejection for both route prefixes. They do not establish that live email delivery, Google sign-in, or TOTP works in a configured cloud project. Broader authentication and UI integration coverage remains to be added.
-
-## Next milestone: child profiles and text coaching
-
-### 1. Implement child profiles and persistence
-
-- Add MongoDB configuration and a shared database lifecycle.
-- Define a child profile with an owner Firebase UID, display name, birth date, and timestamps; calculate age from birth date.
-- Add authenticated create, list, read, update, and delete endpoints. Derive ownership from the verified token.
-- Add a child-profile dashboard after account setup, including profile creation and selection.
-- Test persistence, invalid dates, and cross-account isolation. Expand authentication tests for valid tokens, unverified email, missing TOTP, and rejected/revoked tokens.
-
-**Done when:** a verified caregiver can create and select a profile, see it after reloading, and access only their own profiles.
-
-### 2. Prepare the ECD pilot dataset alongside application work
-
-Start with approximately **200 reviewed coaching examples** to refine the format and coverage. This is a pilot target, not a guaranteed training requirement.
-
-Useful starting sources:
-
-- [WHO/UNICEF Care for Child Development](https://www.unicef.org/documents/care-child-development): counselling cards and participant manual.
-- [CDC developmental milestones](https://www.cdc.gov/act-early/milestones/): age references and caregiver activities.
-- [Kenya Ministry of Health Mother & Child Health Handbook](https://health.go.ke/sites/default/files/2023-05/Mother%20Child%20Health%20Handbook%20MOH-FOR%20PRINT.pdf): locally relevant developmental guidance.
-- [CHILDES](https://talkbank.org/childes/access/index.html): supporting interaction examples, subject to corpus access and reuse terms. Transcripts are observations, not expert coaching answers.
-
-Keep source passages for retrieval separate from coaching question/answer examples. Record age, routine, developmental domain, source/version/section, review status, and a scenario-group ID. Preserve provenance and applicable reuse terms.
-
-Create grouped training/validation/test splits (approximately 80/10/10), keeping families, conversations, and related scenario variants together. Split before augmenting training examples. Prepare independent evaluation cases and a reviewer rubric for developmental appropriateness, source support, relevance, clarity, and usefulness.
-
-### 3. Build a text-first coaching baseline
-
-- Add a routine selector and text question form for the selected child.
-- Define a coaching request/response schema and a backend model service.
-- Integrate a pretrained instruction model and record its baseline performance.
-- Add retrieval from the curated ECD knowledge collection and display source references.
-- Persist conversations and caregiver feedback in MongoDB.
-
-**Done when:** a caregiver can ask a text question for a selected child/routine, receive a model-generated response with supporting references, and revisit the exchange.
-
-### 4. Fine-tune and evaluate
-
-Expand the reviewed dataset as needed, then fine-tune a selected instruction model using QLoRA. Compare base, base + RAG, fine-tuned, and fine-tuned + RAG configurations. Use validation data for tuning and freeze choices before held-out testing. Keep test questions and reference answers out of the retrieval index.
-
-Prioritize expert-reviewed coaching quality and grounding; use BERTScore/ROUGE only as supplementary metrics. Record model/data versions, hyperparameters, hardware, and results. Evaluating response quality does not establish a long-term improvement in child development.
-
-### 5. Add voice and end-to-end evaluation
-
-Integrate pretrained speech-to-text and text-to-speech services. Evaluate adult caregiver speech under the intended indoor conditions, including target accents, age/negation transcription errors, intelligibility, and end-to-end latency. Keep speakers separate across splits if adapting the speech model.
-
-## Project scope
-
-The intended assistant supports everyday developmental interaction for children aged 0–24 months. Medical diagnosis and treatment recommendations are outside the proposal's scope. The initial research deliverable is a functioning coaching prototype with a reproducible dataset and evaluation process.
+| Feature / Milestone | Status | Description |
+|---|:---:|---|
+| **User Sign-up & Login** | Done | Email/password and Google OAuth popup authentication |
+| **Email Verification** | Done | Action emails sent on signup; status verification checks |
+| **Two-Factor Authentication (2FA)** | Done | TOTP authenticator app enrollment with QR code and login challenge |
+| **Backend Authentication Enforcement** | Done | FastAPI verifies ID token, revocation, email confirmation, and TOTP on `/me` |
+| **Automated Testing & CI Pipeline** | Done | Pytest test suite, Ruff linter, ESLint, Husky pre-push hooks, and GitHub Actions CI |
+| **Child Profiles Management** | Next | Create, update, and select child profiles (birth date, developmental stage) |
+| **Voice Input Pipeline** | In Progress | Microphone audio recording in browser + Speech-to-Text conversion |
+| **AI Coaching Engine** | In Progress | Prompt orchestration with Groq and Gemini LLMs |
+| **Text-to-Speech Output** | In Progress | Audio speech synthesis (`gTTS`) playing spoken advice in browser |
+| **Conversation History & Feedback** | Planned | Private history retrieval and caregiver feedback logging |

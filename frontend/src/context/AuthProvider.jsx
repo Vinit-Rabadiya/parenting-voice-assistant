@@ -1,3 +1,5 @@
+// this component listens to firebase auth changes and shares the current user with child components.
+// it is imported in App.jsx to wrap the application in auth state.
 import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../services/firebase";

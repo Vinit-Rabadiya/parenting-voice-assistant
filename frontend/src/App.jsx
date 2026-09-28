@@ -1,3 +1,5 @@
+// this is the root view component that switches between the account page and the auth page.
+// it is imported in main.jsx and rendered into the root element of index.html.
 import "./App.css";
 import { AuthProvider } from "./context/AuthProvider";
 import { useAuth } from "./hooks/useAuth";

@@ -1,3 +1,5 @@
+# this file handles the /health/live endpoint to check whether the backend is running.
+# it is included in backend/api/v1/router.py and called by monitoring or test scripts.
 from fastapi import APIRouter
 from backend.schemas.auth import HealthResponse
 

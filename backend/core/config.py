@@ -1,3 +1,5 @@
+# this file loads environment variables from .env and provides backend settings.
+# it is imported by backend/core/firebase.py and backend/main.py to read keys, host, and port.
 import os
 from pathlib import Path
 from dotenv import load_dotenv

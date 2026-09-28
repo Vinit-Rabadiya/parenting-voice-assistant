@@ -1,3 +1,5 @@
+# this file starts the backend server, connects to firebase, and mounts all api routes.
+# it is run by uvicorn (python -m uvicorn backend.main:app) and used by tests in tests/conftest.py.
 from contextlib import asynccontextmanager
 import firebase_admin
 from fastapi import FastAPI

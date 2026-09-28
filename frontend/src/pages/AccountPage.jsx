@@ -1,3 +1,5 @@
+// this page manages email verification, qr authenticator setup, backend checks, and logout.
+// it is imported in App.jsx and rendered whenever an authenticated user is signed in.
 import { useState, useEffect } from "react";
 import { resendVerificationEmail } from "../services/auth";
 import { getCurrentAccount } from "../services/api";

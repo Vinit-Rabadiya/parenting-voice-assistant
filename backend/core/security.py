@@ -1,3 +1,5 @@
+# this file verifies the firebase login token, email verification, and totp mfa status.
+# it is imported in backend/api/v1/endpoints/auth.py as a dependency to protect private routes.
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth, exceptions

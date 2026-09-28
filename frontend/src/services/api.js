@@ -1,3 +1,5 @@
+// this file calls our python backend endpoints using the logged-in user's firebase token.
+// it is imported in pages/AccountPage.jsx to test and verify backend access.
 import { auth } from "./firebase";
 
 export async function getCurrentAccount() {

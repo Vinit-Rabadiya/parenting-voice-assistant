@@ -1,3 +1,5 @@
+// this component handles the email and password inputs, form submission, and password reset trigger.
+// it is imported in pages/AuthPage.jsx when the user selects the login view.
 import { useState } from "react";
 import { signInWithEmail } from "../services/auth";
 import { requestPasswordReset } from "../services/auth";

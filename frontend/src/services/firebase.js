@@ -1,3 +1,5 @@
+// this file sets up firebase in the browser using the public web configuration.
+// it is imported in services/auth.js, services/api.js, and context/AuthProvider.jsx to get the auth object.
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 

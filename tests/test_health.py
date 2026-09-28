@@ -1,3 +1,5 @@
+# this file tests that the health check endpoint returns 200 ok when the server is alive.
+# it is run automatically by pytest during local checks and github actions ci.
 def test_health_live(client):
     """Verifies that the root health check endpoint returns HTTP 200 and 'ok' status."""
     response = client.get("/health/live")

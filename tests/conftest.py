@@ -1,3 +1,5 @@
+# this file sets up shared test helpers and a fake firebase connection for pytest.
+# it is automatically loaded by pytest whenever running tests in the tests/ directory.
 import os
 import sys
 from pathlib import Path

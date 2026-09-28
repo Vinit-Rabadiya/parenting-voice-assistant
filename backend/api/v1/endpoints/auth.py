@@ -1,3 +1,5 @@
+# this file handles the /me endpoint to return the currently logged-in user id.
+# it is included in backend/api/v1/router.py and called by frontend/src/services/api.js.
 from fastapi import APIRouter, Depends, Response
 from backend.core.security import require_authenticated_user
 from backend.schemas.auth import UserResponse

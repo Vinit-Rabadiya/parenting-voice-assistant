@@ -1,3 +1,5 @@
+# this file initializes the firebase admin sdk on the server using private key credentials.
+# it is called in backend/main.py when the server starts up to enable token checking.
 import os
 import firebase_admin
 from firebase_admin import credentials

@@ -1,3 +1,5 @@
+// this component handles new user registration inputs, password checks, and account creation.
+// it is imported in pages/AuthPage.jsx when the user selects the signup view.
 import { useState } from "react";
 import { signUpWithEmail } from "../services/auth";
 

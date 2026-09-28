@@ -1,3 +1,5 @@
+// this page displays the login form, signup form, or totp code challenge when signed out.
+// it is imported in App.jsx and rendered whenever there is no authenticated user.
 import { useState } from "react";
 import LoginForm from "../components/LoginForm";
 import SignUpForm from "../components/SignUpForm";

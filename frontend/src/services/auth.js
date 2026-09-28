@@ -1,3 +1,5 @@
+// this file contains all browser firebase auth actions (login, signup, mfa, reset, logout).
+// it is imported by components (LoginForm, SignUpForm, GoogleSignInButton) and pages (AccountPage).
 import {
   GoogleAuthProvider,
   signInWithPopup,

@@ -1,3 +1,5 @@
+// this component displays the google sign-in button and handles the popup login.
+// it is imported in pages/AuthPage.jsx so users can log in with their google account.
 import { useState } from "react";
 import { signInWithGoogle } from "../services/auth";
 
