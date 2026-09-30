@@ -76,7 +76,6 @@ parenting-voice-assistant/
 │   │   │   ├── api.js                 # calls python backend (/api/me) with bearer token
 │   │   │   ├── auth.js                # all browser firebase operations (login, totp, etc.)
 │   │   │   └── firebase.js            # initializes client-side firebase sdk
-│   │   ├── App.css                    # styles for main app
 │   │   ├── App.jsx                    # main component switching between auth and account
 │   │   ├── index.css                  # global base css
 │   │   └── main.jsx                   # react root mount with StrictMode
@@ -228,7 +227,6 @@ parenting-voice-assistant/
   - `signInWithGoogle()`: Opens Google popup; returns `{ next: "signed-in", user }` or `{ next: "mfa-required", resolver }`.
   - `signInWithEmail(email, password)`: Logs in existing user; handles both normal login and MFA challenge.
   - `signUpWithEmail(email, password)`: Creates user account and immediately attempts to send verification email.
-  - `checkEmailVerification()`: Reloads user from Firebase server and returns boolean `emailVerified`.
   - `resendVerificationEmail()`: Reloads user, checks if already verified, and requests another email if not.
   - `logOut()`: Signs out of Firebase.
   - `requestPasswordReset(email)`: Sends password reset email.

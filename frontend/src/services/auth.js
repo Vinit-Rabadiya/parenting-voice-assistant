@@ -65,16 +65,6 @@ export const signUpWithEmail = async (email, password) => {
   return { user: result.user, verificationEmailRequested };
 };
 
-export const checkEmailVerification = async () => {
-  // fetch the latest status because the user may have clicked the link in another tab.
-  const user = auth.currentUser;
-  if (user === null) {
-    throw new Error("Sign in before checking email verification.");
-  }
-  await reload(user);
-  return user.emailVerified;
-};
-
 export const resendVerificationEmail = async () => {
   // send another email for this account instead of creating another account.
   const user = auth.currentUser;
