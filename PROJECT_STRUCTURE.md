@@ -112,7 +112,7 @@ parenting-voice-assistant/
 
 #### `.env.example`
 - **What it does:** Template showing which environment variables the backend expects.
-- **Variables inside:** `FIREBASE_PROJECT_ID`, `FIREBASE_ADMIN_KEY_PATH`, `HOST`, `PORT`, `GEMINI_API_KEY`.
+- **Variables inside:** `FIREBASE_PROJECT_ID`, `FIREBASE_ADMIN_KEY_PATH`, `HOST`, `PORT`.
 - **Connections:** You copy this to `.env` (which stays secret and git-ignored). `backend/core/config.py` reads these values at runtime.
 
 #### `pyproject.toml`

@@ -19,7 +19,6 @@ class Settings:
     PORT: int = int(os.getenv("PORT", 8000))
 
     FIREBASE_PROJECT_ID: str | None = os.getenv("FIREBASE_PROJECT_ID")
-    GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
 
     @property
     def firebase_admin_key_path(self) -> str | None:

@@ -200,7 +200,6 @@ The application is structured as a decoupled client-server architecture:
 * **Authentication:** Firebase Admin SDK Python (cryptographic verification of ID tokens, revocation checking)
 * **Speech Processing:** `gTTS` (Google Text-to-Speech), `python-multipart` (audio file uploads), `aiofiles`
 * **Speech-to-Text (planned):** Fine-tune a pretrained speech model on domain-specific audio/transcript pairs and serve it from the backend.
-* **AI Configuration:** A Google Gemini API setting remains available; the coaching engine is not implemented.
 
 ### Developer Tooling & Quality Assurance
 * **Testing:** `pytest`, `pytest-asyncio`, `httpx` (FastAPI TestClient integration tests)
@@ -379,9 +378,6 @@ PORT=8000
 # Firebase Admin Configuration
 FIREBASE_PROJECT_ID=your-firebase-project-id
 FIREBASE_ADMIN_KEY_PATH=.secrets/firebase-admin.json
-
-# AI Model Provider Keys (for voice coaching features)
-GEMINI_API_KEY=your_gemini_api_key
 ```
 
 Place your Firebase Admin service account JSON file inside the `.secrets/` directory as `firebase-admin.json` (this directory is excluded from Git).
