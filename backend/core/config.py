@@ -18,9 +18,7 @@ class Settings:
     HOST: str = os.getenv("HOST", "127.0.0.1")
     PORT: int = int(os.getenv("PORT", 8000))
 
-    GROQ_API_KEY: str | None = os.getenv("GROQ_API_KEY")
     FIREBASE_PROJECT_ID: str | None = os.getenv("FIREBASE_PROJECT_ID")
-    GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
 
     @property
     def firebase_admin_key_path(self) -> str | None:

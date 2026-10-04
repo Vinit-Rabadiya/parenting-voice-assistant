@@ -84,7 +84,7 @@ This is how a caregiver interacts with the voice assistant from start to finish:
        │ 3. Context Enrichment        │
        │    Loads child age & routine │
        │ 4. LLM Reasoning Engine      │
-       │    (Groq / Gemini)           │
+       │    (Planned)                 │
        │    Generates tailored advice │
        │ 5. Text-to-Speech (TTS)      │
        │    Converts answer to audio  │
@@ -105,9 +105,9 @@ This is how a caregiver interacts with the voice assistant from start to finish:
    * If voice: The browser records the caregiver's speech via the Web Audio / MediaRecorder API.
    * If text: The caregiver types the query into the chat input.
 2. **Transport & Security:** The frontend sends the request to the FastAPI backend, including a verified Firebase ID token in the `Authorization: Bearer <token>` header.
-3. **Speech-to-Text (STT):** If audio was submitted, the backend transcribes the speech into text.
+3. **Speech-to-Text (STT, planned):** The backend will transcribe microphone audio using a locally served model fine-tuned on domain-specific audio/transcript pairs. Training and inference are not implemented yet.
 4. **Context Injection:** The backend attaches the child's profile (e.g., age: 8 months) and current routine (e.g., playtime) to the prompt.
-5. **AI Generation (LLM):** The enriched prompt is sent to the LLM (Groq / Gemini API) to generate concise, friendly, and practical guidance.
+5. **AI Generation (LLM, planned):** The enriched prompt will be used to generate concise, friendly, and practical guidance. The coaching model is still to be selected.
 6. **Text-to-Speech (TTS):** The generated text is passed through the TTS engine (`gTTS`) to synthesize an audio response.
 7. **Playback & Display:** The frontend receives the response, appends it to the chat conversation history, and plays the audio answer aloud.
 
@@ -176,10 +176,10 @@ The application is structured as a decoupled client-server architecture:
                                     │
                ┌────────────────────┴────────────────────┐
                ▼                                         ▼
-   External AI Services                     Firebase Identity Platform
-   • Groq (Llama / Mixtral)                 • User accounts & passwords
-   • Google Gemini API                      • Google OAuth provider
-   • Cloud Speech Services                  • TOTP second-factor engine
+   Planned Model Services                   Firebase Identity Platform
+   • Domain-fine-tuned speech model          • User accounts & passwords
+   • Coaching model (to be selected)         • Google OAuth provider
+   • Locally served speech recognition      • TOTP second-factor engine
 ```
 
 ---
@@ -199,7 +199,7 @@ The application is structured as a decoupled client-server architecture:
 * **Data Validation:** Pydantic v2 (strict type checking and response schema serialization)
 * **Authentication:** Firebase Admin SDK Python (cryptographic verification of ID tokens, revocation checking)
 * **Speech Processing:** `gTTS` (Google Text-to-Speech), `python-multipart` (audio file uploads), `aiofiles`
-* **AI Integrations:** Groq API and Google Gemini API (LLM reasoning)
+* **Speech-to-Text (planned):** Fine-tune a pretrained speech model on domain-specific audio/transcript pairs and serve it from the backend.
 
 ### Developer Tooling & Quality Assurance
 * **Testing:** `pytest`, `pytest-asyncio`, `httpx` (FastAPI TestClient integration tests)
@@ -378,10 +378,6 @@ PORT=8000
 # Firebase Admin Configuration
 FIREBASE_PROJECT_ID=your-firebase-project-id
 FIREBASE_ADMIN_KEY_PATH=.secrets/firebase-admin.json
-
-# AI Model Provider Keys (for voice coaching features)
-GROQ_API_KEY=your_groq_api_key
-GEMINI_API_KEY=your_gemini_api_key
 ```
 
 Place your Firebase Admin service account JSON file inside the `.secrets/` directory as `firebase-admin.json` (this directory is excluded from Git).
@@ -455,7 +451,8 @@ npm.cmd run check
 | **Backend Authentication Enforcement** | Done | FastAPI verifies ID token, revocation, email confirmation, and TOTP on `/me` |
 | **Automated Testing & CI Pipeline** | Done | Pytest test suite, Ruff linter, ESLint, Husky pre-push hooks, and GitHub Actions CI |
 | **Child Profiles Management** | Next | Create, update, and select child profiles (birth date, developmental stage) |
-| **Voice Input Pipeline** | In Progress | Microphone audio recording in browser + Speech-to-Text conversion |
-| **AI Coaching Engine** | In Progress | Prompt orchestration with Groq and Gemini LLMs |
+| **Voice Input Pipeline** | Planned | Live microphone UI connected to a locally served, domain-fine-tuned speech model |
+| **Domain-Specific STT Training** | Planned | Prepare paired parenting-domain audio and transcripts, fine-tune a pretrained model, and evaluate transcription accuracy on held-out speakers |
+| **AI Coaching Engine** | Planned | Model selection and domain-specific coaching implementation |
 | **Text-to-Speech Output** | In Progress | Audio speech synthesis (`gTTS`) playing spoken advice in browser |
 | **Conversation History & Feedback** | Planned | Private history retrieval and caregiver feedback logging |
