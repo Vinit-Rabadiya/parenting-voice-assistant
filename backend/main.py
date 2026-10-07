@@ -3,6 +3,7 @@
 from contextlib import asynccontextmanager
 
 import firebase_admin
+from anyio import CapacityLimiter
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 
@@ -18,8 +19,12 @@ async def lifespan(app: FastAPI):
     app.state.firebase = initialize_firebase()
     try:
         app.state.speech_service = await run_in_threadpool(SpeechService, settings.STT_MODEL)
+        # allow one transcription at a time for this server process.
+        app.state.speech_limiter = CapacityLimiter(1)
         yield
     finally:
+        if hasattr(app.state, "speech_limiter"):
+            del app.state.speech_limiter
         if hasattr(app.state, "speech_service"):
             del app.state.speech_service
         # close the local firebase connection when the server stops.
