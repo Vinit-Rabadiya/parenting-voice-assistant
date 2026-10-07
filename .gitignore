@@ -20,3 +20,6 @@ AUTHENTICATION_SYSTEM_DESIGN_ROADMAP.md
 
 # Private administrative credentials
 .secrets/
+
+# local audio recordings used for manual checks.
+samples/
