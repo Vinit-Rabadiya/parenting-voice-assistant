@@ -1,10 +1,11 @@
-# this file sets up shared test helpers and a fake firebase connection for pytest.
+# this file sets up shared test helpers and fake firebase and speech services.
 # it is automatically loaded by pytest whenever running tests in the tests/ directory.
 import os
 import sys
 from pathlib import Path
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 # add project root to python path so test runner finds backend.
@@ -19,7 +20,7 @@ os.environ.setdefault("FIREBASE_ADMIN_KEY_PATH", ".secrets/firebase-admin.json")
 def mock_firebase_app():
     """Provides a mocked Firebase Admin application fixture for local test execution."""
     mock_app = MagicMock()
-    with patch("backend.core.firebase.initialize_firebase", return_value=mock_app):
+    with patch("backend.main.initialize_firebase", return_value=mock_app):
         with patch("firebase_admin.delete_app"):
             yield mock_app
 
@@ -29,5 +30,7 @@ def client(mock_firebase_app):
     """Provides a FastAPI TestClient fixture configured with mocked application lifespan."""
     from backend.main import app
 
-    with TestClient(app) as test_client:
-        yield test_client
+    # replace speech initialization before the test client starts the app.
+    with patch("backend.main.SpeechService"):
+        with TestClient(app) as test_client:
+            yield test_client
