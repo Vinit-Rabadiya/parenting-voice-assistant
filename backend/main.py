@@ -1,11 +1,15 @@
 # this file starts the backend server, connects to firebase, and mounts all api routes.
 # it is run by uvicorn (python -m uvicorn backend.main:app) and used by tests in tests/conftest.py.
 from contextlib import asynccontextmanager
+
 import firebase_admin
 from fastapi import FastAPI
+from starlette.concurrency import run_in_threadpool
+
 from backend.core.config import settings
 from backend.core.firebase import initialize_firebase
 from backend.api.v1.router import api_router
+from backend.services.speech import SpeechService
 
 
 @asynccontextmanager
@@ -13,8 +17,11 @@ async def lifespan(app: FastAPI):
     # connect to firebase when the server starts.
     app.state.firebase = initialize_firebase()
     try:
+        app.state.speech_service = await run_in_threadpool(SpeechService, settings.STT_MODEL)
         yield
     finally:
+        if hasattr(app.state, "speech_service"):
+            del app.state.speech_service
         # close the local firebase connection when the server stops.
         if hasattr(app.state, "firebase") and app.state.firebase:
             firebase_admin.delete_app(app.state.firebase)

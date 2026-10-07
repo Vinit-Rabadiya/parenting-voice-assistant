@@ -18,6 +18,8 @@ class Settings:
     HOST: str = os.getenv("HOST", "127.0.0.1")
     PORT: int = int(os.getenv("PORT", 8000))
 
+    STT_MODEL: str = os.getenv("STT_MODEL", "tiny.en")
+
     FIREBASE_PROJECT_ID: str | None = os.getenv("FIREBASE_PROJECT_ID")
 
     @property
