@@ -18,12 +18,12 @@ function MainContent() {
   return (
     <main>
       <h1>Parenting Voice Assistant</h1>
-      {user && <MicrophoneControls key={user.uid} />}
+      {user && <MicrophoneControls key={`microphone-${user.uid}`} />}
       {/* show account page if signed in, otherwise show auth page. */}
       {user ? (
         <AccountPage
           // start with fresh page state when the user changes.
-          key={user.uid}
+          key={`account-${user.uid}`}
           email={user.email}
           // pass email status only if it belongs to this user.
           verificationEmailRequested={
