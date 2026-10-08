@@ -1,97 +1,201 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 
-// manage microphone access and share its status with the interface.
+const MAX_RECORDING_SECONDS = 30;
+const STOP_TIMEOUT_MS = 2000;
+
+// release only the resources belonging to this recording session.
+function disposeSession(session) {
+  if (!session) return;
+  clearTimeout(session.limitTimer);
+  clearTimeout(session.stopTimer);
+  if (session.node) {
+    session.node.port.onmessage = null;
+    session.node.onprocessorerror = null;
+    session.node.port.close();
+    session.node.disconnect();
+  }
+  session.source?.disconnect();
+  session.stream?.getTracks().forEach((track) => {
+    track.onended = null;
+    track.stop();
+  });
+  if (session.context && session.context.state !== "closed") {
+    void session.context.close().catch(() => {});
+  }
+}
+
+// keep recording resources separate from the state displayed by components.
 function useMicrophone() {
-  // state changes update the status and error shown on screen.
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
-  // refs keep the stream and request details between renders.
-  const streamRef = useRef(null);
+  const [recording, setRecording] = useState(null);
   const requestIdRef = useRef(0);
-  const requestingRef = useRef(false);
+  const sessionRef = useRef(null);
 
-  // invalidate pending requests and release microphone access.
+  // cancel pending setup and discard unfinished audio without updating the ui.
   const releaseMicrophone = useCallback(() => {
     requestIdRef.current += 1;
-    requestingRef.current = false;
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
+    const session = sessionRef.current;
+    sessionRef.current = null;
+    disposeSession(session);
   }, []);
 
-  // request microphone access when the user presses start.
-  async function start() {
-    // avoid opening another microphone request or stream.
-    if (requestingRef.current || streamRef.current) {
-      return;
-    }
+  // stop gracefully so the processor can send its last partial buffer.
+  const stop = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
 
-    // check that microphone access is available in this browser context.
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError(
-        "Microphone access requires a supported browser on HTTPS or localhost.",
-      );
+    // setup may still be waiting for microphone permission.
+    if (!session.started) {
+      releaseMicrophone();
+      setStatus("idle");
       return;
     }
-    // mark the request as pending and clear the previous error.
-    requestingRef.current = true;
-    setError("");
-    setStatus("requesting");
-    // give this request an id so late results can be ignored.
-    const requestId = ++requestIdRef.current;
+    if (session.stopping) return;
+    session.stopping = true;
+    clearTimeout(session.limitTimer);
+    setStatus("stopping");
+
+    // a suspended or failed processor must not leave the microphone open.
+    session.stopTimer = setTimeout(() => {
+      if (sessionRef.current !== session) return;
+      releaseMicrophone();
+      setError("Recording could not finish. Please start a new recording.");
+      setStatus("idle");
+    }, STOP_TIMEOUT_MS);
 
     try {
-      // wait for microphone permission and an audio stream.
+      session.node.port.postMessage({ type: "stop" });
+    } catch {
+      releaseMicrophone();
+      setError("Recording could not stop normally. Please try again.");
+      setStatus("idle");
+    }
+  }, [releaseMicrophone]);
+
+  // create one audio session for each user-triggered recording attempt.
+  async function start() {
+    if (sessionRef.current) return;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (
+      !navigator.mediaDevices?.getUserMedia ||
+      !AudioCtx ||
+      !window.AudioWorkletNode
+    ) {
+      setError("Recording requires a supported browser on HTTPS or localhost.");
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+    const session = {
+      context: null,
+      stream: null,
+      source: null,
+      node: null,
+      chunks: [],
+      sampleCount: 0,
+      started: false,
+      stopping: false,
+      limitTimer: null,
+      stopTimer: null,
+    };
+    sessionRef.current = session;
+    setError("");
+    setRecording(null);
+    setStatus("requesting");
+
+    // old permission responses and messages must not affect a newer session.
+    const isCurrent = () =>
+      sessionRef.current === session && requestIdRef.current === requestId;
+    const fail = (message) => {
+      if (!isCurrent()) return;
+      releaseMicrophone();
+      setError(message);
+      setStatus("idle");
+    };
+
+    try {
+      // resume during the user action and load the processor before creating its node.
+      session.context = new AudioCtx();
+      await session.context.resume();
+      if (!isCurrent()) return;
+      await session.context.audioWorklet.addModule("/audio/capture.worklet.js");
+      if (!isCurrent()) return;
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // release the returned stream if this request is no longer current.
-      if (requestId !== requestIdRef.current) {
+      if (!isCurrent()) {
         stream.getTracks().forEach((track) => track.stop());
         return;
-      } else {
-        // keep the stream for later audio capture; recording has not started yet.
-        streamRef.current = stream;
-        setStatus("ready");
       }
-    } catch (cause) {
-      // report failures only if they belong to the current request.
-      if (requestId === requestIdRef.current) {
-        // explain how to restore access when permission is denied.
-        if (cause.name === "NotAllowedError") {
-          setError(
-            "Microphone access was denied. Open the site controls beside your browser’s address bar, " +
-              "set Microphone to Allow, then reload this page and click Enable Microphone. " +
-              "If access is still denied, allow microphone access for your browser in your device’s privacy settings.",
-          );
-        } else {
-          setError(
-            "Could not access the microphone. Check permissions and your device.",
-          );
+      session.stream = stream;
+      session.source = session.context.createMediaStreamSource(stream);
+      session.node = new AudioWorkletNode(
+        session.context,
+        "microphone-capture",
+      );
+
+      session.node.port.onmessage = ({ data }) => {
+        if (!isCurrent()) return;
+        if (data.type === "samples") {
+          // use the actual sample rate and trim any batch crossing the duration limit.
+          const maximum = session.context.sampleRate * MAX_RECORDING_SECONDS;
+          const remaining = maximum - session.sampleCount;
+          if (remaining > 0) {
+            const samples =
+              data.samples.length <= remaining
+                ? data.samples
+                : data.samples.slice(0, remaining);
+            session.chunks.push(samples);
+            session.sampleCount += samples.length;
+          }
+          if (session.sampleCount >= maximum) stop();
+        } else if (data.type === "stopped" && session.stopping) {
+          // the processor sends its final samples before this acknowledgement.
+          const result = {
+            chunks: session.chunks,
+            sampleRate: session.context.sampleRate,
+          };
+          const hasSamples = session.sampleCount > 0;
+          releaseMicrophone();
+          if (hasSamples) setRecording(result);
+          else setError("No audio was captured. Please try recording again.");
+          setStatus("idle");
         }
-        setStatus("idle");
-      }
-    } finally {
-      // finish this request without changing a newer request's pending state.
-      if (requestId === requestIdRef.current) {
-        requestingRef.current = false;
+      };
+      session.node.onprocessorerror = () =>
+        fail("Audio capture failed. Please record again.");
+      stream.getTracks().forEach((track) => {
+        track.onended = () =>
+          fail(
+            "Microphone disconnected or access was revoked. Please try again.",
+          );
+      });
+
+      // the worklet outputs silence, so this does not play the mic through speakers.
+      session.source.connect(session.node);
+      session.node.connect(session.context.destination);
+      session.started = true;
+      setStatus("recording");
+      session.limitTimer = setTimeout(stop, MAX_RECORDING_SECONDS * 1000);
+    } catch (cause) {
+      if (cause.name === "NotAllowedError") {
+        fail(
+          "Microphone access was denied. Open the site controls beside your browser’s address bar, " +
+            "set Microphone to Allow, then reload this page and try again. " +
+            "If access is still denied, check your device’s microphone privacy settings.",
+        );
+      } else {
+        fail(
+          "Could not start recording. Check your microphone and browser settings.",
+        );
       }
     }
   }
 
-  function stop() {
-    releaseMicrophone();
-    setStatus("idle");
-  }
+  // leaving the page discards unfinished audio and releases its resources.
+  useEffect(() => releaseMicrophone, [releaseMicrophone]);
 
-  // release the microphone when the component leaves the page.
-  useEffect(() => {
-    return () => {
-      releaseMicrophone();
-    };
-  }, [releaseMicrophone]);
-  // let components display state and request microphone access.
-  return { status, error, start, stop };
+  return { status, error, recording, start, stop };
 }
 
 export default useMicrophone;
