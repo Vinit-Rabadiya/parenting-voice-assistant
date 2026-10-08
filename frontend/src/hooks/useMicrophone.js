@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import { createWavBlob } from "../utils/audio";
 
 const MAX_RECORDING_SECONDS = 30;
 const STOP_TIMEOUT_MS = 2000;
@@ -45,8 +46,8 @@ function useMicrophone() {
     const session = sessionRef.current;
     if (!session) return;
 
-    // setup may still be waiting for microphone permission.
-    if (!session.started) {
+    // cancel pending permission or ignore unfinished audio conversion.
+    if (!session.started || session.preparing) {
       releaseMicrophone();
       setStatus("idle");
       return;
@@ -96,6 +97,7 @@ function useMicrophone() {
       sampleCount: 0,
       started: false,
       stopping: false,
+      preparing: false,
       limitTimer: null,
       stopTimer: null,
     };
@@ -134,7 +136,7 @@ function useMicrophone() {
         "microphone-capture",
       );
 
-      session.node.port.onmessage = ({ data }) => {
+      session.node.port.onmessage = async ({ data }) => {
         if (!isCurrent()) return;
         if (data.type === "samples") {
           // use the actual sample rate and trim any batch crossing the duration limit.
@@ -149,17 +151,39 @@ function useMicrophone() {
             session.sampleCount += samples.length;
           }
           if (session.sampleCount >= maximum) stop();
-        } else if (data.type === "stopped" && session.stopping) {
+        } else if (data.type === "stopped" && session.stopping && !session.preparing) {
           // the processor sends its final samples before this acknowledgement.
           const result = {
             chunks: session.chunks,
             sampleRate: session.context.sampleRate,
           };
-          const hasSamples = session.sampleCount > 0;
-          releaseMicrophone();
-          if (hasSamples) setRecording(result);
-          else setError("No audio was captured. Please try recording again.");
-          setStatus("idle");
+          if (session.sampleCount === 0) {
+            fail("No audio was captured. Please try recording again.");
+            return;
+          }
+
+          // close the microphone while keeping this session's identity for conversion.
+          session.preparing = true;
+          disposeSession(session);
+          setStatus("preparing");
+
+          try {
+            // combine, resample, and encode using the existing audio utility.
+            const wavBlob = await createWavBlob(result);
+
+            // cancelled or unmounted sessions must not publish late results.
+            if (!isCurrent()) return;
+
+            releaseMicrophone();
+            setRecording({
+              chunks: result.chunks,
+              sampleRate: result.sampleRate,
+              wavBlob,
+            });
+            setStatus("idle");
+          } catch {
+            fail("Could not prepare the recording. Please record again.");
+          }
         }
       };
       session.node.onprocessorerror = () =>

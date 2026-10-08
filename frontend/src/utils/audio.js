@@ -25,7 +25,9 @@ export async function resampleAudio(samples, sourceSampleRate) {
   if (sourceSampleRate === TARGET_SAMPLE_RATE) {
     return samples;
   }
-  const outputLength = Math.floor((samples.length * TARGET_SAMPLE_RATE) / sourceSampleRate);
+  const outputLength = Math.floor(
+    (samples.length * TARGET_SAMPLE_RATE) / sourceSampleRate,
+  );
   if (outputLength < 1) {
     throw new Error("Audio is too short to resample.");
   }
@@ -100,4 +102,15 @@ export function encodeWav(samples) {
 
   // return binary data that a future request can send directly to the backend.
   return new Blob([buffer], { type: "audio/wav" });
+}
+
+export async function createWavBlob(recording) {
+  if (!recording) {
+    throw new Error("No recording");
+  }
+
+  const samples = mergeChunks(recording.chunks);
+  const resampled = await resampleAudio(samples, recording.sampleRate);
+
+  return encodeWav(resampled);
 }
