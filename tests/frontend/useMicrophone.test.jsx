@@ -14,12 +14,11 @@ let getUserMedia;
 let stream;
 let track;
 
-// hold an async result until a test deliberately resolves or rejects it.
+// hold an async result until a test deliberately resolves it.
 function deferred() {
   let resolve;
-  let reject;
-  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
-  return { promise, resolve, reject };
+  const promise = new Promise((yes) => { resolve = yes; });
+  return { promise, resolve };
 }
 
 // provide controllable browser resources without opening a physical microphone.
