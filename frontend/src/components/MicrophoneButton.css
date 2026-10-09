@@ -1,0 +1,35 @@
+/* the visible label explains the icon and remains the accessible button name. */
+.microphone-button[type="button"] {
+  display: inline-flex;
+  flex-direction: column;
+  align-self: center;
+  gap: 16px;
+  max-width: 100%;
+  padding: 20px 28px;
+  border-radius: 24px;
+  background: transparent;
+  white-space: normal;
+}
+
+.microphone-button__circle {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 2px solid var(--accent-border);
+}
+
+.microphone-button--recording .microphone-button__circle {
+  color: #fff;
+  background: #b4233b;
+  border-color: #b4233b;
+  box-shadow: 0 0 0 8px rgba(180, 35, 59, 0.12);
+}
+
+.microphone-button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}

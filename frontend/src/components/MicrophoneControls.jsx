@@ -1,5 +1,6 @@
 import useMicrophone from "../hooks/useMicrophone";
 import useTranscription from "../hooks/useTranscription";
+import MicrophoneButton from "./MicrophoneButton";
 import "./MicrophoneControls.css";
 
 export default function MicrophoneControls() {
@@ -7,6 +8,13 @@ export default function MicrophoneControls() {
   const transcription = useTranscription(recording);
   const capturing = status !== "idle";
   const transcribing = transcription.status === "transcribing";
+  const recordingNow = status === "recording";
+  const buttonBusy = (capturing && !recordingNow) || transcribing;
+  const buttonLabel = status === "requesting" ? "Waiting for microphone…"
+    : status === "stopping" ? "Stopping recording…"
+      : status === "preparing" ? "Preparing audio…"
+        : transcribing ? "Transcribing…"
+          : recordingNow ? "Stop and transcribe" : "Start recording";
   const microphoneMessages = {
     idle: "Ready to record.",
     requesting: "Requesting microphone access…",
@@ -33,20 +41,27 @@ export default function MicrophoneControls() {
   return (
     <section className="microphone-controls" aria-label="Speech to text">
       <p>Record up to 30 seconds. Your words appear after you stop. Starting again replaces the current transcript.</p>
-      <button type="button" onClick={() => {
-        transcription.cancel();
-        void start();
-      }} disabled={capturing}>
-        Start recording
-      </button>
-      <button type="button" onClick={stop} disabled={!capturing || status === "stopping"}>
-        {status === "requesting" || status === "preparing" ? "Cancel recording" : "Stop and transcribe"}
-      </button>
+      <MicrophoneButton
+        label={buttonLabel}
+        recording={recordingNow}
+        busy={buttonBusy}
+        describedBy="microphone-status"
+        onClick={() => {
+          if (recordingNow) stop();
+          else {
+            transcription.cancel();
+            void start();
+          }
+        }}
+      />
+      {(status === "requesting" || status === "preparing") && (
+        <button type="button" onClick={stop}>Cancel recording</button>
+      )}
       {transcribing && <button type="button" onClick={transcription.cancel}>Cancel transcription</button>}
       {!capturing && ["error", "cancelled"].includes(transcription.status) && recording?.wavBlob && (
         <button type="button" onClick={transcription.retry}>Retry transcription</button>
       )}
-      <p role="status">
+      <p id="microphone-status" role="status">
         {capturing ? microphoneMessages[status] : transcriptionMessages[transcription.status] || microphoneMessages.idle}
       </p>
       {error && <p role="alert">{error}</p>}

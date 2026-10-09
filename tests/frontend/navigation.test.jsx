@@ -38,7 +38,9 @@ it("opens login from the guest microphone action and returns home", () => {
   render(<App />);
   expect(screen.getByRole("heading", { name: "Start with your voice." })).toBeTruthy();
   expect(microphoneMounted).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Log in to use microphone" }));
+  const guestMicrophone = screen.getByRole("button", { name: "Log in to use microphone" });
+  expect(guestMicrophone.querySelector("svg")).not.toBeNull();
+  fireEvent.click(guestMicrophone);
   expect(screen.getByText("Login form")).toBeTruthy();
   expect(microphoneMounted).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Back to home" }));
