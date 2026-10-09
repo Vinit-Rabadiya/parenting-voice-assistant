@@ -32,7 +32,7 @@ function AccountHarness() {
       </button>
       <p data-testid="account-state">{account.user?.uid ?? "signed out"}</p>
       <p data-testid="signup-state">{account.signupResult ? "present" : "cleared"}</p>
-      {account.user && <AccountPage email={account.user.email} />}
+      {account.user && <AccountPage email={account.user.email} accountAccess={{ verified: true, checking: false, error: "" }} />}
     </>
   );
 }
@@ -48,7 +48,11 @@ it("clears account state and onboarding data after successful logout", async () 
   const { unmount } = render(<AuthProvider><AccountHarness /></AuthProvider>);
   fireEvent.click(screen.getByRole("button", { name: "Set signup result" }));
   expect(screen.getByTestId("signup-state").textContent).toBe("present");
-  fireEvent.click(await screen.findByRole("button", { name: "Log Out" }));
+  const logoutButton = await screen.findByRole("button", { name: "Log Out" });
+  expect(screen.getByText("Verified")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Check backend access" })).toBeNull();
+  expect(screen.queryByText(/Log out and test MFA/)).toBeNull();
+  fireEvent.click(logoutButton);
   await waitFor(() => expect(screen.getByTestId("account-state").textContent).toBe("signed out"));
   expect(screen.getByTestId("signup-state").textContent).toBe("cleared");
   expect(logOut).toHaveBeenCalledOnce();

@@ -1,18 +1,11 @@
-import { Navbar } from "../components/Navbar";
 import MicrophoneControls from "../components/MicrophoneControls";
 import MicrophoneButton from "../components/MicrophoneButton";
 import "./LandingPage.css";
 
 // arrange the landing screen while hooks own recording and network behavior.
-export default function LandingPage({ isAuthenticated, userId, onAccount, onLogin, onSignup }) {
+export default function LandingPage({ isAuthenticated, userId, accountAccess, onLogin }) {
   return (
     <div className="landing-page">
-      <Navbar
-        onLogin={onLogin}
-        onSignup={onSignup}
-        isAuthenticated={isAuthenticated}
-        onAccount={onAccount}
-      />
       <section className="landing-intro" aria-labelledby="landing-title">
         <p className="landing-eyebrow">YOUR BABY’S FIRST TWO YEARS</p>
         <h1 id="landing-title">Start with your voice.</h1>
@@ -20,7 +13,11 @@ export default function LandingPage({ isAuthenticated, userId, onAccount, onLogi
       </section>
       {isAuthenticated ? (
         <div className="landing-voice">
-          <p className="landing-account-note">Voice transcription requires a verified email and authenticator login. Use My Account to finish setup.</p>
+          {!accountAccess?.verified && (
+            <p className="landing-account-note" role="status">
+              {accountAccess?.checking ? "Checking your account…" : `${accountAccess?.error || "Complete account verification."} Open My Account for setup.`}
+            </p>
+          )}
           <MicrophoneControls key={`microphone-${userId}`} />
         </div>
       ) : (
