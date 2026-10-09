@@ -54,6 +54,10 @@ runCheck("Frontend lint", process.execPath, [
   "lint",
 ]);
 
+// check binary audio helpers and react request lifecycle behavior.
+runCheck("Audio utility tests", process.execPath, ["--test", "tests/frontend/audio.test.mjs"]);
+runCheck("Frontend interaction tests", process.execPath, [npmPath, "--prefix", "frontend", "run", "test"]);
+
 // test building the frontend with vite.
 runCheck("Frontend build", process.execPath, [
   npmPath,

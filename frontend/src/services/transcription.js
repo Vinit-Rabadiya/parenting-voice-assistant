@@ -1,23 +1,39 @@
 import { auth } from "./firebase";
 
 export async function transcribeAudio(wavBlob, signal) {
+  signal?.throwIfAborted();
   const user = auth.currentUser;
   if (!user) {
     throw new Error("Log in to transcribe audio.");
   }
   const token = await user.getIdToken();
-  const response = await fetch("/api/speech/transcribe", {
-    method: "POST",
-    body: wavBlob,
-    headers: {
-      "Content-Type": "audio/wav",
-      Authorization: `Bearer ${token}`,
-    },
-    signal,
-    credentials: "omit",
-    cache: "no-store",
-  });
+  // do not upload audio if login changed or the request was cancelled while waiting.
+  signal?.throwIfAborted();
+  if (auth.currentUser !== user) {
+    throw new Error("Account changed. Please try again.");
+  }
 
+  let response;
+  try {
+    response = await fetch("/api/speech/transcribe", {
+      method: "POST",
+      body: wavBlob,
+      headers: {
+        "Content-Type": "audio/wav",
+        Authorization: `Bearer ${token}`,
+      },
+      signal,
+      credentials: "omit",
+      cache: "no-store",
+    });
+  } catch (cause) {
+    if (signal?.aborted) throw cause;
+    throw new Error("Could not reach the speech server. Check your connection and try again.", {
+      cause,
+    });
+  }
+
+  signal?.throwIfAborted();
   if (auth.currentUser !== user) {
     throw new Error("Account changed. Please try again.");
   }
@@ -35,6 +51,7 @@ export async function transcribeAudio(wavBlob, signal) {
   }
 
   // reading the response may take time, so recheck the account afterward.
+  signal?.throwIfAborted();
   if (auth.currentUser !== user) {
     throw new Error("Account changed. Please try again.");
   }
@@ -44,6 +61,14 @@ export async function transcribeAudio(wavBlob, signal) {
     } else {
       throw new Error("Speech transcription failed.");
     }
+  }
+  // reject malformed successful responses before the interface tries to use them.
+  if (
+    typeof body?.text !== "string" ||
+    !Number.isFinite(body.audio_seconds) || body.audio_seconds <= 0 || body.audio_seconds > 30 ||
+    !Number.isFinite(body.processing_seconds) || body.processing_seconds < 0
+  ) {
+    throw new Error("The speech server returned an unexpected result. Please try again.");
   }
   return body;
 }
