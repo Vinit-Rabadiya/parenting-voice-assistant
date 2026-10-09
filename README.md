@@ -197,7 +197,7 @@ This is how a caregiver interacts with the voice assistant from start to finish:
 3. **Speech-to-Text (STT, planned):** The backend will transcribe microphone audio using a locally served model fine-tuned on domain-specific audio/transcript pairs. Training and inference are not implemented yet.
 4. **Context Injection:** The backend attaches the child's profile (e.g., age: 8 months) and current routine (e.g., playtime) to the prompt.
 5. **AI Generation (LLM, planned):** The enriched prompt will be used to generate concise, friendly, and practical guidance. The coaching model is still to be selected.
-6. **Text-to-Speech (TTS):** The generated text is passed through the TTS engine (`gTTS`) to synthesize an audio response.
+6. **Text-to-Speech (TTS, planned):** A future TTS engine will synthesize the generated answer. No TTS runtime is currently installed or connected.
 7. **Playback & Display:** The frontend receives the response, appends it to the chat conversation history, and plays the audio answer aloud.
 
 ---
@@ -258,7 +258,7 @@ The application is structured as a decoupled client-server architecture:
 │   FastAPI (Python 3.12 / 3.13)                                         │
 │   ├── Security Layer: Firebase Admin SDK, Token & 2FA Verification     │
 │   ├── API Endpoints: Health check, User Identity (/me), Conversations  │
-│   ├── Voice Pipeline: Speech-to-Text (STT) & Text-to-Speech (gTTS)     │
+│   ├── Voice Pipeline: Speech-to-Text (STT); TTS planned               │
 │   ├── AI Coaching Service: Prompt formatting, LLM API calls            │
 │   └── Data Persistence: Conversations, feedback, and child profiles    │
 └───────────────────────────────────┬────────────────────────────────────┘
@@ -287,8 +287,8 @@ The application is structured as a decoupled client-server architecture:
 * **Server:** Uvicorn (ASGI server with auto-reload for local development)
 * **Data Validation:** Pydantic v2 (strict type checking and response schema serialization)
 * **Authentication:** Firebase Admin SDK Python (cryptographic verification of ID tokens, revocation checking)
-* **Speech Processing:** `gTTS` (Google Text-to-Speech), `python-multipart` (audio file uploads), `aiofiles`
-* **Speech-to-Text (planned):** Fine-tune a pretrained speech model on domain-specific audio/transcript pairs and serve it from the backend.
+* **Speech Processing:** `faster-whisper` and PyAV for CPU transcription of raw WAV request bodies; no multipart upload or TTS dependency is currently needed.
+* **Speech-to-Text Training (planned):** Fine-tune a pretrained speech model on domain-specific audio/transcript pairs and compare it with the current pretrained baseline.
 
 ### Developer Tooling & Quality Assurance
 * **Testing:** `pytest`, `pytest-asyncio`, `httpx` (FastAPI TestClient integration tests)
@@ -522,11 +522,16 @@ npm.cmd run dev:frontend
 
 ### Running Automated Checks
 
-To run all project checks (Python linting, backend tests, frontend linting, and production build) in a single command:
+To run all project checks (Python linting, backend tests, frontend linting, audio and React tests, and production build) in a single command:
 
 ```powershell
 npm.cmd run check
 ```
+
+`npm.cmd run test:frontend` runs both audio utility tests and React interaction tests.
+`npm.cmd --prefix frontend run check` runs frontend lint, both test suites, and the
+production build. GitHub Actions runs these tests as well as lint/build using Node 22.
+To target a React test file, use `npm.cmd --prefix frontend run test:ui -- tests/frontend/<file>.test.jsx`.
 
 ---
 
@@ -544,5 +549,5 @@ npm.cmd run check
 | **Live Transcription** | Planned | Periodic audio processing and provisional text updates while speaking |
 | **Domain-Specific STT Training** | Planned | Prepare paired parenting-domain audio and transcripts, fine-tune a pretrained model, and evaluate transcription accuracy on held-out speakers |
 | **AI Coaching Engine** | Planned | Model selection and domain-specific coaching implementation |
-| **Text-to-Speech Output** | In Progress | Audio speech synthesis (`gTTS`) playing spoken advice in browser |
+| **Text-to-Speech Output** | Planned | Select and integrate an engine to speak generated answers |
 | **Conversation History & Feedback** | Planned | Private history retrieval and caregiver feedback logging |
