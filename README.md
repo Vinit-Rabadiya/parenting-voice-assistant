@@ -47,6 +47,95 @@ Standard search engines and generic chatbots often return long, dense articles t
 
 ## Key Features
 
+### Available now: English speech-to-text (version 1)
+
+The landing page links to login/signup and, after sign-in, microphone controls.
+Record up to **30 seconds**, press **Stop and transcribe**, and review or edit the
+returned text. The backend requires a verified email and completed TOTP login.
+Transcription uses pretrained **Whisper `tiny.en`**, through faster-whisper on CPU
+with INT8. It does not train on recordings or edits and requires no paid speech API.
+
+This version transcribes **after Stop**, not while speaking. Recognition substitutions
+were observed on real caregiver questions. Model comparison and accuracy improvements
+are deferred to version 2; neither industry-standard accuracy nor live latency has
+been established. Audio and transcripts are not deliberately saved by the application.
+
+#### Start speech transcription locally (Windows)
+
+After completing the Firebase setup below, install dependencies from the project root:
+
+```powershell
+.\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+npm.cmd --prefix frontend ci --include=optional
+```
+
+Run the backend in one terminal and leave it running:
+
+```powershell
+.\venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```
+
+Wait for **Application startup complete**. Startup loads the model once per server
+process; the first load downloads weights to the default Hugging Face cache outside
+the repository. Cached model inference is local; Firebase still requires internet.
+Use one Uvicorn worker to avoid duplicating model memory.
+
+In another terminal, run:
+
+```powershell
+npm.cmd run dev:frontend
+```
+
+Open **http://localhost:5173**, sign in and complete email/MFA setup in **My Account**,
+then return home. Click **Start recording**, wait for **Recording…**, speak, and stop.
+Both servers must stay running. If Vite reports `ECONNREFUSED 127.0.0.1:8000` or a
+502/unreadable response, check that the backend has finished starting on port 8000.
+
+Use a current Chrome, Edge, Firefox, or Safari version supporting AudioWorklet and
+OfflineAudioContext. Microphone access requires localhost or HTTPS. If permission
+is blocked, set Microphone to Allow in the browser's site settings and reload.
+Start again replaces the previous transcript. Cancel stops the browser waiting for
+transcription; server inference already running may still finish. Retry is manual.
+Transcription requests time out after 60 seconds. Edits stay in page memory and are
+not submitted to RAG. There are no playback, download, or confirmation requirements.
+
+`STT_MODEL` in the root `.env` selects the model (default `tiny.en`). Restart the
+backend after changing it. Larger models require more resources. Model changes do
+not require retraining; domain fine-tuning is a separate future experiment.
+
+#### API and deployment
+
+`POST /speech/transcribe` (also `/api/v1/speech/transcribe`) accepts a raw `audio/wav`
+body with a Firebase Bearer token: mono, PCM16, 16000 Hz, longer than zero and at most
+30 seconds. Body limit: **964096 bytes**, including header. It returns `text`,
+`audio_seconds`, and `processing_seconds`. Requests are authenticated and inference
+is limited to one at a time per server process; additional inference requests receive
+429. Audio validation, unsupported format, and service failures return explicit errors.
+
+The frontend calls `/api/speech/transcribe`. Vite removes `/api` and forwards to
+`http://127.0.0.1:8000` during development. A deployed frontend needs an HTTPS,
+same-origin reverse proxy implementing the same mapping (or a deliberately updated
+API client); the development proxy is not part of the built static files.
+
+#### Verification and limitations
+
+Run `npm.cmd run check` for backend tests, frontend lint, audio utility tests, React
+interaction tests, and the production build. Automated browser-resource tests use
+simulated devices; they do not replace manual microphone checks.
+
+User-reported checks passed for speech submission, silence, transcript editing,
+automatic stop, restart, logout cleanup, and request cancellation. On one reported
+recording, 4.18 seconds of audio took 1.33 seconds of server processing and roughly
+3 seconds from Stop to displayed text. The sentence "my baby is crying what should
+I do what are the suggestions" was misrecognized as "I may be scrying what you like,
+what I was suggestions." These observations establish connectivity and illustrate
+a known accuracy limitation, not a benchmark. Browser/OS details and timing method
+should accompany any future quantitative evaluation.
+
+The final responsive landing layout still needs a real-browser visual check on
+narrow and wide screens. Full device/browser coverage and live transcription remain
+future work.
+
 * **Multi-Modal Input (Voice & Text):** Speak via microphone or type questions in text.
 * **Dual Output (Audio & Text):** Responses are displayed on-screen and converted into natural speech output.
 * **Child Profile Context:** Answers adapt to the child's age in months and current developmental milestones.
@@ -451,7 +540,8 @@ npm.cmd run check
 | **Backend Authentication Enforcement** | Done | FastAPI verifies ID token, revocation, email confirmation, and TOTP on `/me` |
 | **Automated Testing & CI Pipeline** | Done | Pytest test suite, Ruff linter, ESLint, Husky pre-push hooks, and GitHub Actions CI |
 | **Child Profiles Management** | Next | Create, update, and select child profiles (birth date, developmental stage) |
-| **Voice Input Pipeline** | Planned | Live microphone UI connected to a locally served, domain-fine-tuned speech model |
+| **Voice Input Pipeline** | Implemented (v1) | Authenticated browser recording, pretrained local Whisper transcription after Stop, and editable text; accuracy limitations documented |
+| **Live Transcription** | Planned | Periodic audio processing and provisional text updates while speaking |
 | **Domain-Specific STT Training** | Planned | Prepare paired parenting-domain audio and transcripts, fine-tune a pretrained model, and evaluate transcription accuracy on held-out speakers |
 | **AI Coaching Engine** | Planned | Model selection and domain-specific coaching implementation |
 | **Text-to-Speech Output** | In Progress | Audio speech synthesis (`gTTS`) playing spoken advice in browser |
