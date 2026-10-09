@@ -9,9 +9,8 @@ const makeRecording = () => ({ wavBlob: new Blob(["audio"], { type: "audio/wav" 
 const response = (text) => ({ text, audio_seconds: 1, processing_seconds: 0.3 });
 const deferred = () => {
   let resolve;
-  let reject;
-  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
-  return { promise, resolve, reject };
+  const promise = new Promise((yes) => { resolve = yes; });
+  return { promise, resolve };
 };
 
 beforeEach(() => { transcribeAudio.mockReset(); });

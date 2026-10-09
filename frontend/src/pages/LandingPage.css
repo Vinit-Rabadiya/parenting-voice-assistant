@@ -5,16 +5,6 @@ main.landing-shell {
 }
 
 .landing-page { display: grid; gap: 32px; min-width: 0; }
-.landing-page .site-navbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  text-align: left;
-}
-.landing-page .site-brand { font-size: 16px; font-weight: 700; color: var(--text-h); }
-.landing-page nav { display: flex; flex-wrap: wrap; gap: 8px; }
 .landing-page .landing-intro { gap: 18px; padding: 20px 0; align-items: center; }
 .landing-page .landing-intro h1 { font-size: clamp(30px, 6vw, 48px); line-height: 1.15; }
 .landing-page .landing-intro > p { max-width: 560px; }
@@ -35,6 +25,5 @@ main.landing-shell {
 
 @media (max-width: 520px) {
   main.landing-shell { width: calc(100% - 16px); margin: 12px auto; padding: 20px 16px; }
-  .landing-page .site-navbar { justify-content: center; text-align: center; }
   .landing-page .landing-voice { padding: 16px; }
 }

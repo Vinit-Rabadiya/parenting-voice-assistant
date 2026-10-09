@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "vitest run --config vitest.config.js",
+    "test": "npm run test:audio && npm run test:ui",
+    "test:audio": "node --test ../tests/frontend/audio.test.mjs",
+    "test:ui": "vitest run --config vitest.config.js",
     "preview": "vite preview",
-    "check": "npm run lint && npm run build"
+    "check": "npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "firebase": "^12.19.0",

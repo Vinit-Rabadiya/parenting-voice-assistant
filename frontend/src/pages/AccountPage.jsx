@@ -2,15 +2,15 @@
 // it is imported in App.jsx and rendered whenever an authenticated user is signed in.
 import { useState, useEffect } from "react";
 import { resendVerificationEmail } from "../services/auth";
-import { getCurrentAccount } from "../services/api";
+import { useAuth } from "../hooks/useAuth";
 import {
-  logOut,
   beginTotpEnrollment,
   confirmTotpEnrollment,
   getAccountSecurityStatus,
 } from "../services/auth";
 import QRCode from "qrcode";
-function AccountPage({ verificationEmailRequested, email }) {
+function AccountPage({ verificationEmailRequested, email, accountAccess }) {
+  const { logout } = useAuth();
   // remember this screen's progress, messages, and account setup details.
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -132,7 +132,7 @@ function AccountPage({ verificationEmailRequested, email }) {
     setMessage("");
 
     try {
-      await logOut();
+      await logout();
     } catch {
       setMessage("Couldn't log out. Please try again");
     } finally {
@@ -205,34 +205,21 @@ function AccountPage({ verificationEmailRequested, email }) {
     return <p role="status">Checking email verification…</p>;
   }
 
-  // test whether the backend accepts this login, regardless of what this page displays.
-  async function handleBackendCheck() {
-    if (busy) return;
-    setBusy(true);
-    setMessage("");
-
-    try {
-      await getCurrentAccount();
-      setMessage("Backend accepted your verified MFA login.");
-    } catch (error) {
-      setMessage(error.message || "Couldn’t reach the backend.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <section>
-      <h1>Verify your email.</h1>
+      <h1>{emailVerified ? "Your account" : "Verify your email"}</h1>
       <p>Account Email: {email}</p>
+      {accountAccess && <p role="status">
+        {accountAccess.checking ? "Checking verification…" : accountAccess.verified ? "Verified" : accountAccess.error}
+      </p>}
       {emailVerified ? (
         <div>
-          <p>Email verified.</p>
+          {!accountAccess?.verified && <p>Email verified.</p>}
 
           {/* show the saved authenticator status, the setup form, or the setup button. */}
           {enrollmentComplete ? (
             <p>
-              Authenticator enrollment completed. Log out and test MFA login.
+               {accountAccess?.verified ? "Authenticator enabled." : "Authenticator enrolled. Log out and sign in with your authenticator code to complete verification."}
             </p>
           ) : pendingEnrollment ? (
             <form onSubmit={handleConfirmEnrollment}>
@@ -335,9 +322,6 @@ function AccountPage({ verificationEmailRequested, email }) {
       {/* allow logout whether or not the email is verified. */}
       <button type="button" disabled={busy} onClick={handleLogOut}>
         Log Out
-      </button>
-      <button type="button" disabled={busy} onClick={handleBackendCheck}>
-        Check backend access
       </button>
     </section>
   );

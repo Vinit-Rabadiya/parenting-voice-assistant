@@ -12,7 +12,7 @@
     "dev:frontend": "npm --prefix frontend run dev",
     "test": "node scripts/check.mjs",
     "test:backend": "pytest",
-    "test:frontend": "npm --prefix frontend run lint",
+    "test:frontend": "npm --prefix frontend run test",
     "lint": "node scripts/check.mjs",
     "lint:backend": "ruff check .",
     "lint:frontend": "npm --prefix frontend run lint",

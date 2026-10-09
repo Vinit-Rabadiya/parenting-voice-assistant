@@ -1,0 +1,31 @@
+/* keep identity and account navigation in the page header on every screen. */
+.site-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.site-navbar .site-brand {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.site-navbar nav { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
+.navbar-identity { display: grid; gap: 2px; }
+.navbar-name { font-size: 14px; color: var(--text-h); overflow-wrap: anywhere; }
+.navbar-verification { font-size: 12px; color: var(--text); }
+.navbar-verification.is-verified { color: #16804a; font-weight: 600; }
+.site-navbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.account-access-message { margin-bottom: 16px; }
+@media (max-width: 520px) {
+  .site-navbar { padding: 16px; }
+  .site-navbar nav { width: 100%; justify-content: space-between; }
+  .navbar-identity { min-width: 0; flex: 1; }
+}

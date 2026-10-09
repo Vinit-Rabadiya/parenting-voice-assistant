@@ -1,12 +1,20 @@
-export function Navbar({ isAuthenticated, onLogin, onSignup, onAccount }) {
+import "./Navbar.css";
+
+export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, onSignup, onAccount, onHome }) {
   return (
     <header className="site-navbar">
-      <span className="site-brand">Parenting Voice Assistant</span>
+      <button type="button" className="site-brand" onClick={onHome}>Parenting Voice Assistant</button>
       <nav aria-label="Account">
         {isAuthenticated ? (
-          <button type="button" onClick={onAccount}>
-            My Account
-          </button>
+          <>
+            <div className="navbar-identity">
+              <span className="navbar-name">{displayName || "Your account"}</span>
+              <span className={`navbar-verification${accountAccess?.verified ? " is-verified" : ""}`}>
+                {accountAccess?.checking ? "Checking verification…" : accountAccess?.verified ? "Verified" : "Verification required"}
+              </span>
+            </div>
+            <button type="button" onClick={onAccount}>My Account</button>
+          </>
         ) : (
           <>
             <button type="button" onClick={onLogin}>
