@@ -6,9 +6,9 @@ import SignUpForm from "../components/SignUpForm";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import { completeTotpSignIn } from "../services/auth";
 
-function AuthPage({ onAccountCreated }) {
+function AuthPage({ onAccountCreated, initialMode = "login" }) {
   // choose login or signup here; each form calls the shared firebase functions.
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState(initialMode);
   // remember the unfinished login while waiting for an authenticator code.
   const [mfaResolver, setMfaResolver] = useState(null);
   const [code, setCode] = useState("");
