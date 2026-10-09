@@ -1,24 +1,40 @@
-// this is the root view component that switches between the account page and the auth page.
+// choose the landing, authentication, or account screen.
 // it is imported in main.jsx and rendered into the root element of index.html.
 import "./App.css";
+import { useState } from "react";
 import { AuthProvider } from "./context/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
 import AccountPage from "./pages/AccountPage";
 import AuthPage from "./pages/AuthPage";
-import MicrophoneControls from "./components/MicrophoneControls";
+import LandingPage from "./pages/LandingPage";
 
 function MainContent() {
   const { user, checkingAuth, signupResult, setSignupResult } = useAuth();
+  const [screen, setScreen] = useState("home");
 
   // wait for firebase to finish checking who is signed in.
   if (checkingAuth) {
     return <p>Checking sign-in...</p>;
   }
-
+  if (screen === "home") {
+    return (
+      <main className="landing-shell">
+        <LandingPage
+          isAuthenticated={Boolean(user)}
+          userId={user?.uid}
+          onLogin={() => setScreen("login")}
+          onSignup={() => setScreen("signup")}
+          onAccount={() => setScreen("account")}
+        />
+      </main>
+    );
+  }
   return (
     <main>
+      <button type="button" onClick={() => setScreen("home")}>
+        Back to home
+      </button>
       <h1>Parenting Voice Assistant</h1>
-      {user && <MicrophoneControls key={`microphone-${user.uid}`} />}
       {/* show account page if signed in, otherwise show auth page. */}
       {user ? (
         <AccountPage
@@ -33,7 +49,11 @@ function MainContent() {
           }
         />
       ) : (
-        <AuthPage onAccountCreated={setSignupResult} />
+        <AuthPage
+          onAccountCreated={setSignupResult}
+          key={screen}
+          initialMode={screen === "signup" ? "signup" : "login"}
+        />
       )}
     </main>
   );

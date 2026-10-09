@@ -1,0 +1,40 @@
+/* scope the wider layout to the landing screen, preserving the existing forms. */
+main.landing-shell {
+  max-width: 860px;
+  width: calc(100% - 32px);
+}
+
+.landing-page { display: grid; gap: 32px; min-width: 0; }
+.landing-page .site-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  text-align: left;
+}
+.landing-page .site-brand { font-size: 16px; font-weight: 700; color: var(--text-h); }
+.landing-page nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.landing-page .landing-intro { gap: 18px; padding: 20px 0; align-items: center; }
+.landing-page .landing-intro h1 { font-size: clamp(30px, 6vw, 48px); line-height: 1.15; }
+.landing-page .landing-intro > p { max-width: 560px; }
+.landing-page .landing-eyebrow { font-size: 12px; letter-spacing: 0.12em; color: var(--accent); }
+.landing-page .landing-voice {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--social-bg);
+}
+.landing-page .landing-sign-in { align-items: center; }
+.landing-page .landing-sign-in svg { color: var(--accent); }
+.landing-page .landing-account-note { margin-bottom: 20px; font-size: 13px; }
+.landing-page button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.landing-page button { white-space: normal; }
+
+@media (max-width: 520px) {
+  main.landing-shell { width: calc(100% - 16px); margin: 12px auto; padding: 20px 16px; }
+  .landing-page .site-navbar { justify-content: center; text-align: center; }
+  .landing-page .landing-voice { padding: 16px; }
+}
