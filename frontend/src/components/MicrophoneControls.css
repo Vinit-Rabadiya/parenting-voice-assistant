@@ -1,0 +1,28 @@
+.microphone-controls textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 160px;
+  padding: 12px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.microphone-controls textarea:focus-visible,
+.microphone-controls button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.microphone-controls textarea:read-only {
+  opacity: 0.75;
+}
+
+.microphone-controls [role="alert"] {
+  text-align: left;
+}
