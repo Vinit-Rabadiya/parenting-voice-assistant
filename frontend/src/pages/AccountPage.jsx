@@ -3,14 +3,15 @@
 import { useState, useEffect } from "react";
 import { resendVerificationEmail } from "../services/auth";
 import { getCurrentAccount } from "../services/api";
+import { useAuth } from "../hooks/useAuth";
 import {
-  logOut,
   beginTotpEnrollment,
   confirmTotpEnrollment,
   getAccountSecurityStatus,
 } from "../services/auth";
 import QRCode from "qrcode";
 function AccountPage({ verificationEmailRequested, email }) {
+  const { logout } = useAuth();
   // remember this screen's progress, messages, and account setup details.
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -132,7 +133,7 @@ function AccountPage({ verificationEmailRequested, email }) {
     setMessage("");
 
     try {
-      await logOut();
+      await logout();
     } catch {
       setMessage("Couldn't log out. Please try again");
     } finally {

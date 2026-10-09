@@ -1,0 +1,72 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { AuthProvider } from "../../frontend/src/context/AuthProvider";
+import { useAuth } from "../../frontend/src/hooks/useAuth";
+import AccountPage from "../../frontend/src/pages/AccountPage";
+
+const { user, logOut, unsubscribe } = vi.hoisted(() => ({
+  user: { uid: "caregiver", email: "caregiver@example.test" },
+  logOut: vi.fn(),
+  unsubscribe: vi.fn(),
+}));
+
+vi.mock("../../frontend/src/services/firebase", () => ({
+  auth: { onAuthStateChanged: (callback) => { callback(user); return unsubscribe; } },
+}));
+vi.mock("../../frontend/src/services/api", () => ({ getCurrentAccount: vi.fn() }));
+vi.mock("../../frontend/src/services/auth", () => ({
+  logOut,
+  getAccountSecurityStatus: async () => ({ emailVerified: true, totpEnrolled: true }),
+  resendVerificationEmail: vi.fn(),
+  beginTotpEnrollment: vi.fn(),
+  confirmTotpEnrollment: vi.fn(),
+}));
+
+// expose provider state while using the real account page logout button.
+function AccountHarness() {
+  const account = useAuth();
+  return (
+    <>
+      <button onClick={() => account.setSignupResult({ user, verificationEmailRequested: true })}>
+        Set signup result
+      </button>
+      <p data-testid="account-state">{account.user?.uid ?? "signed out"}</p>
+      <p data-testid="signup-state">{account.signupResult ? "present" : "cleared"}</p>
+      {account.user && <AccountPage email={account.user.email} />}
+    </>
+  );
+}
+
+beforeEach(() => {
+  logOut.mockReset();
+  logOut.mockResolvedValue(undefined);
+});
+afterEach(() => cleanup());
+
+// the page uses provider logout so account and signup state are cleared together.
+it("clears account state and onboarding data after successful logout", async () => {
+  const { unmount } = render(<AuthProvider><AccountHarness /></AuthProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Set signup result" }));
+  expect(screen.getByTestId("signup-state").textContent).toBe("present");
+  fireEvent.click(await screen.findByRole("button", { name: "Log Out" }));
+  await waitFor(() => expect(screen.getByTestId("account-state").textContent).toBe("signed out"));
+  expect(screen.getByTestId("signup-state").textContent).toBe("cleared");
+  expect(logOut).toHaveBeenCalledOnce();
+  unmount();
+  expect(unsubscribe).toHaveBeenCalledOnce();
+});
+
+// a failed logout leaves the current account intact and allows retry.
+it("preserves state on logout failure and clears it after retry", async () => {
+  logOut.mockRejectedValueOnce(new Error("sign out failed"));
+  render(<AuthProvider><AccountHarness /></AuthProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Set signup result" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Log Out" }));
+  await screen.findByText("Couldn't log out. Please try again");
+  expect(screen.getByTestId("account-state").textContent).toBe("caregiver");
+  expect(screen.getByTestId("signup-state").textContent).toBe("present");
+  fireEvent.click(screen.getByRole("button", { name: "Log Out" }));
+  await waitFor(() => expect(screen.getByTestId("account-state").textContent).toBe("signed out"));
+  expect(screen.getByTestId("signup-state").textContent).toBe("cleared");
+  expect(logOut).toHaveBeenCalledTimes(2);
+});
