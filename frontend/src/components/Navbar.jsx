@@ -1,7 +1,7 @@
 export function Navbar({ isAuthenticated, onLogin, onSignup, onAccount }) {
   return (
-    <header>
-      <span>Parenting Voice Assistant</span>
+    <header className="site-navbar">
+      <span className="site-brand">Parenting Voice Assistant</span>
       <nav aria-label="Account">
         {isAuthenticated ? (
           <button type="button" onClick={onAccount}>

@@ -1,4 +1,4 @@
-// this is the root view component that switches between the account page and the auth page.
+// choose the landing, authentication, or account screen.
 // it is imported in main.jsx and rendered into the root element of index.html.
 import "./App.css";
 import { useState } from "react";
@@ -6,7 +6,6 @@ import { AuthProvider } from "./context/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
 import AccountPage from "./pages/AccountPage";
 import AuthPage from "./pages/AuthPage";
-import MicrophoneControls from "./components/MicrophoneControls";
 import LandingPage from "./pages/LandingPage";
 
 function MainContent() {
@@ -19,14 +18,14 @@ function MainContent() {
   }
   if (screen === "home") {
     return (
-      <main>
+      <main className="landing-shell">
         <LandingPage
           isAuthenticated={Boolean(user)}
+          userId={user?.uid}
           onLogin={() => setScreen("login")}
           onSignup={() => setScreen("signup")}
           onAccount={() => setScreen("account")}
         />
-        {user && <MicrophoneControls key={`microphone-${user.uid}`} />}
       </main>
     );
   }
