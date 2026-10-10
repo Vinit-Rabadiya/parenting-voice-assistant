@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "review_basis": "Agent editorial comparison of extracted plain/layout text; CCD page 2 also compared to rendered PDF. Not ECD expert validation.",
+  "scope": "Birth through age 24 months; preserve source ranges separately. A source starting at 24 months must never match a younger child.",
+  "ccd_page_2": true,
+  "reach_up": [
+    {"page": 37, "age": [0, 6], "start": "Chat with baby", "end": "Loving and hugging baby", "topic": "communication", "routines": ["feeding", "bathing", "changing"]},
+    {"page": 38, "age": [0, 6], "start": "Have a conversation with baby", "end": "Encourage baby to hold", "topic": "communication", "routines": ["play"]},
+    {"page": 39, "age": [0, 6], "start": "Look at a book with baby", "end": null, "topic": "communication", "routines": ["reading"]},
+    {"page": 40, "age": [6, 9], "start": "Repeat sounds baby makes", "end": "Play with Ball", "topic": "communication", "routines": ["play"]},
+    {"page": 40, "age": [6, 9], "start": "Talk with baby at bath time", "end": null, "topic": "communication", "routines": ["bathing"]},
+    {"page": 41, "age": [6, 9], "start": "Talk with baby during feeding time", "end": "Play Peek-a-boo with baby", "topic": "communication", "routines": ["feeding"]},
+    {"page": 41, "age": [6, 9], "start": "Talk with baby while dressing baby", "end": "Make Bottle to roll", "topic": "communication", "routines": ["dressing"]},
+    {"page": 42, "age": [9, 12], "start": "Use action words", "end": "Make object to dangle", "topic": "communication", "routines": ["play"]},
+    {"page": 42, "age": [9, 12], "start": "Talk about names of people", "end": "Toy or object and cloth", "topic": "communication", "routines": []},
+    {"page": 43, "age": [9, 12], "start": "Take a walk around the house with baby", "end": "Clear plastic bottle", "topic": "communication", "routines": ["walking"]},
+    {"page": 43, "age": [9, 12], "start": "Talk with baby while doing housework", "end": "3 objects to stack", "topic": "communication", "routines": ["housework"]},
+    {"page": 44, "age": [12, 15], "start": "Talk with baby during bath time", "end": "3 objects to stack", "topic": "communication", "routines": ["bathing"]},
+    {"page": 44, "age": [12, 15], "start": "Talk to baby while dressing baby", "end": "Make a drum", "topic": "communication", "routines": ["dressing"]},
+    {"page": 45, "age": [12, 15], "start": "Look at a book with baby", "end": "Doll/soft toy", "topic": "communication", "routines": ["reading"]},
+    {"page": 46, "age": [15, 18], "start": "Talk to baby during feeding time", "end": null, "topic": "communication", "routines": ["feeding"]},
+    {"page": 47, "age": [15, 18], "start": "Ask child to follow simple directions", "end": "4 objects and plastic container", "topic": "communication", "routines": ["play"]},
+    {"page": 48, "age": [18, 21], "start": "Naming things", "end": "Make a puzzle", "topic": "communication", "routines": ["play"]},
+    {"page": 49, "age": [18, 21], "start": "Pretend to be animals", "end": "Make sock doll and car", "topic": "pretend_play", "routines": ["play"]},
+    {"page": 50, "age": [21, 24], "start": "Respond to child", "end": "Sorting and matching", "topic": "communication", "routines": []},
+    {"page": 51, "age": [21, 24], "start": "Help baby name clothes", "end": "Crayon/pencil and paper", "topic": "communication", "routines": ["dressing"]},
+    {"page": 52, "age": [24, 27], "start": "Look at picture with baby", "end": "3 sizes", "topic": "communication", "routines": ["reading"]}
+  ]
+}
