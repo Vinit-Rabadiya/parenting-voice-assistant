@@ -59,6 +59,13 @@ extracted pages + data/passage-selections.json
 Raw PDFs, raw datasets, extracted text, and generated passages stay git-ignored. Metadata,
 selection rules, scripts, and documentation are versionable. No download happens in either script.
 
+## From passages to vector retrieval
+
+The next stage will encode passage text into numerical vectors using an embedding model.
+The vector store will keep each vector alongside its passage text and metadata. Age fields
+support eligibility filters; source IDs and page numbers support citations. Similarity alone
+does not enforce age suitability. The embedding model and vector database are not yet selected.
+
 ## Age semantics
 
 Source age ranges and project scope are separate. Retrieval must intersect both.
