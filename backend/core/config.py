@@ -20,6 +20,10 @@ class Settings:
 
     STT_MODEL: str = os.getenv("STT_MODEL", "tiny.en")
 
+    # read the qdrant connection values loaded from the root .env.
+    QDRANT_URL: str | None = os.getenv("QDRANT_URL")
+    QDRANT_API_KEY: str | None = os.getenv("QDRANT_API_KEY")
+
     FIREBASE_PROJECT_ID: str | None = os.getenv("FIREBASE_PROJECT_ID")
 
     @property
