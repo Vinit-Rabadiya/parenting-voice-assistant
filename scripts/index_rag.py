@@ -32,9 +32,10 @@ def load_passages(path: Path) -> list[dict]:
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError(f"Line {line_number} requires a nonempty {field}.")
 
-            # include the input line number when reporting invalid citation metadata.
+            # include the input line number when reporting invalid source or age metadata.
             try:
                 validate_source_metadata(passage)
+                validate_age_metadata(passage)
             except ValueError as exc:
                 raise ValueError(f"Line {line_number}: {exc}") from None
 
@@ -64,6 +65,64 @@ def validate_source_metadata(passage: dict) -> None:
     page = passage.get("pdf_page")
     if type(page) is not int or page < 1:
         raise ValueError("pdf_page must be a positive integer.")
+
+
+def validate_age_metadata(passage: dict) -> None:
+    # source_age describes the ages assigned to this activity by its document.
+    age = passage.get("source_age")
+    if not isinstance(age, dict):
+        raise ValueError("source_age must be an object.")
+
+    label = age.get("label")
+    if not isinstance(label, str) or not label.strip():
+        raise ValueError("source_age.label must be nonempty text.")
+
+    # identify the boundary format without treating the readable label as a boundary.
+    boundaries = set(age) - {"label"}
+    supported = (
+        {"min_months", "max_months_exclusive"},
+        {"min_days", "max_days_exclusive"},
+        {"min_days", "max_months_exclusive"},
+    )
+    if boundaries not in supported:
+        raise ValueError("source_age uses an unsupported boundary format.")
+
+    # exact integer checks reject booleans, decimal numbers, and numeric strings.
+    for field in boundaries:
+        value = age[field]
+
+        # a null upper bound means the source range is open-ended.
+        if field.startswith("max_") and value is None:
+            continue
+
+        if type(value) is not int or value < 0:
+            raise ValueError(f"source_age.{field} must be a non-negative integer.")
+
+    # compare bounds directly only when both use the same unit.
+    for unit in ("days", "months"):
+        lower = age.get(f"min_{unit}")
+        upper = age.get(f"max_{unit}_exclusive")
+
+        if lower is not None and upper is not None and upper <= lower:
+            raise ValueError(f"source_age upper {unit} must exceed lower {unit}.")
+
+    # the current mixed-unit format represents the reviewed one-week-to-six-month band.
+    if boundaries == {"min_days", "max_months_exclusive"}:
+        if age["min_days"] != 7 or age["max_months_exclusive"] != 6:
+            raise ValueError("The supported mixed-unit range is 7 days to under 6 months.")
+
+    # project_scope limits our application independently of the document's age range.
+    scope = passage.get("project_scope")
+    if not isinstance(scope, dict):
+        raise ValueError("project_scope must be an object.")
+
+    expected_scope = {"min_months": 0, "max_months_inclusive": 24}
+    if set(scope) != set(expected_scope):
+        raise ValueError("project_scope must define the project's month boundaries.")
+
+    for field, expected in expected_scope.items():
+        if type(scope[field]) is not int or scope[field] != expected:
+            raise ValueError(f"project_scope.{field} must be {expected}.")
 
 
 def build_point(passage: dict) -> PointStruct:
