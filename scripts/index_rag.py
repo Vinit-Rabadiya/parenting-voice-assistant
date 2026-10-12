@@ -146,6 +146,64 @@ def validate_routine_metadata(passage: dict) -> None:
         raise ValueError("Routine labels must not repeat.")
 
 
+def validate_source_references(passages: list[dict], manifest_path: Path) -> None:
+    # the manifest is our versioned inventory of documents, page counts, and file fingerprints.
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict) or type(manifest.get("schema_version")) is not int:
+        raise ValueError("Source manifest must be an object with an integer schema_version.")
+    if manifest["schema_version"] != 1:
+        raise ValueError("Unsupported source manifest version.")
+    entries = manifest.get("sources")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("Source manifest must contain a nonempty sources list.")
+
+    # build a lookup once so every passage can find its source without rereading the file.
+    sources = {}
+    for position, source in enumerate(entries, start=1):
+        if not isinstance(source, dict):
+            raise ValueError(f"Manifest source {position} must be an object.")
+        for field in ("source_id", "title", "source_url", "sha256"):
+            value = source.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"Manifest source {position} requires nonempty {field}.")
+
+        # sha256 is a 64-character hexadecimal fingerprint, not proof of factual accuracy.
+        digest = source["sha256"]
+        if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+            raise ValueError(f"Manifest source {position} has an invalid sha256 fingerprint.")
+        page_count = source.get("expected_pages")
+        if type(page_count) is not int or page_count < 1:
+            raise ValueError(f"Manifest source {position} requires a positive integer expected_pages.")
+
+        source_id = source["source_id"]
+        if source_id in sources:
+            raise ValueError(f"Duplicate source ID in manifest: {source_id}")
+        sources[source_id] = source
+
+    # these passages have already passed the individual field checks in load_passages.
+    for passage in passages:
+        passage_id = passage["passage_id"]
+        source = sources.get(passage["source_id"])
+        if source is None:
+            raise ValueError(f"Passage {passage_id} refers to an unknown source.")
+
+        # pair passage field names with their corresponding manifest field names.
+        field_pairs = (
+            ("source_title", "title"),
+            ("source_url", "source_url"),
+            ("source_sha256", "sha256"),
+        )
+        for passage_field, source_field in field_pairs:
+            if passage.get(passage_field) != source[source_field]:
+                raise ValueError(
+                    f"Passage {passage_id}: {passage_field} does not match the manifest."
+                )
+
+        # positive page numbers were checked earlier; now enforce the document's page limit.
+        if passage["pdf_page"] > source["expected_pages"]:
+            raise ValueError(f"Passage {passage_id} refers to a page beyond the source document.")
+
+
 def build_point(passage: dict) -> PointStruct:
     # a point is one qdrant record: an id, a vector, and a payload; one passage becomes one point.
     # a collection groups these points under a shared vector size and similarity metric.
@@ -178,6 +236,8 @@ def main() -> None:
 
     try:
         passages = load_passages(passages_path)
+        # cross-check the whole corpus against the source inventory before constructing points.
+        validate_source_references(passages, PROJECT_ROOT / "data/sources.json")
         # these point objects exist only in python memory until an upload stores them in qdrant.
         points = [build_point(passage) for passage in passages]
     except (OSError, ValueError) as exc:

@@ -6,7 +6,9 @@ from pypdf import PdfWriter
 
 from scripts.build_rag_passages import ROOT, build_passages, normalize, select_span
 from scripts.prepare_rag_data import extract_sources
-from scripts.index_rag import build_point, load_passages, validate_age_metadata
+from scripts.index_rag import (
+    build_point, load_passages, validate_age_metadata, validate_source_references,
+)
 
 
 def write_json(path, data):
@@ -291,3 +293,92 @@ def test_index_loader_reports_invalid_routines_with_line_number(tmp_path, routin
     path.write_text("\n" + json.dumps(passage), encoding="utf-8")
     with pytest.raises(ValueError, match=f"Line 2: {message}"):
         load_passages(path)
+
+
+@pytest.fixture
+def source_reference_case(tmp_path):
+    # use a local manifest so citation tests do not need the original pdfs or cloud access.
+    source = {
+        "source_id": "reference", "title": "Reference activities",
+        "source_url": "https://example.org/reference", "sha256": "a" * 64,
+        "expected_pages": 4,
+    }
+    manifest = {"schema_version": 1, "sources": [source]}
+    path = tmp_path / "sources.json"
+    write_json(path, manifest)
+    passage = {
+        "passage_id": "activity", "source_id": source["source_id"],
+        "source_title": source["title"], "source_url": source["source_url"],
+        "source_sha256": source["sha256"], "pdf_page": 4,
+    }
+    return path, manifest, passage
+
+
+def test_source_references_accept_last_page_without_changing_passage(source_reference_case):
+    path, _, passage = source_reference_case
+    original = passage.copy()
+    validate_source_references([passage], path)
+    assert passage == original
+
+
+@pytest.mark.parametrize("field,value,message", [
+    ("source_id", "unknown", "unknown source"),
+    ("source_title", "Wrong title", "source_title does not match"),
+    ("source_url", "https://example.org/other", "source_url does not match"),
+    ("source_sha256", "b" * 64, "source_sha256 does not match"),
+    ("source_sha256", None, "source_sha256 does not match"),
+    ("pdf_page", 5, "beyond the source document"),
+])
+def test_source_references_reject_inconsistent_passage(source_reference_case, field, value, message):
+    path, _, passage = source_reference_case
+    if value is None:
+        passage.pop(field)
+    else:
+        passage[field] = value
+    with pytest.raises(ValueError, match=f"Passage activity.*{message}"):
+        validate_source_references([passage], path)
+
+
+@pytest.mark.parametrize("manifest", [
+    [],
+    {"schema_version": True, "sources": []},
+    {"schema_version": 2, "sources": []},
+    {"schema_version": 1},
+    {"schema_version": 1, "sources": []},
+    {"schema_version": 1, "sources": [None]},
+])
+def test_source_references_reject_invalid_manifest_structure(tmp_path, manifest):
+    path = tmp_path / "sources.json"
+    write_json(path, manifest)
+    with pytest.raises(ValueError):
+        validate_source_references([], path)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("title", " "),
+    ("source_url", None),
+    ("sha256", "not-a-fingerprint"),
+    ("expected_pages", True),
+    ("expected_pages", 0),
+])
+def test_source_references_reject_invalid_manifest_entry(source_reference_case, field, value):
+    path, manifest, passage = source_reference_case
+    manifest["sources"][0][field] = value
+    write_json(path, manifest)
+    with pytest.raises(ValueError, match=field):
+        validate_source_references([passage], path)
+
+
+def test_source_references_reject_duplicate_manifest_ids(source_reference_case):
+    path, manifest, passage = source_reference_case
+    manifest["sources"].append(manifest["sources"][0].copy())
+    write_json(path, manifest)
+    with pytest.raises(ValueError, match="Duplicate source ID"):
+        validate_source_references([passage], path)
+
+
+def test_source_references_reject_malformed_manifest_json(tmp_path):
+    path = tmp_path / "sources.json"
+    path.write_text("{broken", encoding="utf-8")
+    with pytest.raises(json.JSONDecodeError):
+        validate_source_references([], path)
