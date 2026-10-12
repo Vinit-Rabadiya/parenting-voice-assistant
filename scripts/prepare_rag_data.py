@@ -55,7 +55,7 @@ def extract_sources(manifest_path: Path, raw_dir: Path, output_dir: Path) -> dic
     for source, digest, reader in inputs:
         source_dir = output_dir / source["source_id"]
         source_dir.mkdir(exist_ok=True)
-        pages = []
+        low_text_pages = []
         review_text = []
         plain_review = []
         for number, page in enumerate(reader.pages, start=1):
@@ -75,7 +75,9 @@ def extract_sources(manifest_path: Path, raw_dir: Path, output_dir: Path) -> dic
                 "page_rotation": page.rotation,
                 "layout_warning": "layout extraction can omit rotated text; compare plain text and PDF",
             }
-            pages.append(record)
+            # retain only page numbers needed by the report, not another copy of all page records.
+            if record["non_whitespace_characters"] < 40:
+                low_text_pages.append(number)
             # pad page numbers with zeroes, for example page-041.json, for predictable lookup.
             write_json(source_dir / f"page-{number:03d}.json", record)
             review_text.append(f"\n## PDF page {number}\n\n{layout_text}\n")
@@ -86,8 +88,8 @@ def extract_sources(manifest_path: Path, raw_dir: Path, output_dir: Path) -> dic
         report["sources"].append({
             **source,
             "sha256": digest,
-            "pages_extracted": len(pages),
-            "low_text_pages": [p["pdf_page"] for p in pages if p["non_whitespace_characters"] < 40],
+            "pages_extracted": len(reader.pages),
+            "low_text_pages": low_text_pages,
         })
     write_json(output_dir / "extraction-report.json", report)
     # main uses the returned report to print counts; the extracted pages are already on disk.
