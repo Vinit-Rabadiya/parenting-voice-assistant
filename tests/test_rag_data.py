@@ -129,6 +129,7 @@ def test_index_loader_rejects_invalid_corpus(tmp_path, contents, message):
 def test_index_preparation_preserves_metadata_and_stable_identity(tmp_path):
     passage = {
         "passage_id": "feeding-activity", "text": "Talk with baby • respond to sounds.",
+        "routines": ["feeding"],
         "source_id": "reference", "pdf_page": 41,
         "source_title": "Reference activities", "source_url": "https://example.org/reference",
         "source_age": {"label": "6-8 months", "min_months": 6, "max_months_exclusive": 9},
@@ -152,6 +153,7 @@ def test_index_loader_rejects_duplicate_ids_with_valid_metadata(tmp_path):
         "passage_id": "a", "text": "Talk to baby", "source_id": "reference",
         "source_title": "Reference activities", "source_url": "https://example.org/reference",
         "pdf_page": 1,
+        "routines": [],
         "source_age": {"label": "6-8 months", "min_months": 6, "max_months_exclusive": 9},
         "project_scope": {"min_months": 0, "max_months_inclusive": 24},
     }
@@ -249,3 +251,43 @@ def test_age_validation_rejects_inconsistent_project_scope(scope):
     }
     with pytest.raises(ValueError, match="project_scope"):
         validate_age_metadata(passage)
+
+
+@pytest.mark.parametrize("routines", [[], ["feeding"], ["feeding", "bathing"]])
+def test_index_loader_preserves_valid_routines(tmp_path, routines):
+    passage = {
+        "passage_id": "a", "text": "Talk to baby", "source_id": "reference",
+        "source_title": "Reference", "source_url": "https://example.org", "pdf_page": 1,
+        "source_age": {"label": "6-8 months", "min_months": 6, "max_months_exclusive": 9},
+        "project_scope": {"min_months": 0, "max_months_inclusive": 24},
+        "routines": routines,
+    }
+    path = tmp_path / "passages.jsonl"
+    path.write_text(json.dumps(passage), encoding="utf-8")
+    assert load_passages(path) == [passage]
+
+
+@pytest.mark.parametrize("routines,message", [
+    (None, "routines must be a list"),
+    ("feeding", "routines must be a list"),
+    ([None], "Each routine must be nonempty text"),
+    ([12], "Each routine must be nonempty text"),
+    ([[]], "Each routine must be nonempty text"),
+    (["  "], "Each routine must be nonempty text"),
+    (["Feeding"], "Routine labels must be lowercase"),
+    ([" feeding "], "Routine labels must be lowercase"),
+    (["feeding", "feeding"], "Routine labels must not repeat"),
+])
+def test_index_loader_reports_invalid_routines_with_line_number(tmp_path, routines, message):
+    passage = {
+        "passage_id": "a", "text": "Talk to baby", "source_id": "reference",
+        "source_title": "Reference", "source_url": "https://example.org", "pdf_page": 1,
+        "source_age": {"label": "6-8 months", "min_months": 6, "max_months_exclusive": 9},
+        "project_scope": {"min_months": 0, "max_months_inclusive": 24},
+    }
+    if routines is not None:
+        passage["routines"] = routines
+    path = tmp_path / "passages.jsonl"
+    path.write_text("\n" + json.dumps(passage), encoding="utf-8")
+    with pytest.raises(ValueError, match=f"Line 2: {message}"):
+        load_passages(path)

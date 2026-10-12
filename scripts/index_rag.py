@@ -32,10 +32,11 @@ def load_passages(path: Path) -> list[dict]:
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError(f"Line {line_number} requires a nonempty {field}.")
 
-            # include the input line number when reporting invalid source or age metadata.
+            # include the input line number when reporting invalid passage metadata.
             try:
                 validate_source_metadata(passage)
                 validate_age_metadata(passage)
+                validate_routine_metadata(passage)
             except ValueError as exc:
                 raise ValueError(f"Line {line_number}: {exc}") from None
 
@@ -123,6 +124,26 @@ def validate_age_metadata(passage: dict) -> None:
     for field, expected in expected_scope.items():
         if type(scope[field]) is not int or scope[field] != expected:
             raise ValueError(f"project_scope.{field} must be {expected}.")
+
+
+def validate_routine_metadata(passage: dict) -> None:
+    # routines are activity labels used later to filter or rank retrieved passages.
+    routines = passage.get("routines")
+    if not isinstance(routines, list):
+        raise ValueError("routines must be a list.")
+
+    # an empty list means no specific routine was annotated, not that every routine applies.
+    for routine in routines:
+        if not isinstance(routine, str) or not routine.strip():
+            raise ValueError("Each routine must be nonempty text.")
+
+        # consistent casing and spacing prevent accidental label mismatches.
+        if routine != routine.strip().lower():
+            raise ValueError("Routine labels must be lowercase without surrounding spaces.")
+
+    # a set removes duplicates; a shorter set means a label appeared more than once.
+    if len(routines) != len(set(routines)):
+        raise ValueError("Routine labels must not repeat.")
 
 
 def build_point(passage: dict) -> PointStruct:
