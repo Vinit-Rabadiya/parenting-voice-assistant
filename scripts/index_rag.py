@@ -47,6 +47,8 @@ def load_passages(path: Path) -> list[dict]:
 
 
 def build_point(passage: dict) -> PointStruct:
+    # a point is one qdrant record: an id, a vector, and a payload; one passage becomes one point.
+    # a collection groups these points under a shared vector size and similarity metric.
     # derive the same qdrant id whenever this passage is indexed again.
     point_id = str(
         uuid5(
@@ -55,13 +57,15 @@ def build_point(passage: dict) -> PointStruct:
         )
     )
 
-    # cloud inference will embed this text when the point is uploaded.
+    # an embedding is a numerical vector representing text meaning for similarity search.
+    # document holds text and model instructions, not the 384 numbers the model will generate.
+    # cloud inference generates those numbers when submitted through an inference-enabled client.
     embedding_input = Document(
         text=passage["text"],
         model="sentence-transformers/all-minilm-l6-v2",
     )
 
-    # preserve source and age metadata alongside the embedding instructions.
+    # payload is the readable text and metadata returned with a match, including age and source.
     return PointStruct(
         id=point_id,
         vector=embedding_input,
@@ -74,7 +78,7 @@ def main() -> None:
 
     try:
         passages = load_passages(passages_path)
-        # build every point before a later upload step sends anything to qdrant.
+        # these point objects exist only in python memory until an upload stores them in qdrant.
         points = [build_point(passage) for passage in passages]
     except (OSError, ValueError) as exc:
         raise SystemExit(f"Passage preparation failed: {exc}") from None
