@@ -118,8 +118,6 @@ def test_local_passages_are_reproducible_and_traceable():
     ('{"passage_id": "a", "text": " "}\n', "nonempty text"),
     ('{"passage_id": 12, "text": "Talk to baby"}\n', "nonempty passage_id"),
     ('{"passage_id": "a", "text": null}\n', "nonempty text"),
-    ('{"passage_id": "a", "text": "First"}\n'
-     '{"passage_id": "a", "text": "Second"}\n', "Duplicate passage ID on line 2"),
 ])
 def test_index_loader_rejects_invalid_corpus(tmp_path, contents, message):
     path = tmp_path / "passages.jsonl"
@@ -132,6 +130,7 @@ def test_index_preparation_preserves_metadata_and_stable_identity(tmp_path):
     passage = {
         "passage_id": "feeding-activity", "text": "Talk with baby • respond to sounds.",
         "source_id": "reference", "pdf_page": 41,
+        "source_title": "Reference activities", "source_url": "https://example.org/reference",
         "source_age": {"min_months": 6, "max_months_exclusive": 9},
     }
     path = tmp_path / "passages.jsonl"
@@ -145,3 +144,42 @@ def test_index_preparation_preserves_metadata_and_stable_identity(tmp_path):
     updated = {**passage, "text": "Updated guidance"}
     assert build_point(updated).id == point.id
     assert build_point({**passage, "passage_id": "other-activity"}).id != point.id
+
+
+def test_index_loader_rejects_duplicate_ids_with_valid_metadata(tmp_path):
+    passage = {
+        "passage_id": "a", "text": "Talk to baby", "source_id": "reference",
+        "source_title": "Reference activities", "source_url": "https://example.org/reference",
+        "pdf_page": 1,
+    }
+    path = tmp_path / "passages.jsonl"
+    path.write_text(json.dumps(passage) + "\n" + json.dumps({**passage, "text": "Other advice"}), encoding="utf-8")
+    with pytest.raises(ValueError, match="Duplicate passage ID on line 2"):
+        load_passages(path)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("source_id", None),
+    ("source_title", "  "),
+    ("source_url", 123),
+    ("pdf_page", None),
+    ("pdf_page", 0),
+    ("pdf_page", -1),
+    ("pdf_page", True),
+    ("pdf_page", 1.5),
+    ("pdf_page", "1"),
+])
+def test_index_loader_reports_invalid_source_field_and_line(tmp_path, field, value):
+    passage = {
+        "passage_id": "a", "text": "Talk to baby", "source_id": "reference",
+        "source_title": "Reference activities", "source_url": "https://example.org/reference",
+        "pdf_page": 1,
+    }
+    if value is None:
+        passage.pop(field)
+    else:
+        passage[field] = value
+    path = tmp_path / "passages.jsonl"
+    path.write_text("\n" + json.dumps(passage), encoding="utf-8")
+    with pytest.raises(ValueError, match=f"Line 2: {field}"):
+        load_passages(path)

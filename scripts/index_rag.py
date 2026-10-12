@@ -32,6 +32,12 @@ def load_passages(path: Path) -> list[dict]:
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError(f"Line {line_number} requires a nonempty {field}.")
 
+            # include the input line number when reporting invalid citation metadata.
+            try:
+                validate_source_metadata(passage)
+            except ValueError as exc:
+                raise ValueError(f"Line {line_number}: {exc}") from None
+
             # reject repeated ids before they can overwrite each other during indexing.
             passage_id = passage["passage_id"]
             if passage_id in seen_ids:
@@ -44,6 +50,20 @@ def load_passages(path: Path) -> list[dict]:
         raise ValueError("The passage file contains no records.")
 
     return passages
+
+
+def validate_source_metadata(passage: dict) -> None:
+    # metadata describes where the passage came from so results can include citations.
+    for field in ("source_id", "source_title", "source_url"):
+        value = passage.get(field)
+
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{field} must be nonempty text.")
+
+    # pdf_page is the physical page number used to locate the original passage.
+    page = passage.get("pdf_page")
+    if type(page) is not int or page < 1:
+        raise ValueError("pdf_page must be a positive integer.")
 
 
 def build_point(passage: dict) -> PointStruct:
