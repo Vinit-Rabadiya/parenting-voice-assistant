@@ -1,3 +1,5 @@
+# reads data/sources.json and local pdfs, then writes page records for build_rag_passages.py.
+# run this script before the passage builder; the two scripts exchange data through files.
 import argparse
 import hashlib
 import json
@@ -7,18 +9,22 @@ import pypdf
 from pypdf import PdfReader
 
 
+# locate the repository from this file so default paths do not depend on the terminal folder.
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def write_json(path: Path, value: object) -> None:
+    # turn a python dictionary or list into readable utf-8 json on disk.
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def extract_sources(manifest_path: Path, raw_dir: Path, output_dir: Path) -> dict:
+    # load the source inventory; each entry identifies one expected pdf.
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("schema_version") != 1:
         raise ValueError("unsupported source manifest version")
     sources = manifest["sources"]
+    # a set removes duplicates, so different lengths reveal repeated source ids.
     ids = [source["source_id"] for source in sources]
     if len(ids) != len(set(ids)):
         raise ValueError("duplicate source ids")
@@ -33,6 +39,7 @@ def extract_sources(manifest_path: Path, raw_dir: Path, output_dir: Path) -> dic
         if Path(filename).name != filename:
             raise ValueError("source filename must be a basename")
         path = raw_dir / filename
+        # compare file fingerprints before applying selections written for a specific pdf.
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         expected_hash = source.get("sha256")
         if expected_hash and digest != expected_hash:
@@ -40,6 +47,7 @@ def extract_sources(manifest_path: Path, raw_dir: Path, output_dir: Path) -> dic
         reader = PdfReader(path)
         if len(reader.pages) != source["expected_pages"]:
             raise ValueError(f"unexpected page count: {source_id}")
+        # keep metadata, fingerprint, and reader together for the extraction loop.
         inputs.append((source, digest, reader))
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -51,7 +59,9 @@ def extract_sources(manifest_path: Path, raw_dir: Path, output_dir: Path) -> dic
         review_text = []
         plain_review = []
         for number, page in enumerate(reader.pages, start=1):
+            # keep both reading orders because columns may extract differently in each mode.
             text = page.extract_text() or ""
+            # completely blank pages can lack the content stream required by layout extraction.
             layout_text = (page.extract_text(extraction_mode="layout") or "") if page.get_contents() is not None else ""
             record = {
                 "source_id": source["source_id"],
@@ -66,9 +76,11 @@ def extract_sources(manifest_path: Path, raw_dir: Path, output_dir: Path) -> dic
                 "layout_warning": "layout extraction can omit rotated text; compare plain text and PDF",
             }
             pages.append(record)
+            # pad page numbers with zeroes, for example page-041.json, for predictable lookup.
             write_json(source_dir / f"page-{number:03d}.json", record)
             review_text.append(f"\n## PDF page {number}\n\n{layout_text}\n")
             plain_review.append(f"\n## PDF page {number}\n\n{text}\n")
+        # these text copies help review; the passage builder reads page json instead.
         (source_dir / "review.txt").write_text("".join(review_text), encoding="utf-8")
         (source_dir / "plain-review.txt").write_text("".join(plain_review), encoding="utf-8")
         report["sources"].append({
@@ -78,10 +90,12 @@ def extract_sources(manifest_path: Path, raw_dir: Path, output_dir: Path) -> dic
             "low_text_pages": [p["pdf_page"] for p in pages if p["non_whitespace_characters"] < 40],
         })
     write_json(output_dir / "extraction-report.json", report)
+    # main uses the returned report to print counts; the extracted pages are already on disk.
     return report
 
 
 def main() -> None:
+    # command-line arguments can override the three default input and output paths.
     parser = argparse.ArgumentParser(description="extract local reference PDFs for RAG review")
     parser.add_argument("--manifest", type=Path, default=ROOT / "data/sources.json")
     parser.add_argument("--raw-dir", type=Path, default=ROOT / "data/raw/pdfs")
@@ -96,5 +110,6 @@ def main() -> None:
     print(f"Review files: {args.output_dir}")
 
 
+# importing functions in tests should not start a command-line extraction run.
 if __name__ == "__main__":
     main()

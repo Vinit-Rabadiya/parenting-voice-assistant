@@ -1,6 +1,8 @@
+// converts batches from the microphone hook into the wav format required by the backend.
 const TARGET_SAMPLE_RATE = 16000;
 const MAX_RECORDING_SECONDS = 30;
 
+// join the separate sample batches into one continuous array in capture order.
 export function mergeChunks(chunks) {
   let totalSamples = 0;
   for (const chunk of chunks) {
@@ -15,6 +17,7 @@ export function mergeChunks(chunks) {
   return samples;
 }
 
+// change the actual sample rate to 16000 hz before writing that rate into the wav header.
 export async function resampleAudio(samples, sourceSampleRate) {
   if (samples.length === 0) {
     throw new Error("Audio must contain at least one sample.");
@@ -32,6 +35,7 @@ export async function resampleAudio(samples, sourceSampleRate) {
     throw new Error("Audio is too short to resample.");
   }
 
+  // render into memory without playing the recording through the speakers.
   const context = new OfflineAudioContext({
     numberOfChannels: 1,
     length: outputLength,
@@ -100,10 +104,11 @@ export function encodeWav(samples) {
     view.setInt16(44 + i * 2, pcm, true);
   }
 
-  // return binary data that a future request can send directly to the backend.
+  // return binary data that services/transcription.js sends directly to the backend.
   return new Blob([buffer], { type: "audio/wav" });
 }
 
+// the microphone hook calls this after capture stops: merge, resample, then encode.
 export async function createWavBlob(recording) {
   if (!recording) {
     throw new Error("No recording");

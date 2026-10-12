@@ -1,3 +1,4 @@
+// sends the recording through services/transcription.js and returns editable text and request state.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { transcribeAudio } from "../services/transcription";
 
@@ -10,6 +11,7 @@ export default function useTranscription(recording) {
   const [attempt, setAttempt] = useState(0);
   const requestRef = useRef(null);
 
+  // rerun when a completed recording arrives or the user requests another attempt.
   useEffect(() => {
     if (!recording?.wavBlob) return;
     const controller = new AbortController();
@@ -73,6 +75,7 @@ export default function useTranscription(recording) {
     setAttempt((value) => value + 1);
   }, [recording]);
 
+  // editing changes local display state; it does not send another request or train the model.
   const setText = useCallback((text) => {
     setResult((previous) => previous.source === recording && previous.status === "success"
       ? { ...previous, text } : previous);

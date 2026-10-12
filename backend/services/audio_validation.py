@@ -1,3 +1,4 @@
+# checks wav bytes for the speech service and returns their duration without saving audio.
 import io
 import wave
 

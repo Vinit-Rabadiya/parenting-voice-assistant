@@ -1,3 +1,4 @@
+# reads a local wav and calls the same speech service as the api, printing the result.
 import argparse
 from pathlib import Path
 

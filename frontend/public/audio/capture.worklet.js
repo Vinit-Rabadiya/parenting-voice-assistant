@@ -1,5 +1,6 @@
 /* global AudioWorkletProcessor, registerProcessor */
 
+// loaded by the microphone hook into the browser's audio processing thread.
 // collect microphone samples and send them to the recording hook.
 class MicrophoneCaptureProcessor extends AudioWorkletProcessor {
   constructor() {

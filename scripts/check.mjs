@@ -1,3 +1,4 @@
+// npm run check and the pre-push hook use this runner to verify python and frontend code.
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
@@ -20,6 +21,7 @@ if (!npmPath) {
 }
 
 function runCheck(label, command, args) {
+  // inherit terminal output and stop the whole sequence when a check fails.
   console.log(`\n--- ${label} ---`);
 
   const result = spawnSync(command, args, {

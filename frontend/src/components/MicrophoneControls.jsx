@@ -1,3 +1,4 @@
+// connects the recording and transcription hooks to the controls shown on the landing page.
 import useMicrophone from "../hooks/useMicrophone";
 import useTranscription from "../hooks/useTranscription";
 import MicrophoneButton from "./MicrophoneButton";
@@ -5,6 +6,7 @@ import "./MicrophoneControls.css";
 
 export default function MicrophoneControls() {
   const { status, error, start, stop, recording } = useMicrophone();
+  // a finished recording passes from the microphone hook into the transcription hook.
   const transcription = useTranscription(recording);
   const capturing = status !== "idle";
   const transcribing = transcription.status === "transcribing";
@@ -37,6 +39,7 @@ export default function MicrophoneControls() {
       sampleCount += chunk.length;
     }
   }
+  // sample count divided by samples per second gives the captured duration.
   const durationSeconds = recording ? sampleCount / recording.sampleRate : 0;
   return (
     <section className="microphone-controls" aria-label="Speech to text">
