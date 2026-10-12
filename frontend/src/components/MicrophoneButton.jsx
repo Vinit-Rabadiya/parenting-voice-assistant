@@ -1,3 +1,4 @@
+// displays a button; the caller supplies the login or recording action through onclick.
 import "./MicrophoneButton.css";
 
 // share the same voice control for guests and signed-in caregivers.

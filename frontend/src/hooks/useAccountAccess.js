@@ -1,3 +1,4 @@
+// calls services/api.js so app.jsx can share backend-verified access status across screens.
 import { useEffect, useState } from "react";
 import { getCurrentAccount } from "../services/api";
 

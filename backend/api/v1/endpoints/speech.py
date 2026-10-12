@@ -1,3 +1,5 @@
+# receives browser wav requests, calls the speech service, and returns transcript json.
+# api/v1/router.py registers this endpoint; frontend services/transcription.js calls it.
 from anyio import WouldBlock
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
@@ -12,6 +14,7 @@ from backend.services.speech_errors import InvalidAudioError, SpeechServiceError
 # allow 30 seconds of audio plus space for the wav header.
 MAX_AUDIO_BYTES = 16000 * 1 * 2 * 30 + 4096
 
+# run the login dependency before any endpoint registered on this router.
 router = APIRouter(
     prefix="/speech",
     dependencies=[Depends(require_authenticated_user)],
@@ -44,6 +47,7 @@ async def transcribe_audio(
 
     audio_bytes = bytes(audio_data)
 
+    # reject extra inference requests immediately instead of building a waiting queue.
     limiter = request.app.state.speech_limiter
 
     try:

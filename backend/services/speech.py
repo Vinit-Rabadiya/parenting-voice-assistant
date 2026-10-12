@@ -1,3 +1,5 @@
+# converts validated wav bytes into a transcription response using one reusable whisper model.
+# called by the speech endpoint and scripts/check_speech.py.
 import io
 import time
 
@@ -10,6 +12,7 @@ from backend.schemas.speech import TranscriptionResponse
 
 class SpeechService:
     def __init__(self, model_name: str) -> None:
+        # model loading happens when the service is created, before individual transcriptions.
         try:
             self._model = WhisperModel(
                 model_name,
@@ -22,6 +25,7 @@ class SpeechService:
             raise SpeechServiceError("Could not load the speech recognition model.") from exc
 
     def transcribe(self, audio_bytes: bytes) -> TranscriptionResponse:
+        # validation returns duration and raises an audio error before inference for invalid wavs.
         audio_seconds = validate_audio(audio_bytes)
         audio_buffer = io.BytesIO(audio_bytes)
         started_at = time.perf_counter()
@@ -42,6 +46,7 @@ class SpeechService:
         except Exception as exc:
             raise SpeechServiceError("Speech transcription failed.") from exc
 
+        # the schema checks the result fields before the endpoint sends them as json.
         return TranscriptionResponse(
             text=" ".join(text_parts),
             audio_seconds=audio_seconds,

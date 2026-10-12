@@ -1,3 +1,4 @@
+// reads admin credentials from configured paths and reports the project's totp setting.
 import { readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

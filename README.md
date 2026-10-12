@@ -47,6 +47,12 @@ Standard search engines and generic chatbots often return long, dense articles t
 
 ## Key Features
 
+### Reference data preparation
+
+Reproducible PDF extraction and an initial selected age-aware RAG corpus are available.
+See [data preparation and review](data/README.md) for commands, source provenance,
+age-boundary rules, and coverage gaps. Retrieval and response generation are not yet connected.
+
 ### Available now: English speech-to-text (version 1)
 
 The landing page links to login/signup and, after sign-in, microphone controls.

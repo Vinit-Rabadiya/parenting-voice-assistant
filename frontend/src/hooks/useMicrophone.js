@@ -1,3 +1,4 @@
+// receives audio batches from capture.worklet.js and returns a finished wav to the controls.
 import { useRef, useState, useEffect, useCallback } from "react";
 import { createWavBlob } from "../utils/audio";
 
@@ -30,6 +31,7 @@ function useMicrophone() {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [recording, setRecording] = useState(null);
+  // refs keep session identity between renders without triggering another screen update.
   const requestIdRef = useRef(0);
   const sessionRef = useRef(null);
 
@@ -219,6 +221,7 @@ function useMicrophone() {
   // leaving the page discards unfinished audio and releases its resources.
   useEffect(() => releaseMicrophone, [releaseMicrophone]);
 
+  // the controls display status and pass recording to the transcription hook.
   return { status, error, recording, start, stop };
 }
 

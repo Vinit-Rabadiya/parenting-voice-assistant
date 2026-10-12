@@ -18,9 +18,11 @@ async def lifespan(app: FastAPI):
     # connect to firebase when the server starts.
     app.state.firebase = initialize_firebase()
     try:
+        # store one model per server process for api/dependencies.py to provide to requests.
         app.state.speech_service = await run_in_threadpool(SpeechService, settings.STT_MODEL)
         # allow one transcription at a time for this server process.
         app.state.speech_limiter = CapacityLimiter(1)
+        # requests are served during yield; the finally block runs when the lifespan exits.
         yield
     finally:
         if hasattr(app.state, "speech_limiter"):

@@ -1,3 +1,4 @@
+// receives wav bytes from the transcription hook and returns the speech endpoint's json result.
 import { auth } from "./firebase";
 
 export async function transcribeAudio(wavBlob, signal) {
@@ -15,6 +16,7 @@ export async function transcribeAudio(wavBlob, signal) {
 
   let response;
   try {
+    // send the blob directly because the endpoint expects wav bytes, not a multipart form.
     response = await fetch("/api/speech/transcribe", {
       method: "POST",
       body: wavBlob,
@@ -70,5 +72,6 @@ export async function transcribeAudio(wavBlob, signal) {
   ) {
     throw new Error("The speech server returned an unexpected result. Please try again.");
   }
+  // the hook uses text and processing_seconds to update the transcript and timing display.
   return body;
 }

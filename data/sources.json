@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "source_id": "who-unicef-ccd-cards",
+      "filename": "4-CCD-Counselling-Cards.pdf",
+      "title": "Care for Child Development: Counselling Cards",
+      "publisher": "WHO and UNICEF",
+      "source_url": "https://www.unicef.org/media/91181/file/4-CCD-Counselling-Cards.pdf",
+      "expected_pages": 4,
+      "sha256": "7bac8ffda6a3f3a5ab1ac10f095fa37697572fd75af500a29501d31eca221f43",
+      "language": "en",
+      "reuse_status": "not established",
+      "notes": "Multi-column age-specific advice; page 4 is a counselling checklist."
+    },
+    {
+      "source_id": "reach-up-parent-manual-2020",
+      "filename": "Parent-Manual_ReachUp-2020_0.pdf",
+      "title": "Reach Up: Parent Manual",
+      "publisher": "The University of the West Indies",
+      "source_url": "https://nurturing-care.org/parent-manual-activities-for-children-up-to-3/",
+      "expected_pages": 64,
+      "sha256": "8475453103e2b36a0adfb72aafef8a04bae3c04862d5a69c458e2d0d7623cb82",
+      "language": "en",
+      "reuse_status": "CC BY-NC-SA 4.0 stated in document; preserve attribution",
+      "notes": "Covers birth to 36 months; includes repeated programme and parent activity material. Resource page does not verify a byte-identical download."
+    },
+    {
+      "source_id": "kenya-moh-mch-handbook",
+      "filename": "Mother Child Health Handbook MOH-FOR PRINT.pdf",
+      "title": "Mother & Child Health Handbook",
+      "publisher": "Kenya Ministry of Health",
+      "source_url": "https://www.health.go.ke/sites/default/files/2023-05/Mother%20Child%20Health%20Handbook%20MOH-FOR%20PRINT.pdf",
+      "expected_pages": 48,
+      "sha256": "237813eb7b2b71c62f79d2751a1103c86a3f16eebea0935cc3d60033c31afcf5",
+      "language": "en",
+      "reuse_status": "not established",
+      "notes": "Kenya-specific handbook containing clinical guidance and record forms. PDF page numbers differ from printed page numbers."
+    }
+  ]
+}

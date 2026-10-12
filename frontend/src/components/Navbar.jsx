@@ -1,3 +1,4 @@
+// receives account status and navigation callbacks from app.jsx to display the shared header.
 import "./Navbar.css";
 
 export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, onSignup, onAccount, onHome }) {

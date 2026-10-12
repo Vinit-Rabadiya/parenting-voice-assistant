@@ -1,3 +1,4 @@
+// administrative setup command that enables totp in the configured firebase project.
 import { readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
