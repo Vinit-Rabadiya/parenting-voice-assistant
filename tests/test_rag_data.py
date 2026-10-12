@@ -6,6 +6,7 @@ from pypdf import PdfWriter
 
 from scripts.build_rag_passages import ROOT, build_passages, normalize, select_span
 from scripts.prepare_rag_data import extract_sources
+from scripts.index_rag import build_point, load_passages
 
 
 def write_json(path, data):
@@ -107,3 +108,40 @@ def test_local_passages_are_reproducible_and_traceable():
     assert ccd[2]["source_age"]["min_days"] == 7
     assert ccd[-1]["source_age"]["min_months"] == 24
     assert all(r["project_scope"]["max_months_inclusive"] == 24 for r in records)
+
+
+@pytest.mark.parametrize("contents,message", [
+    ("\n  \n", "contains no records"),
+    ('\n{broken json}\n', "Invalid JSON on line 2"),
+    ('[]\n', "must contain a JSON object"),
+    ('{"text": "Talk to baby"}\n', "nonempty passage_id"),
+    ('{"passage_id": "a", "text": " "}\n', "nonempty text"),
+    ('{"passage_id": 12, "text": "Talk to baby"}\n', "nonempty passage_id"),
+    ('{"passage_id": "a", "text": null}\n', "nonempty text"),
+    ('{"passage_id": "a", "text": "First"}\n'
+     '{"passage_id": "a", "text": "Second"}\n', "Duplicate passage ID on line 2"),
+])
+def test_index_loader_rejects_invalid_corpus(tmp_path, contents, message):
+    path = tmp_path / "passages.jsonl"
+    path.write_text(contents, encoding="utf-8")
+    with pytest.raises(ValueError, match=message):
+        load_passages(path)
+
+
+def test_index_preparation_preserves_metadata_and_stable_identity(tmp_path):
+    passage = {
+        "passage_id": "feeding-activity", "text": "Talk with baby • respond to sounds.",
+        "source_id": "reference", "pdf_page": 41,
+        "source_age": {"min_months": 6, "max_months_exclusive": 9},
+    }
+    path = tmp_path / "passages.jsonl"
+    path.write_text("\n" + json.dumps(passage) + "\n\n", encoding="utf-8")
+    loaded = load_passages(path)
+    assert loaded == [passage]
+    point = build_point(loaded[0])
+    assert point.payload == passage
+    assert point.vector.text == passage["text"]
+    assert point.vector.model == "sentence-transformers/all-minilm-l6-v2"
+    updated = {**passage, "text": "Updated guidance"}
+    assert build_point(updated).id == point.id
+    assert build_point({**passage, "passage_id": "other-activity"}).id != point.id
