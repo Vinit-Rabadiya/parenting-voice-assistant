@@ -34,3 +34,6 @@ data/raw/datasets/*
 data/processed/
 data/indexes/
 docs/
+
+# local module backups
+.backup_llm_tts/
