@@ -1,11 +1,12 @@
-# reads prepared passages for indexing into qdrant.
+import argparse
 import json
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
+from qdrant_client import QdrantClient
 from qdrant_client.models import Document, PointStruct
 
-from backend.core.config import PROJECT_ROOT
+from backend.core.config import PROJECT_ROOT, settings
 
 
 def load_passages(path: Path) -> list[dict]:
@@ -231,7 +232,40 @@ def build_point(passage: dict) -> PointStruct:
     )
 
 
+def upload_points(points: list[PointStruct], collection_name: str = "caregiver_guidance_minilm_v1") -> int:
+    # requires valid connection credentials from the root environment.
+    url = (settings.QDRANT_URL or "").strip()
+    api_key = (settings.QDRANT_API_KEY or "").strip()
+    if not url or not api_key:
+        raise ValueError("Set QDRANT_URL and QDRANT_API_KEY in the root .env.")
+
+    client = QdrantClient(
+        url=url,
+        api_key=api_key,
+        cloud_inference=True,
+        timeout=30,
+    )
+    try:
+        if not client.collection_exists(collection_name):
+            raise ValueError(
+                f"Collection '{collection_name}' not found. Run scripts/create_qdrant_collection.py first."
+            )
+        # upload batch to qdrant with cloud inference for embeddings
+        client.upsert(collection_name=collection_name, points=points)
+        return len(points)
+    finally:
+        client.close()
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Prepare and optionally upload RAG passages to Qdrant.")
+    parser.add_argument(
+        "--upload",
+        action="store_true",
+        help="Upload the prepared points to the Qdrant Cloud collection.",
+    )
+    args = parser.parse_args()
+
     passages_path = PROJECT_ROOT / "data/processed/rag/passages.jsonl"
 
     try:
@@ -245,8 +279,17 @@ def main() -> None:
 
     print(f"Loaded passages: {len(passages)}")
     print(f"Prepared Qdrant points: {len(points)}")
-    print("No points uploaded.")
+
+    if args.upload:
+        try:
+            uploaded_count = upload_points(points)
+            print(f"Successfully uploaded {uploaded_count} points to Qdrant Cloud.")
+        except Exception as exc:
+            raise SystemExit(f"Upload failed: {exc}") from None
+    else:
+        print("Dry run complete. Pass --upload to store points in Qdrant Cloud.")
 
 
 if __name__ == "__main__":
     main()
+
