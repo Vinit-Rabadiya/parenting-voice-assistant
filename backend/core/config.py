@@ -23,6 +23,7 @@ class Settings:
     # read the qdrant connection values loaded from the root .env.
     QDRANT_URL: str | None = os.getenv("QDRANT_URL")
     QDRANT_API_KEY: str | None = os.getenv("QDRANT_API_KEY")
+    QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "caregiver_guidance_minilm_v1")
 
     FIREBASE_PROJECT_ID: str | None = os.getenv("FIREBASE_PROJECT_ID")
 
