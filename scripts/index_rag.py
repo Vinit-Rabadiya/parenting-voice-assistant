@@ -257,6 +257,13 @@ def upload_points(points: list[PointStruct], collection_name: str = "caregiver_g
         client.close()
 
 
+def mark_index_built(report_path: Path) -> None:
+    # record that this corpus version has been uploaded so the report stays in sync.
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["index_built"] = True
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Prepare and optionally upload RAG passages to Qdrant.")
     parser.add_argument(
@@ -267,6 +274,7 @@ def main() -> None:
     args = parser.parse_args()
 
     passages_path = PROJECT_ROOT / "data/processed/rag/passages.jsonl"
+    report_path = PROJECT_ROOT / "data/processed/rag/preparation-report.json"
 
     try:
         passages = load_passages(passages_path)
@@ -284,6 +292,10 @@ def main() -> None:
         try:
             uploaded_count = upload_points(points)
             print(f"Successfully uploaded {uploaded_count} points to Qdrant Cloud.")
+            # update the report so the index_built flag reflects the current state.
+            if report_path.exists():
+                mark_index_built(report_path)
+                print(f"Updated {report_path.name}: index_built = true")
         except Exception as exc:
             raise SystemExit(f"Upload failed: {exc}") from None
     else:
