@@ -1,0 +1,769 @@
+{
+  "schema_version": 1,
+  "timestamp": "2026-10-17T07:16:19.539685+00:00",
+  "configuration": {
+    "collection": "caregiver_guidance_minilm_v1",
+    "embedding_model": "sentence-transformers/all-minilm-l6-v2",
+    "inference": "qdrant cloud",
+    "corpus_path": "D:\\Projects\\parenting-voice-assistant\\data\\processed\\rag\\passages.jsonl",
+    "query_count": 12
+  },
+  "machine": {
+    "python": "3.13.7",
+    "platform": "Windows-11-10.0.26300-SP0"
+  },
+  "metrics": {
+    "mean_latency_ms": 373.4,
+    "min_latency_ms": 307.0,
+    "max_latency_ms": 900.4,
+    "hit_at_k_mean": 1.0,
+    "recall_at_k_mean": 0.7333,
+    "age_leakage_total": 0,
+    "age_boundary_queries": 3,
+    "age_boundary_passed": 3,
+    "missing_topic_queries": 2,
+    "missing_topic_returned_results": 2,
+    "paraphrase_queries": 1,
+    "paraphrase_hit_rate": 1.0
+  },
+  "queries": [
+    {
+      "id": "q01",
+      "category": "age_band",
+      "query": "How can I talk to my newborn during feeding?",
+      "child_age_months": 0,
+      "routine": null,
+      "limit": 5,
+      "notes": "Newborn communication during feeding — CCD newborn comm mentions breastfeeding; Reach Up Chat with baby covers feeding routine",
+      "expected_passage_ids": [
+        "aa6dc2a794b7676a14e2",
+        "7726540107e02bed6b14"
+      ],
+      "forbidden_passage_ids": [],
+      "retrieved": [
+        {
+          "passage_id": "aa6dc2a794b7676a14e2",
+          "title": "birth up to 1 week: communication",
+          "score": 0.7422,
+          "source_age_label": "birth up to 1 week",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "7726540107e02bed6b14",
+          "title": "Chat with baby",
+          "score": 0.6718,
+          "source_age_label": "0-5 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "feeding",
+            "bathing",
+            "changing"
+          ]
+        },
+        {
+          "passage_id": "ce8de3573d79a1a75d36",
+          "title": "Look at a book with baby",
+          "score": 0.5867,
+          "source_age_label": "0-5 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "reading"
+          ]
+        },
+        {
+          "passage_id": "fbab7ed3b2988c1174e8",
+          "title": "Have a conversation with baby",
+          "score": 0.5722,
+          "source_age_label": "0-5 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "play"
+          ]
+        },
+        {
+          "passage_id": "57006388e371818f35a5",
+          "title": "birth up to 1 week: play",
+          "score": 0.4179,
+          "source_age_label": "birth up to 1 week",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": [
+            "play"
+          ]
+        }
+      ],
+      "retrieved_passage_ids": [
+        "aa6dc2a794b7676a14e2",
+        "7726540107e02bed6b14",
+        "ce8de3573d79a1a75d36",
+        "fbab7ed3b2988c1174e8",
+        "57006388e371818f35a5"
+      ],
+      "hit_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 900.4
+    },
+    {
+      "id": "q02",
+      "category": "age_band",
+      "query": "What play activities are good for my 6-month-old?",
+      "child_age_months": 6,
+      "routine": null,
+      "limit": 5,
+      "notes": "6-month play — CCD 6-9 months play; Reach Up Repeat sounds baby makes (6-8 months, play)",
+      "expected_passage_ids": [
+        "92d8bee8899c67ea5463",
+        "b17ead3c79f1e64c5af2"
+      ],
+      "forbidden_passage_ids": [],
+      "retrieved": [
+        {
+          "passage_id": "92d8bee8899c67ea5463",
+          "title": "6 months up to 9 months: play",
+          "score": 0.5806,
+          "source_age_label": "6 months up to 9 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": [
+            "play"
+          ]
+        },
+        {
+          "passage_id": "ee49fdc1da3ab8b4cb40",
+          "title": "Talk with baby while dressing baby",
+          "score": 0.4728,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "dressing"
+          ]
+        },
+        {
+          "passage_id": "db4ae5edf4884d2de104",
+          "title": "6 months up to 9 months: communication",
+          "score": 0.4035,
+          "source_age_label": "6 months up to 9 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "7e6f5766988e06b8451f",
+          "title": "Talk with baby at bath time",
+          "score": 0.3656,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "bathing"
+          ]
+        }
+      ],
+      "retrieved_passage_ids": [
+        "92d8bee8899c67ea5463",
+        "ee49fdc1da3ab8b4cb40",
+        "db4ae5edf4884d2de104",
+        "7e6f5766988e06b8451f"
+      ],
+      "hit_at_k": 1.0,
+      "recall_at_k": 0.5,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 309.9
+    },
+    {
+      "id": "q03",
+      "category": "age_band",
+      "query": "How do I help my 1-year-old learn to talk?",
+      "child_age_months": 12,
+      "routine": null,
+      "limit": 5,
+      "notes": "12-month communication — CCD 12mo-2yr comm; Reach Up bath time and book reading (12-14 months)",
+      "expected_passage_ids": [
+        "47ee72834fdf486cf9ee",
+        "8e5aa8246db19995ce59",
+        "fc062b37b8c7f5f34c7d"
+      ],
+      "forbidden_passage_ids": [],
+      "retrieved": [
+        {
+          "passage_id": "47ee72834fdf486cf9ee",
+          "title": "12 months up to 2 years: communication",
+          "score": 0.6377,
+          "source_age_label": "12 months up to 2 years",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "f3865fd9fdfc15d43b4b",
+          "title": "Talk to baby while dressing baby",
+          "score": 0.3632,
+          "source_age_label": "12-14 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "dressing"
+          ]
+        },
+        {
+          "passage_id": "fc062b37b8c7f5f34c7d",
+          "title": "Look at a book with baby",
+          "score": 0.3579,
+          "source_age_label": "12-14 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "reading"
+          ]
+        }
+      ],
+      "retrieved_passage_ids": [
+        "47ee72834fdf486cf9ee",
+        "f3865fd9fdfc15d43b4b",
+        "fc062b37b8c7f5f34c7d"
+      ],
+      "hit_at_k": 1.0,
+      "recall_at_k": 0.6667,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 309.2
+    },
+    {
+      "id": "q04",
+      "category": "age_band",
+      "query": "What activities can I do with my 18-month-old?",
+      "child_age_months": 18,
+      "routine": null,
+      "limit": 5,
+      "notes": "18-month activities — Reach Up Naming things and Pretend to be animals (18-20 months, play)",
+      "expected_passage_ids": [
+        "dfd7210de69bbfd25c9c",
+        "539974502ffec4beab21"
+      ],
+      "forbidden_passage_ids": [],
+      "retrieved": [
+        {
+          "passage_id": "47ee72834fdf486cf9ee",
+          "title": "12 months up to 2 years: communication",
+          "score": 0.5442,
+          "source_age_label": "12 months up to 2 years",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "cb19ce2dfe0ad818eec8",
+          "title": "12 months up to 2 years: play",
+          "score": 0.4466,
+          "source_age_label": "12 months up to 2 years",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": [
+            "play"
+          ]
+        },
+        {
+          "passage_id": "539974502ffec4beab21",
+          "title": "Pretend to be animals",
+          "score": 0.3994,
+          "source_age_label": "18-20 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "play"
+          ]
+        }
+      ],
+      "retrieved_passage_ids": [
+        "47ee72834fdf486cf9ee",
+        "cb19ce2dfe0ad818eec8",
+        "539974502ffec4beab21"
+      ],
+      "hit_at_k": 1.0,
+      "recall_at_k": 0.5,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 307.0
+    },
+    {
+      "id": "q05",
+      "category": "age_band",
+      "query": "How can I read with my 2-year-old?",
+      "child_age_months": 24,
+      "routine": null,
+      "limit": 5,
+      "notes": "24-month reading — CCD 2yr+ comm mentions books; Reach Up Look at picture (24-26 months, reading)",
+      "expected_passage_ids": [
+        "8e41bffaeb00dd2cb72a",
+        "9143de12b4a04b4bf352"
+      ],
+      "forbidden_passage_ids": [],
+      "retrieved": [
+        {
+          "passage_id": "8e41bffaeb00dd2cb72a",
+          "title": "2 years and older: communication",
+          "score": 0.5246,
+          "source_age_label": "2 years and older",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "9143de12b4a04b4bf352",
+          "title": "Look at picture with baby",
+          "score": 0.4219,
+          "source_age_label": "24-26 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "reading"
+          ]
+        },
+        {
+          "passage_id": "9c6b58474abeef28dd05",
+          "title": "2 years and older: play",
+          "score": 0.3928,
+          "source_age_label": "2 years and older",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": [
+            "play"
+          ]
+        }
+      ],
+      "retrieved_passage_ids": [
+        "8e41bffaeb00dd2cb72a",
+        "9143de12b4a04b4bf352",
+        "9c6b58474abeef28dd05"
+      ],
+      "hit_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 323.0
+    },
+    {
+      "id": "q06",
+      "category": "paraphrase",
+      "query": "Fun things to do with a 7-month-old baby",
+      "child_age_months": 7,
+      "routine": null,
+      "limit": 5,
+      "notes": "Paraphrase of q02 at 7 months — same expected passages (6-9 month band)",
+      "expected_passage_ids": [
+        "92d8bee8899c67ea5463",
+        "b17ead3c79f1e64c5af2"
+      ],
+      "forbidden_passage_ids": [],
+      "retrieved": [
+        {
+          "passage_id": "ee49fdc1da3ab8b4cb40",
+          "title": "Talk with baby while dressing baby",
+          "score": 0.4973,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "dressing"
+          ]
+        },
+        {
+          "passage_id": "92d8bee8899c67ea5463",
+          "title": "6 months up to 9 months: play",
+          "score": 0.4936,
+          "source_age_label": "6 months up to 9 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": [
+            "play"
+          ]
+        },
+        {
+          "passage_id": "7e6f5766988e06b8451f",
+          "title": "Talk with baby at bath time",
+          "score": 0.4827,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "bathing"
+          ]
+        },
+        {
+          "passage_id": "5d58aed9ded439496279",
+          "title": "Talk with baby during feeding time",
+          "score": 0.4108,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "feeding"
+          ]
+        }
+      ],
+      "retrieved_passage_ids": [
+        "ee49fdc1da3ab8b4cb40",
+        "92d8bee8899c67ea5463",
+        "7e6f5766988e06b8451f",
+        "5d58aed9ded439496279"
+      ],
+      "hit_at_k": 1.0,
+      "recall_at_k": 0.5,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 385.8
+    },
+    {
+      "id": "q07",
+      "category": "routine",
+      "query": "How do I talk to my baby during bath time?",
+      "child_age_months": 6,
+      "routine": "bathing",
+      "limit": 5,
+      "notes": "Bathing routine at 6 months — Reach Up Talk with baby at bath time (6-8 months, bathing)",
+      "expected_passage_ids": [
+        "7e6f5766988e06b8451f"
+      ],
+      "forbidden_passage_ids": [],
+      "retrieved": [
+        {
+          "passage_id": "7e6f5766988e06b8451f",
+          "title": "Talk with baby at bath time",
+          "score": 0.7504,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "bathing"
+          ]
+        },
+        {
+          "passage_id": "db4ae5edf4884d2de104",
+          "title": "6 months up to 9 months: communication",
+          "score": 0.5106,
+          "source_age_label": "6 months up to 9 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        }
+      ],
+      "retrieved_passage_ids": [
+        "7e6f5766988e06b8451f",
+        "db4ae5edf4884d2de104"
+      ],
+      "hit_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 314.9
+    },
+    {
+      "id": "q08",
+      "category": "missing_topic",
+      "query": "How do I handle my toddler's tantrums?",
+      "child_age_months": 18,
+      "routine": null,
+      "limit": 5,
+      "notes": "Tantrums and discipline not covered in corpus — expect no relevant results",
+      "expected_passage_ids": [],
+      "forbidden_passage_ids": [],
+      "retrieved": [
+        {
+          "passage_id": "47ee72834fdf486cf9ee",
+          "title": "12 months up to 2 years: communication",
+          "score": 0.4276,
+          "source_age_label": "12 months up to 2 years",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "dfd7210de69bbfd25c9c",
+          "title": "Naming things",
+          "score": 0.3345,
+          "source_age_label": "18-20 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "play"
+          ]
+        }
+      ],
+      "retrieved_passage_ids": [
+        "47ee72834fdf486cf9ee",
+        "dfd7210de69bbfd25c9c"
+      ],
+      "hit_at_k": null,
+      "recall_at_k": null,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 318.6
+    },
+    {
+      "id": "q09",
+      "category": "missing_topic",
+      "query": "When will my baby sleep through the night?",
+      "child_age_months": 3,
+      "routine": null,
+      "limit": 5,
+      "notes": "Sleep training not covered in corpus — expect no relevant results",
+      "expected_passage_ids": [],
+      "forbidden_passage_ids": [],
+      "retrieved": [
+        {
+          "passage_id": "ce8de3573d79a1a75d36",
+          "title": "Look at a book with baby",
+          "score": 0.3353,
+          "source_age_label": "0-5 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "reading"
+          ]
+        },
+        {
+          "passage_id": "7726540107e02bed6b14",
+          "title": "Chat with baby",
+          "score": 0.3344,
+          "source_age_label": "0-5 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "feeding",
+            "bathing",
+            "changing"
+          ]
+        },
+        {
+          "passage_id": "fbab7ed3b2988c1174e8",
+          "title": "Have a conversation with baby",
+          "score": 0.3146,
+          "source_age_label": "0-5 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "play"
+          ]
+        },
+        {
+          "passage_id": "42fdc07fb4b0aed24595",
+          "title": "1 week up to 6 months: communication",
+          "score": 0.2576,
+          "source_age_label": "1 week up to 6 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        }
+      ],
+      "retrieved_passage_ids": [
+        "ce8de3573d79a1a75d36",
+        "7726540107e02bed6b14",
+        "fbab7ed3b2988c1174e8",
+        "42fdc07fb4b0aed24595"
+      ],
+      "hit_at_k": null,
+      "recall_at_k": null,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 308.1
+    },
+    {
+      "id": "q10",
+      "category": "age_boundary",
+      "query": "Talk and play with my baby",
+      "child_age_months": 6,
+      "routine": null,
+      "limit": 5,
+      "notes": "Age boundary at exactly 6.0 months — must not return 0-5 month, birth-1week, or 1week-6month passages",
+      "expected_passage_ids": [
+        "92d8bee8899c67ea5463",
+        "b17ead3c79f1e64c5af2",
+        "db4ae5edf4884d2de104"
+      ],
+      "forbidden_passage_ids": [
+        "7726540107e02bed6b14",
+        "fbab7ed3b2988c1174e8",
+        "ce8de3573d79a1a75d36",
+        "57006388e371818f35a5",
+        "aa6dc2a794b7676a14e2",
+        "ad1889cc744f931a586b",
+        "42fdc07fb4b0aed24595"
+      ],
+      "retrieved": [
+        {
+          "passage_id": "ee49fdc1da3ab8b4cb40",
+          "title": "Talk with baby while dressing baby",
+          "score": 0.6125,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "dressing"
+          ]
+        },
+        {
+          "passage_id": "5d58aed9ded439496279",
+          "title": "Talk with baby during feeding time",
+          "score": 0.518,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "feeding"
+          ]
+        },
+        {
+          "passage_id": "db4ae5edf4884d2de104",
+          "title": "6 months up to 9 months: communication",
+          "score": 0.4878,
+          "source_age_label": "6 months up to 9 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "7e6f5766988e06b8451f",
+          "title": "Talk with baby at bath time",
+          "score": 0.4498,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "bathing"
+          ]
+        },
+        {
+          "passage_id": "92d8bee8899c67ea5463",
+          "title": "6 months up to 9 months: play",
+          "score": 0.4286,
+          "source_age_label": "6 months up to 9 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": [
+            "play"
+          ]
+        }
+      ],
+      "retrieved_passage_ids": [
+        "ee49fdc1da3ab8b4cb40",
+        "5d58aed9ded439496279",
+        "db4ae5edf4884d2de104",
+        "7e6f5766988e06b8451f",
+        "92d8bee8899c67ea5463"
+      ],
+      "hit_at_k": 1.0,
+      "recall_at_k": 0.6667,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 312.7
+    },
+    {
+      "id": "q11",
+      "category": "age_boundary",
+      "query": "Activities for my baby",
+      "child_age_months": 9,
+      "routine": null,
+      "limit": 5,
+      "notes": "Age boundary at exactly 9.0 months — must not return 6-8 month passages",
+      "expected_passage_ids": [
+        "1e5e8ecc3ddc55a9d110",
+        "71d83ec2be245557befe",
+        "73d6f7664e4754a531cb",
+        "947b77b63b2ecb0965ef",
+        "d7545917b2d53e061710",
+        "13d50d39a6756ba51215"
+      ],
+      "forbidden_passage_ids": [
+        "92d8bee8899c67ea5463",
+        "db4ae5edf4884d2de104",
+        "b17ead3c79f1e64c5af2",
+        "7e6f5766988e06b8451f",
+        "5d58aed9ded439496279",
+        "ee49fdc1da3ab8b4cb40"
+      ],
+      "retrieved": [
+        {
+          "passage_id": "d7545917b2d53e061710",
+          "title": "Take a walk around the house with baby",
+          "score": 0.6142,
+          "source_age_label": "9-11 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "walking"
+          ]
+        },
+        {
+          "passage_id": "71d83ec2be245557befe",
+          "title": "Use action words",
+          "score": 0.5518,
+          "source_age_label": "9-11 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "play"
+          ]
+        },
+        {
+          "passage_id": "13d50d39a6756ba51215",
+          "title": "Talk with baby while doing housework",
+          "score": 0.5355,
+          "source_age_label": "9-11 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "housework"
+          ]
+        }
+      ],
+      "retrieved_passage_ids": [
+        "d7545917b2d53e061710",
+        "71d83ec2be245557befe",
+        "13d50d39a6756ba51215"
+      ],
+      "hit_at_k": 1.0,
+      "recall_at_k": 0.5,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 374.4
+    },
+    {
+      "id": "q12",
+      "category": "age_boundary",
+      "query": "Play with my child",
+      "child_age_months": 24,
+      "routine": null,
+      "limit": 5,
+      "notes": "Age boundary at exactly 24.0 months — must not return 21-23, 18-20, or 15-17 month passages",
+      "expected_passage_ids": [
+        "9c6b58474abeef28dd05",
+        "8e41bffaeb00dd2cb72a",
+        "9143de12b4a04b4bf352"
+      ],
+      "forbidden_passage_ids": [
+        "2d06efd7b5d3db56d9a1",
+        "dc96e37fae2696ee6c5c",
+        "dfd7210de69bbfd25c9c",
+        "539974502ffec4beab21",
+        "83d88866d5459262d2fd"
+      ],
+      "retrieved": [
+        {
+          "passage_id": "9c6b58474abeef28dd05",
+          "title": "2 years and older: play",
+          "score": 0.5637,
+          "source_age_label": "2 years and older",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": [
+            "play"
+          ]
+        },
+        {
+          "passage_id": "8e41bffaeb00dd2cb72a",
+          "title": "2 years and older: communication",
+          "score": 0.4556,
+          "source_age_label": "2 years and older",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "9143de12b4a04b4bf352",
+          "title": "Look at picture with baby",
+          "score": 0.411,
+          "source_age_label": "24-26 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": [
+            "reading"
+          ]
+        }
+      ],
+      "retrieved_passage_ids": [
+        "9c6b58474abeef28dd05",
+        "8e41bffaeb00dd2cb72a",
+        "9143de12b4a04b4bf352"
+      ],
+      "hit_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "age_leakage": [],
+      "age_leakage_count": 0,
+      "latency_ms": 316.5
+    }
+  ],
+  "limitations": [
+    "The retrieval service has no score threshold; missing-topic queries still return the highest-scoring age-eligible passages, which are false positives for that topic.",
+    "Labels are editorial judgements based on passage content, not ECD expert validation.",
+    "Recall is measured against a small labelled set; the corpus has 33 passages total.",
+    "Age filtering is applied post-retrieval in the service; the evaluation verifies no forbidden passages appear, confirming boundary correctness independently."
+  ]
+}
