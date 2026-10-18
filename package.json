@@ -1,6 +1,6 @@
 {
   "name": "parenting-voice-assistant",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "AI-powered voice assistant and coaching system for caregivers.",
   "private": true,
   "type": "commonjs",

@@ -13,7 +13,7 @@ load_dotenv(dotenv_path=env_path)
 class Settings:
     PROJECT_NAME: str = "Parenting Voice Assistant"
     DESCRIPTION: str = "AI-powered voice assistant and coaching system for caregivers."
-    VERSION: str = "1.0.0"
+    VERSION: str = "0.1.0"
 
     HOST: str = os.getenv("HOST", "127.0.0.1")
     PORT: int = int(os.getenv("PORT", 8000))
