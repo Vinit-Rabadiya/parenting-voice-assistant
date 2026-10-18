@@ -28,6 +28,13 @@ vi.mock("../../frontend/src/components/MicrophoneControls", () => ({ default: fu
   }, []);
   return <button>Start recording</button>;
 } }));
+vi.mock("../../frontend/src/components/GuidanceWorkspace", () => ({ default: function FakeGuidanceWorkspace() {
+  useEffect(() => {
+    microphoneMounted();
+    return () => microphoneReleased();
+  }, []);
+  return <button>Start recording</button>;
+} }));
 
 beforeEach(() => {
   state.user = null;

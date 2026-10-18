@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "timestamp": "2026-10-17T07:16:19.539685+00:00",
+  "timestamp": "2026-10-18T14:26:13.940960+00:00",
   "configuration": {
     "collection": "caregiver_guidance_minilm_v1",
     "embedding_model": "sentence-transformers/all-minilm-l6-v2",
@@ -13,18 +13,18 @@
     "platform": "Windows-11-10.0.26300-SP0"
   },
   "metrics": {
-    "mean_latency_ms": 373.4,
-    "min_latency_ms": 307.0,
-    "max_latency_ms": 900.4,
-    "hit_at_k_mean": 1.0,
-    "recall_at_k_mean": 0.7333,
+    "mean_latency_ms": 372.3,
+    "min_latency_ms": 307.3,
+    "max_latency_ms": 988.7,
+    "hit_at_k_mean": 0.7,
+    "recall_at_k_mean": 0.4667,
     "age_leakage_total": 0,
     "age_boundary_queries": 3,
     "age_boundary_passed": 3,
     "missing_topic_queries": 2,
     "missing_topic_returned_results": 2,
     "paraphrase_queries": 1,
-    "paraphrase_hit_rate": 1.0
+    "paraphrase_hit_rate": 0.0
   },
   "queries": [
     {
@@ -50,6 +50,14 @@
           "routines": []
         },
         {
+          "passage_id": "f78a77c6f0225e3e5692",
+          "title": "2. Let baby know mummy",
+          "score": 0.7225,
+          "source_age_label": "0-5 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
           "passage_id": "7726540107e02bed6b14",
           "title": "Chat with baby",
           "score": 0.6718,
@@ -62,6 +70,16 @@
           ]
         },
         {
+          "passage_id": "b7f13e95fec7eb520e4c",
+          "title": "not breastfeeding: responsive feeding",
+          "score": 0.5978,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": [
+            "feeding"
+          ]
+        },
+        {
           "passage_id": "ce8de3573d79a1a75d36",
           "title": "Look at a book with baby",
           "score": 0.5867,
@@ -70,40 +88,20 @@
           "routines": [
             "reading"
           ]
-        },
-        {
-          "passage_id": "fbab7ed3b2988c1174e8",
-          "title": "Have a conversation with baby",
-          "score": 0.5722,
-          "source_age_label": "0-5 months",
-          "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "play"
-          ]
-        },
-        {
-          "passage_id": "57006388e371818f35a5",
-          "title": "birth up to 1 week: play",
-          "score": 0.4179,
-          "source_age_label": "birth up to 1 week",
-          "source_title": "Care for Child Development: Counselling Cards",
-          "routines": [
-            "play"
-          ]
         }
       ],
       "retrieved_passage_ids": [
         "aa6dc2a794b7676a14e2",
+        "f78a77c6f0225e3e5692",
         "7726540107e02bed6b14",
-        "ce8de3573d79a1a75d36",
-        "fbab7ed3b2988c1174e8",
-        "57006388e371818f35a5"
+        "b7f13e95fec7eb520e4c",
+        "ce8de3573d79a1a75d36"
       ],
       "hit_at_k": 1.0,
       "recall_at_k": 1.0,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 900.4
+      "latency_ms": 988.7
     },
     {
       "id": "q02",
@@ -130,45 +128,50 @@
           ]
         },
         {
-          "passage_id": "ee49fdc1da3ab8b4cb40",
-          "title": "Talk with baby while dressing baby",
-          "score": 0.4728,
+          "passage_id": "dc2672fee5b87f6db588",
+          "title": "2. Play with Ball",
+          "score": 0.5649,
           "source_age_label": "6-8 months",
           "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "dressing"
-          ]
+          "routines": []
         },
         {
-          "passage_id": "db4ae5edf4884d2de104",
-          "title": "6 months up to 9 months: communication",
-          "score": 0.4035,
-          "source_age_label": "6 months up to 9 months",
+          "passage_id": "e33e158cb46a8bfc1f76",
+          "title": "no toys available",
+          "score": 0.552,
+          "source_age_label": "0-24 months",
           "source_title": "Care for Child Development: Counselling Cards",
           "routines": []
         },
         {
-          "passage_id": "7e6f5766988e06b8451f",
-          "title": "Talk with baby at bath time",
-          "score": 0.3656,
+          "passage_id": "6053a5e300397e2ec58b",
+          "title": "caregivers have no time to play",
+          "score": 0.5229,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "087e9be1de947d8949ea",
+          "title": "6 Play Peek-a-boo with baby",
+          "score": 0.4979,
           "source_age_label": "6-8 months",
           "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "bathing"
-          ]
+          "routines": []
         }
       ],
       "retrieved_passage_ids": [
         "92d8bee8899c67ea5463",
-        "ee49fdc1da3ab8b4cb40",
-        "db4ae5edf4884d2de104",
-        "7e6f5766988e06b8451f"
+        "dc2672fee5b87f6db588",
+        "e33e158cb46a8bfc1f76",
+        "6053a5e300397e2ec58b",
+        "087e9be1de947d8949ea"
       ],
       "hit_at_k": 1.0,
       "recall_at_k": 0.5,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 309.9
+      "latency_ms": 309.7
     },
     {
       "id": "q03",
@@ -194,36 +197,50 @@
           "routines": []
         },
         {
-          "passage_id": "f3865fd9fdfc15d43b4b",
-          "title": "Talk to baby while dressing baby",
-          "score": 0.3632,
-          "source_age_label": "12-14 months",
+          "passage_id": "f2a95a5820094bf198f7",
+          "title": "Talk with your children",
+          "score": 0.6201,
+          "source_age_label": "0-24 months",
           "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "dressing"
-          ]
+          "routines": []
         },
         {
-          "passage_id": "fc062b37b8c7f5f34c7d",
-          "title": "Look at a book with baby",
-          "score": 0.3579,
-          "source_age_label": "12-14 months",
-          "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "reading"
-          ]
+          "passage_id": "65c6ccc51e6267c73511",
+          "title": "child not responding or seems slow",
+          "score": 0.5148,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "6053a5e300397e2ec58b",
+          "title": "caregivers have no time to play",
+          "score": 0.4702,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "c866a302513c33e3ceae",
+          "title": "caregivers feel stressed or burdened",
+          "score": 0.4368,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
         }
       ],
       "retrieved_passage_ids": [
         "47ee72834fdf486cf9ee",
-        "f3865fd9fdfc15d43b4b",
-        "fc062b37b8c7f5f34c7d"
+        "f2a95a5820094bf198f7",
+        "65c6ccc51e6267c73511",
+        "6053a5e300397e2ec58b",
+        "c866a302513c33e3ceae"
       ],
       "hit_at_k": 1.0,
-      "recall_at_k": 0.6667,
+      "recall_at_k": 0.3333,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 309.2
+      "latency_ms": 312.1
     },
     {
       "id": "q04",
@@ -248,6 +265,30 @@
           "routines": []
         },
         {
+          "passage_id": "e33e158cb46a8bfc1f76",
+          "title": "no toys available",
+          "score": 0.4824,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "f2a95a5820094bf198f7",
+          "title": "Talk with your children",
+          "score": 0.4774,
+          "source_age_label": "0-24 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
+          "passage_id": "6053a5e300397e2ec58b",
+          "title": "caregivers have no time to play",
+          "score": 0.4686,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
           "passage_id": "cb19ce2dfe0ad818eec8",
           "title": "12 months up to 2 years: play",
           "score": 0.4466,
@@ -256,28 +297,20 @@
           "routines": [
             "play"
           ]
-        },
-        {
-          "passage_id": "539974502ffec4beab21",
-          "title": "Pretend to be animals",
-          "score": 0.3994,
-          "source_age_label": "18-20 months",
-          "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "play"
-          ]
         }
       ],
       "retrieved_passage_ids": [
         "47ee72834fdf486cf9ee",
-        "cb19ce2dfe0ad818eec8",
-        "539974502ffec4beab21"
+        "e33e158cb46a8bfc1f76",
+        "f2a95a5820094bf198f7",
+        "6053a5e300397e2ec58b",
+        "cb19ce2dfe0ad818eec8"
       ],
-      "hit_at_k": 1.0,
-      "recall_at_k": 0.5,
+      "hit_at_k": 0.0,
+      "recall_at_k": 0.0,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 307.0
+      "latency_ms": 309.5
     },
     {
       "id": "q05",
@@ -302,6 +335,22 @@
           "routines": []
         },
         {
+          "passage_id": "f2a95a5820094bf198f7",
+          "title": "Talk with your children",
+          "score": 0.4682,
+          "source_age_label": "0-24 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
+          "passage_id": "65c6ccc51e6267c73511",
+          "title": "child not responding or seems slow",
+          "score": 0.4527,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
           "passage_id": "9143de12b4a04b4bf352",
           "title": "Look at picture with baby",
           "score": 0.4219,
@@ -310,28 +359,19 @@
           "routines": [
             "reading"
           ]
-        },
-        {
-          "passage_id": "9c6b58474abeef28dd05",
-          "title": "2 years and older: play",
-          "score": 0.3928,
-          "source_age_label": "2 years and older",
-          "source_title": "Care for Child Development: Counselling Cards",
-          "routines": [
-            "play"
-          ]
         }
       ],
       "retrieved_passage_ids": [
         "8e41bffaeb00dd2cb72a",
-        "9143de12b4a04b4bf352",
-        "9c6b58474abeef28dd05"
+        "f2a95a5820094bf198f7",
+        "65c6ccc51e6267c73511",
+        "9143de12b4a04b4bf352"
       ],
       "hit_at_k": 1.0,
       "recall_at_k": 1.0,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 323.0
+      "latency_ms": 307.7
     },
     {
       "id": "q06",
@@ -348,6 +388,38 @@
       "forbidden_passage_ids": [],
       "retrieved": [
         {
+          "passage_id": "dc2672fee5b87f6db588",
+          "title": "2. Play with Ball",
+          "score": 0.5519,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
+          "passage_id": "c029d45bda8cd73be6a6",
+          "title": "3 Toy or object like a spoon",
+          "score": 0.5313,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
+          "passage_id": "b4f2bc63e5cd1f99fd2c",
+          "title": "5 Make Bottle to roll",
+          "score": 0.523,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
+          "passage_id": "f2a95a5820094bf198f7",
+          "title": "Talk with your children",
+          "score": 0.5126,
+          "source_age_label": "0-24 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
           "passage_id": "ee49fdc1da3ab8b4cb40",
           "title": "Talk with baby while dressing baby",
           "score": 0.4973,
@@ -356,49 +428,20 @@
           "routines": [
             "dressing"
           ]
-        },
-        {
-          "passage_id": "92d8bee8899c67ea5463",
-          "title": "6 months up to 9 months: play",
-          "score": 0.4936,
-          "source_age_label": "6 months up to 9 months",
-          "source_title": "Care for Child Development: Counselling Cards",
-          "routines": [
-            "play"
-          ]
-        },
-        {
-          "passage_id": "7e6f5766988e06b8451f",
-          "title": "Talk with baby at bath time",
-          "score": 0.4827,
-          "source_age_label": "6-8 months",
-          "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "bathing"
-          ]
-        },
-        {
-          "passage_id": "5d58aed9ded439496279",
-          "title": "Talk with baby during feeding time",
-          "score": 0.4108,
-          "source_age_label": "6-8 months",
-          "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "feeding"
-          ]
         }
       ],
       "retrieved_passage_ids": [
-        "ee49fdc1da3ab8b4cb40",
-        "92d8bee8899c67ea5463",
-        "7e6f5766988e06b8451f",
-        "5d58aed9ded439496279"
+        "dc2672fee5b87f6db588",
+        "c029d45bda8cd73be6a6",
+        "b4f2bc63e5cd1f99fd2c",
+        "f2a95a5820094bf198f7",
+        "ee49fdc1da3ab8b4cb40"
       ],
-      "hit_at_k": 1.0,
-      "recall_at_k": 0.5,
+      "hit_at_k": 0.0,
+      "recall_at_k": 0.0,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 385.8
+      "latency_ms": 317.8
     },
     {
       "id": "q07",
@@ -424,23 +467,50 @@
           ]
         },
         {
+          "passage_id": "c029d45bda8cd73be6a6",
+          "title": "3 Toy or object like a spoon",
+          "score": 0.6407,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
+          "passage_id": "f2a95a5820094bf198f7",
+          "title": "Talk with your children",
+          "score": 0.5573,
+          "source_age_label": "0-24 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
           "passage_id": "db4ae5edf4884d2de104",
           "title": "6 months up to 9 months: communication",
           "score": 0.5106,
           "source_age_label": "6 months up to 9 months",
           "source_title": "Care for Child Development: Counselling Cards",
           "routines": []
+        },
+        {
+          "passage_id": "dc2672fee5b87f6db588",
+          "title": "2. Play with Ball",
+          "score": 0.4984,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
         }
       ],
       "retrieved_passage_ids": [
         "7e6f5766988e06b8451f",
-        "db4ae5edf4884d2de104"
+        "c029d45bda8cd73be6a6",
+        "f2a95a5820094bf198f7",
+        "db4ae5edf4884d2de104",
+        "dc2672fee5b87f6db588"
       ],
       "hit_at_k": 1.0,
       "recall_at_k": 1.0,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 314.9
+      "latency_ms": 322.7
     },
     {
       "id": "q08",
@@ -454,6 +524,22 @@
       "forbidden_passage_ids": [],
       "retrieved": [
         {
+          "passage_id": "65c6ccc51e6267c73511",
+          "title": "child not responding or seems slow",
+          "score": 0.4825,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "f2a95a5820094bf198f7",
+          "title": "Talk with your children",
+          "score": 0.4471,
+          "source_age_label": "0-24 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
           "passage_id": "47ee72834fdf486cf9ee",
           "title": "12 months up to 2 years: communication",
           "score": 0.4276,
@@ -462,25 +548,34 @@
           "routines": []
         },
         {
-          "passage_id": "dfd7210de69bbfd25c9c",
-          "title": "Naming things",
-          "score": 0.3345,
-          "source_age_label": "18-20 months",
-          "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "play"
-          ]
+          "passage_id": "e33e158cb46a8bfc1f76",
+          "title": "no toys available",
+          "score": 0.4001,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "6053a5e300397e2ec58b",
+          "title": "caregivers have no time to play",
+          "score": 0.3962,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
         }
       ],
       "retrieved_passage_ids": [
+        "65c6ccc51e6267c73511",
+        "f2a95a5820094bf198f7",
         "47ee72834fdf486cf9ee",
-        "dfd7210de69bbfd25c9c"
+        "e33e158cb46a8bfc1f76",
+        "6053a5e300397e2ec58b"
       ],
       "hit_at_k": null,
       "recall_at_k": null,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 318.6
+      "latency_ms": 309.1
     },
     {
       "id": "q09",
@@ -494,57 +589,60 @@
       "forbidden_passage_ids": [],
       "retrieved": [
         {
-          "passage_id": "ce8de3573d79a1a75d36",
-          "title": "Look at a book with baby",
-          "score": 0.3353,
-          "source_age_label": "0-5 months",
-          "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "reading"
-          ]
-        },
-        {
-          "passage_id": "7726540107e02bed6b14",
-          "title": "Chat with baby",
-          "score": 0.3344,
-          "source_age_label": "0-5 months",
-          "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "feeding",
-            "bathing",
-            "changing"
-          ]
-        },
-        {
-          "passage_id": "fbab7ed3b2988c1174e8",
-          "title": "Have a conversation with baby",
-          "score": 0.3146,
-          "source_age_label": "0-5 months",
-          "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "play"
-          ]
-        },
-        {
-          "passage_id": "42fdc07fb4b0aed24595",
-          "title": "1 week up to 6 months: communication",
-          "score": 0.2576,
+          "passage_id": "31c22920c0b1962dc350",
+          "title": "Breastfeeding: 1 week up to 6 months",
+          "score": 0.4293,
           "source_age_label": "1 week up to 6 months",
-          "source_title": "Care for Child Development: Counselling Cards",
+          "source_title": "Mother & Child Health Handbook",
+          "routines": [
+            "feeding"
+          ]
+        },
+        {
+          "passage_id": "d2492e3b34b52dfd570b",
+          "title": "1. Soothe baby",
+          "score": 0.3929,
+          "source_age_label": "0-5 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
+          "passage_id": "1065211b93171eb416c9",
+          "title": "5. Encourage baby to hold",
+          "score": 0.3775,
+          "source_age_label": "0-5 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
+          "passage_id": "000d6eb5bf9e49378aa8",
+          "title": "3. Loving and hugging baby",
+          "score": 0.3717,
+          "source_age_label": "0-5 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
+          "passage_id": "f2a95a5820094bf198f7",
+          "title": "Talk with your children",
+          "score": 0.3492,
+          "source_age_label": "0-24 months",
+          "source_title": "Reach Up: Parent Manual",
           "routines": []
         }
       ],
       "retrieved_passage_ids": [
-        "ce8de3573d79a1a75d36",
-        "7726540107e02bed6b14",
-        "fbab7ed3b2988c1174e8",
-        "42fdc07fb4b0aed24595"
+        "31c22920c0b1962dc350",
+        "d2492e3b34b52dfd570b",
+        "1065211b93171eb416c9",
+        "000d6eb5bf9e49378aa8",
+        "f2a95a5820094bf198f7"
       ],
       "hit_at_k": null,
       "recall_at_k": null,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 308.1
+      "latency_ms": 307.3
     },
     {
       "id": "q10",
@@ -570,6 +668,22 @@
       ],
       "retrieved": [
         {
+          "passage_id": "dc2672fee5b87f6db588",
+          "title": "2. Play with Ball",
+          "score": 0.706,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
+          "passage_id": "f2a95a5820094bf198f7",
+          "title": "Talk with your children",
+          "score": 0.6188,
+          "source_age_label": "0-24 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
           "passage_id": "ee49fdc1da3ab8b4cb40",
           "title": "Talk with baby while dressing baby",
           "score": 0.6125,
@@ -580,6 +694,14 @@
           ]
         },
         {
+          "passage_id": "087e9be1de947d8949ea",
+          "title": "6 Play Peek-a-boo with baby",
+          "score": 0.5539,
+          "source_age_label": "6-8 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
           "passage_id": "5d58aed9ded439496279",
           "title": "Talk with baby during feeding time",
           "score": 0.518,
@@ -588,48 +710,20 @@
           "routines": [
             "feeding"
           ]
-        },
-        {
-          "passage_id": "db4ae5edf4884d2de104",
-          "title": "6 months up to 9 months: communication",
-          "score": 0.4878,
-          "source_age_label": "6 months up to 9 months",
-          "source_title": "Care for Child Development: Counselling Cards",
-          "routines": []
-        },
-        {
-          "passage_id": "7e6f5766988e06b8451f",
-          "title": "Talk with baby at bath time",
-          "score": 0.4498,
-          "source_age_label": "6-8 months",
-          "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "bathing"
-          ]
-        },
-        {
-          "passage_id": "92d8bee8899c67ea5463",
-          "title": "6 months up to 9 months: play",
-          "score": 0.4286,
-          "source_age_label": "6 months up to 9 months",
-          "source_title": "Care for Child Development: Counselling Cards",
-          "routines": [
-            "play"
-          ]
         }
       ],
       "retrieved_passage_ids": [
+        "dc2672fee5b87f6db588",
+        "f2a95a5820094bf198f7",
         "ee49fdc1da3ab8b4cb40",
-        "5d58aed9ded439496279",
-        "db4ae5edf4884d2de104",
-        "7e6f5766988e06b8451f",
-        "92d8bee8899c67ea5463"
+        "087e9be1de947d8949ea",
+        "5d58aed9ded439496279"
       ],
-      "hit_at_k": 1.0,
-      "recall_at_k": 0.6667,
+      "hit_at_k": 0.0,
+      "recall_at_k": 0.0,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 312.7
+      "latency_ms": 327.2
     },
     {
       "id": "q11",
@@ -677,6 +771,14 @@
           ]
         },
         {
+          "passage_id": "f2a95a5820094bf198f7",
+          "title": "Talk with your children",
+          "score": 0.5387,
+          "source_age_label": "0-24 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
+        },
+        {
           "passage_id": "13d50d39a6756ba51215",
           "title": "Talk with baby while doing housework",
           "score": 0.5355,
@@ -685,18 +787,28 @@
           "routines": [
             "housework"
           ]
+        },
+        {
+          "passage_id": "a8e4bb71559a38a9a6d6",
+          "title": "5 Clear plastic bottle",
+          "score": 0.5172,
+          "source_age_label": "9-11 months",
+          "source_title": "Reach Up: Parent Manual",
+          "routines": []
         }
       ],
       "retrieved_passage_ids": [
         "d7545917b2d53e061710",
         "71d83ec2be245557befe",
-        "13d50d39a6756ba51215"
+        "f2a95a5820094bf198f7",
+        "13d50d39a6756ba51215",
+        "a8e4bb71559a38a9a6d6"
       ],
       "hit_at_k": 1.0,
       "recall_at_k": 0.5,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 374.4
+      "latency_ms": 345.9
     },
     {
       "id": "q12",
@@ -730,34 +842,50 @@
           ]
         },
         {
-          "passage_id": "8e41bffaeb00dd2cb72a",
-          "title": "2 years and older: communication",
-          "score": 0.4556,
-          "source_age_label": "2 years and older",
+          "passage_id": "e33e158cb46a8bfc1f76",
+          "title": "no toys available",
+          "score": 0.5001,
+          "source_age_label": "0-24 months",
           "source_title": "Care for Child Development: Counselling Cards",
           "routines": []
         },
         {
-          "passage_id": "9143de12b4a04b4bf352",
-          "title": "Look at picture with baby",
-          "score": 0.411,
+          "passage_id": "6053a5e300397e2ec58b",
+          "title": "caregivers have no time to play",
+          "score": 0.4965,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "c866a302513c33e3ceae",
+          "title": "caregivers feel stressed or burdened",
+          "score": 0.478,
+          "source_age_label": "0-24 months",
+          "source_title": "Care for Child Development: Counselling Cards",
+          "routines": []
+        },
+        {
+          "passage_id": "32e0089bc7491099acb1",
+          "title": "1. Using objects to build",
+          "score": 0.463,
           "source_age_label": "24-26 months",
           "source_title": "Reach Up: Parent Manual",
-          "routines": [
-            "reading"
-          ]
+          "routines": []
         }
       ],
       "retrieved_passage_ids": [
         "9c6b58474abeef28dd05",
-        "8e41bffaeb00dd2cb72a",
-        "9143de12b4a04b4bf352"
+        "e33e158cb46a8bfc1f76",
+        "6053a5e300397e2ec58b",
+        "c866a302513c33e3ceae",
+        "32e0089bc7491099acb1"
       ],
       "hit_at_k": 1.0,
-      "recall_at_k": 1.0,
+      "recall_at_k": 0.3333,
       "age_leakage": [],
       "age_leakage_count": 0,
-      "latency_ms": 316.5
+      "latency_ms": 309.9
     }
   ],
   "limitations": [
