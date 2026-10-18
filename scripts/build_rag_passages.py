@@ -276,6 +276,32 @@ def build_passages(manifest_path: Path, selections_path: Path, extracted_dir: Pa
     return records
 
 
+def build_coverage_matrix(records: list[dict]) -> dict[str, dict]:
+    # summarize the reviewed corpus so coverage gaps are visible before retrieval is evaluated.
+    matrix: dict[str, dict] = {}
+    for record in records:
+        age_label = record["source_age"]["label"]
+        row = matrix.setdefault(age_label, {"passage_count": 0, "topics": {}, "routines": {}})
+        row["passage_count"] += 1
+
+        topic = record["topic"]
+        row["topics"][topic] = row["topics"].get(topic, 0) + 1
+
+        routines = record["routines"] or ["unspecified"]
+        for routine in routines:
+            row["routines"][routine] = row["routines"].get(routine, 0) + 1
+
+    # sort keys so the generated report is stable and changes are easy to review in Git.
+    return {
+        age_label: {
+            "passage_count": row["passage_count"],
+            "topics": dict(sorted(row["topics"].items())),
+            "routines": dict(sorted(row["routines"].items())),
+        }
+        for age_label, row in sorted(matrix.items())
+    }
+
+
 def main() -> None:
     # keep command-line paths and disk output here so tests can call build_passages directly.
     parser = argparse.ArgumentParser(description="build explicitly selected age-aware RAG passages")
@@ -306,6 +332,7 @@ def main() -> None:
                 "passage_count": sum(p["source_id"] == source_id for p in records),
                 "selected_pdf_pages": sorted({p["pdf_page"] for p in records if p["source_id"] == source_id}),
             } for source_id in sorted({p["source_id"] for p in records})},
+            "coverage_matrix": build_coverage_matrix(records),
             "review_status": "selected subset; not comprehensive or expert validated",
             "age_policy": "intersect source_age with project_scope; upper source bounds are exclusive",
             "index_built": False,
