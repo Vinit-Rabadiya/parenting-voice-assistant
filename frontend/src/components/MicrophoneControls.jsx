@@ -1,13 +1,18 @@
 // connects the recording and transcription hooks to the controls shown on the landing page.
 import useMicrophone from "../hooks/useMicrophone";
 import useTranscription from "../hooks/useTranscription";
+import { useEffect } from "react";
 import MicrophoneButton from "./MicrophoneButton";
 import "./MicrophoneControls.css";
 
-export default function MicrophoneControls() {
+export default function MicrophoneControls({ onTranscriptChange }) {
   const { status, error, start, stop, recording } = useMicrophone();
   // a finished recording passes from the microphone hook into the transcription hook.
   const transcription = useTranscription(recording);
+
+  useEffect(() => {
+    if (transcription.status === "success") onTranscriptChange?.(transcription.text);
+  }, [onTranscriptChange, transcription.status, transcription.text]);
   const capturing = status !== "idle";
   const transcribing = transcription.status === "transcribing";
   const recordingNow = status === "recording";
@@ -79,11 +84,14 @@ export default function MicrophoneControls() {
         id="speech-transcript"
         rows={6}
         value={capturing ? "" : transcription.text}
-        onChange={(event) => transcription.setText(event.target.value)}
+        onChange={(event) => {
+          transcription.setText(event.target.value);
+          onTranscriptChange?.(event.target.value);
+        }}
         readOnly={capturing || transcription.status !== "success"}
         placeholder="Your spoken words will appear here after recording."
       />
-      <p>Edits stay on this page. They are not submitted to RAG or used for training.</p>
+      <p>Review and edit your transcript, then select Get guidance to submit your question.</p>
     </section>
   );
 }

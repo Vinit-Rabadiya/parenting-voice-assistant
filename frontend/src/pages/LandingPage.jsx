@@ -1,6 +1,6 @@
 // receives login state from app.jsx and shows either recording controls or a login button.
-import MicrophoneControls from "../components/MicrophoneControls";
 import MicrophoneButton from "../components/MicrophoneButton";
+import GuidanceWorkspace from "../components/GuidanceWorkspace";
 import "./LandingPage.css";
 
 // arrange the landing screen while hooks own recording and network behavior.
@@ -19,8 +19,8 @@ export default function LandingPage({ isAuthenticated, userId, accountAccess, on
               {accountAccess?.checking ? "Checking your account…" : `${accountAccess?.error || "Complete account verification."} Open My Account for setup.`}
             </p>
           )}
-          {/* a changed user key remounts the controls and clears the previous recording state. */}
-          <MicrophoneControls key={`microphone-${userId}`} />
+          {/* a changed user key clears private child and question state from the prior account. */}
+          <GuidanceWorkspace key={`guidance-${userId}`} />
         </div>
       ) : (
         <section className="landing-voice landing-sign-in" aria-labelledby="voice-entry-title">
