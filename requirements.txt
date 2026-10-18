@@ -10,4 +10,5 @@ firebase-admin>=7,<8
 faster-whisper==1.2.1
 av>=11,<19
 qdrant-client==1.19.1
+google-genai>=1.0.0,<2
 
