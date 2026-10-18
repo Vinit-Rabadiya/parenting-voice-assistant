@@ -74,6 +74,15 @@ def build_passages(manifest_path: Path, selections_path: Path, extracted_dir: Pa
             "content_sha256": hashlib.sha256(text.encode()).hexdigest(),
         })
 
+    def load_page_plain(source_id: str, number: int) -> tuple[dict, str]:
+        # like load_page but always uses plain text, needed for sources where layout scrambles columns.
+        page = json.loads((extracted_dir / source_id / f"page-{number:03d}.json").read_text(encoding="utf-8"))
+        if (page["source_sha256"] != sources[source_id]["sha256"]
+                or page["source_id"] != source_id or page["pdf_page"] != number):
+            raise ValueError(f"page provenance mismatch: {source_id} page {number}")
+        page["extraction_field"] = "text"
+        return page, normalize(page["text"])
+
     if selections.get("ccd_page_2"):
         # the reviewed plain extraction has six play/communication blocks before the age headings.
         page, text = load_page("who-unicef-ccd-cards", 2)
@@ -111,8 +120,138 @@ def build_passages(manifest_path: Path, selections_path: Path, extracted_dir: Pa
                 add(page, passage, f"{ages[i]['label']}: {topic}", ages[i], topic,
                     ["play"] if topic == "play" else [], [a, b], corrections)
 
-    for selection in selections["reach_up"]:
+    if selections.get("ccd_page_3"):
+        # page 3 has counsellor-facing problem guidance: each "If..." block is a separate passage.
+        page, text = load_page("who-unicef-ccd-cards", 3)
+        # these are the six distinct problem scenarios on the page.
+        problem_blocks = [
+            ("If the mother does not breastfeed",
+             "If caregivers do not know what the child does to play or communicate",
+             "not breastfeeding: responsive feeding", {"label": "0-24 months", "min_months": 0, "max_months_exclusive": None}, "responsive_caregiving", ["feeding"]),
+            ("If caregivers do not know what the child does to play or communicate",
+             "If caregivers feel too burdened or stressed",
+             "caregivers unsure how child plays or communicates", {"label": "0-24 months", "min_months": 0, "max_months_exclusive": None}, "responsive_caregiving", []),
+            ("If caregivers feel too burdened or stressed to play and communicate with the child",
+             "If caregivers feel that they do not have time",
+             "caregivers feel stressed or burdened", {"label": "0-24 months", "min_months": 0, "max_months_exclusive": None}, "responsive_caregiving", []),
+            ("If caregivers feel that they do not have time to play and communicate with the child",
+             "If caregivers have no toys",
+             "caregivers have no time to play", {"label": "0-24 months", "min_months": 0, "max_months_exclusive": None}, "responsive_caregiving", []),
+            ("If caregivers have no toys for the child to play with",
+             "If the child is not responding, or seems slow",
+             "no toys available", {"label": "0-24 months", "min_months": 0, "max_months_exclusive": None}, "play", []),
+            ("If the child is not responding, or seems slow",
+             "If the mother or father has to leave",
+             "child not responding or seems slow", {"label": "0-24 months", "min_months": 0, "max_months_exclusive": None}, "development", []),
+        ]
+        for start, end, title, age, topic, routines in problem_blocks:
+            passage, first, last = select_span(text, start, end)
+            add(page, passage, title, age, topic, routines, [first, last])
+
+    for selection in selections.get("reach_up_general", []):
+        # general caregiving guidance from pages 33-34: no age band, applies across 0-24 months.
+        page, text = load_page_plain("reach-up-parent-manual-2020", selection["page"])
+        passage, first, last = select_span(text, selection["start"], selection.get("end"))
+        age = {"label": "0-24 months", "min_months": 0, "max_months_exclusive": None}
+        add(page, passage, selection["title"], age, selection["topic"], selection["routines"], [first, last])
+
+    for selection in selections.get("reach_up_play", []):
+        # play activity pages 7-22 use plain text; layout scrambles the two-column table layout.
+        # the numbered activity anchors (1. Soothe baby, 2. Let baby know mummy, etc.) are unique
+        # within each page. continuation pages (8,10,12...) do not repeat the age heading.
+        page, text = load_page_plain("reach-up-parent-manual-2020", selection["page"])
+        low, high = selection["age"]
+        if not (isinstance(low, int) and isinstance(high, int) and 0 <= low <= 24 and low < high):
+            raise ValueError("invalid selected age interval")
+        passage, first, last = select_span(text, selection["start"], selection.get("end"))
+        if "Play and language activities" in passage:
+            raise ValueError(f"page header leaked into passage: {selection['start']}")
+        add(page, passage, selection["start"],
+            {"label": f"{low}-{high - 1} months", "min_months": low, "max_months_exclusive": high},
+            selection["topic"], selection["routines"], [first, last])
+
+    if selections.get("kenya_milestones"):
+        # page 27 (pdf label 25): developmental milestones table — each age band is one passage.
+        page, text = load_page("kenya-moh-mch-handbook", 27)
+        milestone_bands = [
+            ("Social smile/follows a colourful object dangled before their eyes",
+             "Holds the head upright",
+             "Developmental milestone: 0-2 months",
+             {"label": "0-2 months", "min_months": 0, "max_months_exclusive": 2}),
+            ("Holds the head upright / follows the object or face with their eyes / turns the head or responds in any other way to sound / smiles when you speak",
+             "Rolls over",
+             "Developmental milestone: 2-4 months",
+             {"label": "2-4 months", "min_months": 2, "max_months_exclusive": 4}),
+            ("Rolls over / reaches for and grasps objects with hand / takes objects to her mouth / babbles (makes sounds)",
+             "Sits without support",
+             "Developmental milestone: 4-6 months",
+             {"label": "4-6 months", "min_months": 4, "max_months_exclusive": 6}),
+            ("Sits without support / moves object from one hand to the other/ repeats syllables (bababa, mamama)",
+             "Takes steps with support",
+             "Developmental milestone: 6-9 months",
+             {"label": "6-9 months", "min_months": 6, "max_months_exclusive": 9}),
+            ("Takes steps with support / picks up small object or string with 2 fingers / says 2-3 words / imitates simple gestures (claps hands, bye)",
+             "Walks without support",
+             "Developmental milestone: 9-12 months",
+             {"label": "9-12 months", "min_months": 9, "max_months_exclusive": 12}),
+            ("Walks without support / drinks from a cup / says 7-10 words / points to some body parts on request",
+             "Kicks a ball",
+             "Developmental milestone: 12-18 months",
+             {"label": "12-18 months", "min_months": 12, "max_months_exclusive": 18}),
+            ("Kicks a ball / builds tower with 3 blocks or small boxes / points at pictures on request / speaks in short sentences",
+             "Jumps/ undresses and dresses",
+             "Developmental milestone: 18-24 months",
+             {"label": "18-24 months", "min_months": 18, "max_months_exclusive": 24}),
+            ("Jumps/ undresses and dresses themselves / says name, tells short story/ interested in playing with other children",
+             "Refer for further assessment",
+             "Developmental milestone: 24 months and older",
+             {"label": "24 months and older", "min_months": 24, "max_months_exclusive": None}),
+        ]
+        for start, end, title, age in milestone_bands:
+            passage, first, last = select_span(text, start, end)
+            add(page, passage, title, age, "development", [], [first, last])
+
+    if selections.get("kenya_feeding"):
+        # page 43 (pdf label 41): breastfeeding and complementary feeding guidance.
+        page, text = load_page("kenya-moh-mch-handbook", 43)
+        feeding_sections = [
+            ("BREASTFEEDING",
+             "1 WEEK UP TO 6 MONTHS",
+             "Breastfeeding: newborn up to 1 week",
+             {"label": "birth up to 1 week", "min_days": 0, "max_days_exclusive": 7},
+             ["feeding"]),
+            ("1 WEEK UP TO 6 MONTHS",
+             "Counsel the caregiver on feeding recommendations",
+             "Breastfeeding: 1 week up to 6 months",
+             {"label": "1 week up to 6 months", "min_days": 7, "max_months_exclusive": 6},
+             ["feeding"]),
+            ("COMPLEMENTARY FEEDING",
+             "Non-breastfed baby",
+             "Complementary feeding: 6 months to 2 years",
+             {"label": "6 months to 2 years", "min_months": 6, "max_months_exclusive": 24},
+             ["feeding"]),
+            ("Feeding sick children",
+             "See page 18",
+             "Feeding sick children and during recovery",
+             {"label": "0-24 months", "min_months": 0, "max_months_exclusive": None},
+             ["feeding"]),
+        ]
+        for start, end, title, age, routines in feeding_sections:
+            passage, first, last = select_span(text, start, end)
+            add(page, passage, title, age, "feeding", routines, [first, last])
+
+    if selections.get("kenya_danger_signs"):
+        # page 45 (pdf label 43): when to return immediately — danger signs for sick children.
+        page, text = load_page("kenya-moh-mch-handbook", 45)
+        start = "BRING ANY SICK CHILD IF:"
+        end = "Recommendations for - Care for Child Development"
+        passage, first, last = select_span(text, start, end)
+        add(page, passage,
+            "When to seek care immediately: danger signs",
+            {"label": "0-24 months", "min_months": 0, "max_months_exclusive": None},
+            "safety", [], [first, last])
         # each rule supplies the page, activity headings, and editorial age/routine labels.
+    for selection in selections["reach_up"]:
         page, text = load_page("reach-up-parent-manual-2020", selection["page"])
         low, high = selection["age"]
         if not (isinstance(low, int) and isinstance(high, int) and 0 <= low <= 24 and low < high):

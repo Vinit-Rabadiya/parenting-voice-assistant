@@ -118,10 +118,12 @@ def test_local_passages_are_reproducible_and_traceable():
             original = original.replace(correction["from"], correction["to"])
         assert original == record["text"]
     ccd = [r for r in records if r["source_id"] == "who-unicef-ccd-cards"]
-    assert len(ccd) == 12
-    assert ccd[0]["source_age"]["max_days_exclusive"] == 7
-    assert ccd[2]["source_age"]["min_days"] == 7
-    assert ccd[-1]["source_age"]["min_months"] == 24
+    assert len(ccd) == 18  # 12 from page 2 (6 age columns × 2 topics) + 6 from page 3
+    ccd_page_2 = [r for r in ccd if r["pdf_page"] == 2]
+    assert len(ccd_page_2) == 12
+    assert ccd_page_2[0]["source_age"]["max_days_exclusive"] == 7
+    assert ccd_page_2[2]["source_age"]["min_days"] == 7
+    assert ccd_page_2[-1]["source_age"]["min_months"] == 24
     assert all(r["project_scope"]["max_months_inclusive"] == 24 for r in records)
 
 
