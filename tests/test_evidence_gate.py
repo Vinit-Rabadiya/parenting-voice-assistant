@@ -33,7 +33,7 @@ def services(monkeypatch):
 
     monkeypatch.setattr(settings, "RETRIEVAL_MIN_SCORE", 0.50)
     data, retrieval, coaching = MagicMock(), MagicMock(), MagicMock()
-    data.get_child.return_value = {"age_months": 6.0, "completed_months": 6, "age_days": 183}
+    data.get_child.return_value = {"age_months": 6.0, "completed_months": 6, "age_days": 183, "in_scope": True}
     data.create_interaction.return_value = "interaction-1"
     overrides = app.dependency_overrides.copy()
     app.dependency_overrides.update({
@@ -78,3 +78,14 @@ def test_retrieval_failure_is_not_a_no_evidence_response(client, services):
     assert response.status_code == 502
     assert "status" not in response.json()
     coaching.generate.assert_not_called()
+
+
+def test_out_of_scope_profile_never_reaches_retrieval_or_generation(client, services):
+    data, retrieval, coaching = services
+    data.get_child.return_value = {"age_months": 24.1, "completed_months": 24,
+                                   "age_days": 732, "in_scope": False}
+    response = client.post("/coach", json={"child_id": "child-1", "question": "Play ideas"})
+    assert response.status_code == 422
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+    data.create_interaction.assert_not_called()

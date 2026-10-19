@@ -4,10 +4,7 @@ from datetime import date, datetime, timezone
 
 from firebase_admin import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
-from backend.services.age import age_details, current_date
-
-
-MAX_PROJECT_AGE_DAYS = 24 * 31
+from backend.services.age import age_details, current_date, within_project_scope
 
 BASELINE_MILESTONES = (
     (2, ["Social smile and follows a colourful object"]),
@@ -20,18 +17,17 @@ BASELINE_MILESTONES = (
 )
 
 
-def calculate_age(date_of_birth: date, today: date | None = None) -> tuple[int, float, str]:
+def calculate_age(date_of_birth: date, today: date | None = None, *, enforce_scope: bool = True) -> tuple[int, float, str]:
     """Calculate the display age on the server; clients never supply it as authority."""
+    today = today or current_date()
     age_days, completed_months, calendar_months = age_details(date_of_birth, today)
-    if age_days > MAX_PROJECT_AGE_DAYS:
-        raise ValueError("This prototype supports children from birth through 24 months.")
+    if enforce_scope and not within_project_scope(date_of_birth, today):
+        raise ValueError("Coaching supports children from birth through their second birthday.")
     age_months = round(calendar_months, 1)
     if completed_months == 0:
         age_label = f"{age_days} day{'s' if age_days != 1 else ''}"
-    elif age_months < 24:
-        age_label = f"{age_months:g} months"
     else:
-        age_label = "24 months"
+        age_label = f"{age_months:g} months"
     return age_days, age_months, age_label
 
 
@@ -64,14 +60,18 @@ class CaregiverDataService:
         if isinstance(dob, str):
             dob = date.fromisoformat(dob)
         today = current_date()
-        age_days, age_months, age_label = calculate_age(dob, today)
+        # A profile can age out after creation. Keep it readable/deletable while
+        # the coaching endpoint enforces eligibility independently of UI state.
+        age_days, age_months, age_label = calculate_age(dob, today, enforce_scope=False)
         _, completed_months, _ = age_details(dob, today)
+        in_scope = within_project_scope(dob, today)
         return {"id": document.id, "name": data["name"], "date_of_birth": dob,
                 "age_months": age_months, "age_days": age_days,
                 "completed_months": completed_months, "age_label": age_label,
+                "in_scope": in_scope,
                 "milestone_focus": data.get("milestone_focus"),
                 "milestones": data.get("milestones", [data["milestone_focus"]] if data.get("milestone_focus") else []),
-                "baseline_milestones": baseline_milestones(completed_months), "created_at": data.get("created_at")}
+                "baseline_milestones": baseline_milestones(completed_months) if in_scope else [], "created_at": data.get("created_at")}
 
     def list_children(self, uid: str) -> list[dict]:
         return [self._child_response(document) for document in self._children(uid).stream()]

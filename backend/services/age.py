@@ -15,6 +15,12 @@ def add_months(birth_date: date, months: int) -> date:
     return date(year, month, min(birth_date.day, monthrange(year, month)[1]))
 
 
+def within_project_scope(birth_date: date, today: date | None = None) -> bool:
+    """Birth through the calendar second birthday, inclusive; no fixed day count."""
+    today = today or current_date()
+    return birth_date <= today <= add_months(birth_date, 24)
+
+
 def age_details(birth_date: date, today: date | None = None) -> tuple[int, int, float]:
     """Return exact days, completed calendar months, and a fractional display age."""
     today = today or current_date()

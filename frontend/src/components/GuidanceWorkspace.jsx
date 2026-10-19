@@ -30,7 +30,7 @@ export default function GuidanceWorkspace() {
 
   async function askForGuidance(event) {
     event.preventDefault();
-    if (!child || !question.trim()) return;
+    if (!child || child.in_scope === false || !question.trim()) return;
     setBusy(true); setError(""); setResult(null); setFeedbackStatus("");
     try {
       setResult(await requestCoaching({ child_id: child.id, question: question.trim(), routine: routine || null }));
@@ -54,13 +54,14 @@ export default function GuidanceWorkspace() {
     <section className="question-panel" aria-labelledby="question-title">
       <h2 id="question-title">Ask for guidance</h2>
       <p>{child ? `Guidance will be tailored for ${child.name}, age ${child.age_label}.` : "Select or add a child profile first."}</p>
+      {child?.in_scope === false && <p role="status">This profile is outside the coaching age range of birth through the second birthday. You can still manage or delete the profile.</p>}
       <MicrophoneControls onTranscriptChange={setQuestion} />
       <form onSubmit={askForGuidance}>
         <label htmlFor="caregiver-question">Question</label>
         <textarea id="caregiver-question" rows="4" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Type a question, or record one above." />
         <label htmlFor="routine">Routine (optional)</label>
         <select id="routine" value={routine} onChange={(event) => setRoutine(event.target.value)}><option value="">General caregiving</option><option value="feeding">Feeding</option><option value="bathing">Bathing</option><option value="play">Play</option><option value="dressing">Dressing</option><option value="reading">Reading</option></select>
-        <button type="submit" disabled={busy || !child || question.trim().length < 2}>{busy ? "Preparing guidance…" : "Get guidance"}</button>
+        <button type="submit" disabled={busy || !child || child.in_scope === false || question.trim().length < 2}>{busy ? "Preparing guidance…" : "Get guidance"}</button>
       </form>
       {error && <p role="alert">{error}</p>}
     </section>
