@@ -35,7 +35,7 @@ async def coach(
     started = time.perf_counter()
     stage = "Qdrant retrieval"
     try:
-        passages = await run_in_threadpool(retrieval_service.retrieve, payload.question, child["age_months"], payload.routine, 3)
+        passages = await run_in_threadpool(retrieval_service.retrieve, payload.question, child["completed_months"], payload.routine, 3, child_age_days=child["age_days"])
         stage = "Evidence selection"
         evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
         status = "answered" if evidence else "no_evidence"

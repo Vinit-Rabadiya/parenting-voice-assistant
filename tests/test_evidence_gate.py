@@ -33,7 +33,7 @@ def services(monkeypatch):
 
     monkeypatch.setattr(settings, "RETRIEVAL_MIN_SCORE", 0.50)
     data, retrieval, coaching = MagicMock(), MagicMock(), MagicMock()
-    data.get_child.return_value = {"age_months": 6.0}
+    data.get_child.return_value = {"age_months": 6.0, "completed_months": 6, "age_days": 183}
     data.create_interaction.return_value = "interaction-1"
     overrides = app.dependency_overrides.copy()
     app.dependency_overrides.update({

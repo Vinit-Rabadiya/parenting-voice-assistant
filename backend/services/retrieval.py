@@ -24,7 +24,7 @@ class RetrievedPassage:
     routines: list[str]
 
 
-def is_age_eligible(source_age: dict[str, Any], child_age_months: float) -> bool:
+def is_age_eligible(source_age: dict[str, Any], child_age_months: float, *, child_age_days: int | None = None) -> bool:
     if not isinstance(source_age, dict):
         return False
 
@@ -59,7 +59,11 @@ def is_age_eligible(source_age: dict[str, Any], child_age_months: float) -> bool
         if upper is not None and upper <= source_age[f"min_{unit}"]:
             return False
 
-    approx_child_days = child_age_months * 30.4375
+    if child_age_days is not None and (type(child_age_days) is not int or child_age_days < 0):
+        return False
+    # Older evaluation callers supply months only. Live coaching supplies exact
+    # days plus completed calendar months and never uses this legacy approximation.
+    approx_child_days = child_age_days if child_age_days is not None else child_age_months * 30.4375
 
     # check day-based bounds for the newborn first week.
     if "min_days" in source_age and "max_days_exclusive" in source_age:
@@ -118,6 +122,8 @@ class RetrievalService:
         child_age_months: float | None = None,
         routine: str | None = None,
         limit: int = 3,
+        *,
+        child_age_days: int | None = None,
     ) -> list[RetrievedPassage]:
         if not query.strip():
             return []
@@ -146,7 +152,7 @@ class RetrievalService:
             source_age = payload.get("source_age", {})
 
             # exclude passages outside the child's developmental age.
-            if child_age_months is not None and not is_age_eligible(source_age, child_age_months):
+            if child_age_months is not None and not is_age_eligible(source_age, child_age_months, child_age_days=child_age_days):
                 continue
 
             # exclude passages when a specific routine is requested and tags do not match.
