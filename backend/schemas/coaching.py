@@ -1,6 +1,7 @@
 """API models for grounded caregiver coaching and feedback."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +26,7 @@ class CoachingResponse(BaseModel):
     citations: list[CitationSchema]
     child_age_months: float
     processing_seconds: float
+    status: Literal["answered", "no_evidence"] = "answered"
 
 
 class FeedbackRequest(BaseModel):

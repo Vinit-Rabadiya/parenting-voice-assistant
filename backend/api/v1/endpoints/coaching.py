@@ -10,8 +10,10 @@ from backend.api.dependencies import get_caregiver_data_service, get_coaching_se
 from backend.core.security import require_authenticated_user
 from backend.schemas.coaching import CoachingRequest, CoachingResponse, CitationSchema, FeedbackRequest, FeedbackResponse
 from backend.services.caregiver_data import CaregiverDataService
-from backend.services.coaching import CoachingService
+from backend.services.coaching import CoachingResult, CoachingService
 from backend.services.retrieval import RetrievalService
+from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
+from backend.core.config import settings
 
 
 router = APIRouter(prefix="/coach", dependencies=[Depends(require_authenticated_user)])
@@ -34,8 +36,15 @@ async def coach(
     stage = "Qdrant retrieval"
     try:
         passages = await run_in_threadpool(retrieval_service.retrieve, payload.question, child["age_months"], payload.routine, 3)
-        stage = "Gemini generation"
-        result = await run_in_threadpool(coaching_service.generate, payload.question, child["age_months"], payload.routine, passages)
+        stage = "Evidence selection"
+        evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
+        status = "answered" if evidence else "no_evidence"
+        if evidence:
+            stage = "Gemini generation"
+            result = await run_in_threadpool(coaching_service.generate, payload.question, child["age_months"], payload.routine, evidence)
+        else:
+            # A normal response, not a service error: no generation call or supporting citations.
+            result = CoachingResult(answer=NO_GUIDANCE_MESSAGE, passages=[])
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
@@ -60,11 +69,11 @@ async def coach(
         for item in result.passages
     ]
     interaction_id = await run_in_threadpool(
-        data_service.create_interaction, user["uid"], payload.child_id, payload.question, payload.routine, result.answer, citations
+        data_service.create_interaction, user["uid"], payload.child_id, payload.question, payload.routine, result.answer, citations, status
     )
     return CoachingResponse(interaction_id=interaction_id, answer=result.answer,
         citations=[CitationSchema(**citation) for citation in citations], child_age_months=child["age_months"],
-        processing_seconds=round(time.perf_counter() - started, 3))
+        processing_seconds=round(time.perf_counter() - started, 3), status=status)
 
 
 @router.post("/{interaction_id}/feedback", response_model=FeedbackResponse)

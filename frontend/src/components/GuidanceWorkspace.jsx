@@ -65,9 +65,11 @@ export default function GuidanceWorkspace() {
       {error && <p role="alert">{error}</p>}
     </section>
     {result && <section className="guidance-answer" aria-live="polite" aria-labelledby="guidance-title">
-      <h2 id="guidance-title">Guidance for {child?.name}</h2>
+      <h2 id="guidance-title">{result.status === "no_evidence" ? "No suitable guidance found" : `Guidance for ${child?.name}`}</h2>
       <p className="guidance-text">{result.answer}</p>
-      <p className="guidance-meta">Prepared in {result.processing_seconds.toFixed(2)} seconds using age-aware reference material.</p>
+      <p className="guidance-meta">{result.status === "no_evidence"
+        ? `References checked in ${result.processing_seconds.toFixed(2)} seconds. No coaching answer was generated.`
+        : `Prepared in ${result.processing_seconds.toFixed(2)} seconds using age-aware reference material.`}</p>
       <div className="answer-actions"><button type="button" onClick={() => speak(result.answer)}>Listen</button><button type="button" onClick={() => window.speechSynthesis.cancel()}>Stop audio</button></div>
       {result.citations.length > 0 && <><h3>Sources used</h3><ul>{result.citations.map((citation) => <li key={citation.passage_id}><a href={citation.source_url} target="_blank" rel="noreferrer">{citation.source_title}, page {citation.pdf_page}: {citation.title}</a></li>)}</ul></>}
       <div className="feedback"><p>Was this helpful?</p><label htmlFor="feedback-comment">Optional comment<input id="feedback-comment" maxLength="500" value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} /></label><button type="button" onClick={() => recordFeedback(true)}>Helpful</button><button type="button" onClick={() => recordFeedback(false)}>Not helpful</button><p role="status">{feedbackStatus}</p></div>
