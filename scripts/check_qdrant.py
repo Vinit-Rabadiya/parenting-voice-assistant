@@ -30,7 +30,7 @@ def main() -> None:
     client = None
     try:
         # configure the connection; timeout bounds the wait for a server response.
-        client = QdrantClient(url=url, api_key=api_key, timeout=15)
+        client = QdrantClient(url=url, port=443, api_key=api_key, timeout=15)
         # this read-only request returns collection information without uploading data.
         result = client.get_collections()
         print("Qdrant connection successful.")
