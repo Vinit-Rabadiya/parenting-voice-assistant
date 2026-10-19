@@ -4,7 +4,9 @@ from math import isfinite
 from typing import Any
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Document
+from qdrant_client.models import (
+    Document, FieldCondition, Filter, IsNullCondition, PayloadField, Range,
+)
 
 from backend.core.config import settings
 
@@ -88,6 +90,36 @@ def is_age_eligible(source_age: dict[str, Any], child_age_months: float, *, chil
     return False
 
 
+def build_age_filter(child_age_months: float, *, child_age_days: int | None = None) -> Filter:
+    """Filter the existing payload in its original units, without day conversions."""
+    if (type(child_age_months) not in (int, float)
+            or not isfinite(child_age_months) or child_age_months < 0):
+        raise ValueError("Child age must be a finite non-negative number of months.")
+    if child_age_days is not None and (type(child_age_days) is not int or child_age_days < 0):
+        raise ValueError("Child age in days must be a non-negative integer.")
+    days = child_age_days if child_age_days is not None else child_age_months * 30.4375
+
+    def band(lower: str, upper: str, age: float) -> Filter:
+        return Filter(
+            must=[FieldCondition(key=f"source_age.{lower}", range=Range(gte=0, lte=age))],
+            should=[
+                FieldCondition(key=f"source_age.{upper}", range=Range(gt=age)),
+                IsNullCondition(is_null=PayloadField(key=f"source_age.{upper}")),
+            ],
+        )
+
+    # Any one supported band can match. Python still rejects malformed metadata.
+    return Filter(should=[
+        band("min_days", "max_days_exclusive", days),
+        Filter(must=[
+            FieldCondition(key="source_age.min_days", range=Range(gte=7, lte=7)),
+            FieldCondition(key="source_age.max_months_exclusive", range=Range(gte=6, lte=6, gt=child_age_months)),
+            FieldCondition(key="source_age.min_days", range=Range(lte=days)),
+        ]),
+        band("min_months", "max_months_exclusive", child_age_months),
+    ])
+
+
 class RetrievalService:
     def __init__(
         self,
@@ -128,7 +160,11 @@ class RetrievalService:
         if not query.strip():
             return []
 
-        # fetch enough candidates to allow age and routine filtering.
+        age_filter = None
+        if child_age_months is not None:
+            age_filter = build_age_filter(child_age_months, child_age_days=child_age_days)
+
+        # Age filtering happens before ranking; retain extra candidates for routines.
         candidate_limit = max(limit * 5, 15)
 
         try:
@@ -139,6 +175,7 @@ class RetrievalService:
                     model="sentence-transformers/all-minilm-l6-v2",
                 ),
                 limit=candidate_limit,
+                query_filter=age_filter,
             )
         except Exception as exc:
             logger.error("error querying qdrant: %s", exc)
