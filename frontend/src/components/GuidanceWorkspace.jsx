@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import MicrophoneControls from "./MicrophoneControls";
 import ChildProfiles from "./ChildProfiles";
 import { requestCoaching, sendFeedback } from "../services/caregiving";
@@ -19,6 +19,14 @@ export default function GuidanceWorkspace() {
   const [error, setError] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
   const [feedbackComment, setFeedbackComment] = useState("");
+
+  const selectChild = useCallback((nextChild) => {
+    window.speechSynthesis?.cancel();
+    setChild(nextChild);
+    setResult(null);
+    setFeedbackStatus("");
+    setFeedbackComment("");
+  }, []);
 
   async function askForGuidance(event) {
     event.preventDefault();
@@ -42,7 +50,7 @@ export default function GuidanceWorkspace() {
   }
 
   return <div className="guidance-workspace">
-    <ChildProfiles selectedChild={child} onSelect={setChild} />
+    <ChildProfiles selectedChild={child} onSelect={selectChild} guidanceBusy={busy} />
     <section className="question-panel" aria-labelledby="question-title">
       <h2 id="question-title">Ask for guidance</h2>
       <p>{child ? `Guidance will be tailored for ${child.name}, age ${child.age_label}.` : "Select or add a child profile first."}</p>
