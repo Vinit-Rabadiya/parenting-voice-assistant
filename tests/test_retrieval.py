@@ -42,6 +42,15 @@ def test_is_age_eligible_first_week():
     assert is_age_eligible(source_age, child_age_months=0.5) is False
 
 
+def test_exact_days_override_legacy_month_conversion():
+    first_week = {"min_days": 0, "max_days_exclusive": 7}
+    following_band = {"min_days": 7, "max_months_exclusive": 6}
+    assert is_age_eligible(first_week, 0, child_age_days=6) is True
+    assert is_age_eligible(first_week, 0, child_age_days=7) is False
+    assert is_age_eligible(following_band, 0, child_age_days=7) is True
+    assert is_age_eligible(following_band, 6, child_age_days=181) is False
+
+
 def test_is_age_eligible_mixed_unit():
     # check 7 days up to 6 months mixed-unit range.
     source_age = {"label": "1 week up to 6 months", "min_days": 7, "max_months_exclusive": 6}

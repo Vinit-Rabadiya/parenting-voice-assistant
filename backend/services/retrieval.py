@@ -4,7 +4,9 @@ from math import isfinite
 from typing import Any
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Document
+from qdrant_client.models import (
+    Document, FieldCondition, Filter, IsNullCondition, PayloadField, Range,
+)
 
 from backend.core.config import settings
 
@@ -24,7 +26,7 @@ class RetrievedPassage:
     routines: list[str]
 
 
-def is_age_eligible(source_age: dict[str, Any], child_age_months: float) -> bool:
+def is_age_eligible(source_age: dict[str, Any], child_age_months: float, *, child_age_days: int | None = None) -> bool:
     if not isinstance(source_age, dict):
         return False
 
@@ -59,7 +61,11 @@ def is_age_eligible(source_age: dict[str, Any], child_age_months: float) -> bool
         if upper is not None and upper <= source_age[f"min_{unit}"]:
             return False
 
-    approx_child_days = child_age_months * 30.4375
+    if child_age_days is not None and (type(child_age_days) is not int or child_age_days < 0):
+        return False
+    # Older evaluation callers supply months only. Live coaching supplies exact
+    # days plus completed calendar months and never uses this legacy approximation.
+    approx_child_days = child_age_days if child_age_days is not None else child_age_months * 30.4375
 
     # check day-based bounds for the newborn first week.
     if "min_days" in source_age and "max_days_exclusive" in source_age:
@@ -82,6 +88,36 @@ def is_age_eligible(source_age: dict[str, Any], child_age_months: float) -> bool
         return min_months <= child_age_months < max_months
 
     return False
+
+
+def build_age_filter(child_age_months: float, *, child_age_days: int | None = None) -> Filter:
+    """Filter the existing payload in its original units, without day conversions."""
+    if (type(child_age_months) not in (int, float)
+            or not isfinite(child_age_months) or child_age_months < 0):
+        raise ValueError("Child age must be a finite non-negative number of months.")
+    if child_age_days is not None and (type(child_age_days) is not int or child_age_days < 0):
+        raise ValueError("Child age in days must be a non-negative integer.")
+    days = child_age_days if child_age_days is not None else child_age_months * 30.4375
+
+    def band(lower: str, upper: str, age: float) -> Filter:
+        return Filter(
+            must=[FieldCondition(key=f"source_age.{lower}", range=Range(gte=0, lte=age))],
+            should=[
+                FieldCondition(key=f"source_age.{upper}", range=Range(gt=age)),
+                IsNullCondition(is_null=PayloadField(key=f"source_age.{upper}")),
+            ],
+        )
+
+    # Any one supported band can match. Python still rejects malformed metadata.
+    return Filter(should=[
+        band("min_days", "max_days_exclusive", days),
+        Filter(must=[
+            FieldCondition(key="source_age.min_days", range=Range(gte=7, lte=7)),
+            FieldCondition(key="source_age.max_months_exclusive", range=Range(gte=6, lte=6, gt=child_age_months)),
+            FieldCondition(key="source_age.min_days", range=Range(lte=days)),
+        ]),
+        band("min_months", "max_months_exclusive", child_age_months),
+    ])
 
 
 class RetrievalService:
@@ -118,11 +154,17 @@ class RetrievalService:
         child_age_months: float | None = None,
         routine: str | None = None,
         limit: int = 3,
+        *,
+        child_age_days: int | None = None,
     ) -> list[RetrievedPassage]:
         if not query.strip():
             return []
 
-        # fetch enough candidates to allow age and routine filtering.
+        age_filter = None
+        if child_age_months is not None:
+            age_filter = build_age_filter(child_age_months, child_age_days=child_age_days)
+
+        # Age filtering happens before ranking; retain extra candidates for routines.
         candidate_limit = max(limit * 5, 15)
 
         try:
@@ -133,6 +175,7 @@ class RetrievalService:
                     model="sentence-transformers/all-minilm-l6-v2",
                 ),
                 limit=candidate_limit,
+                query_filter=age_filter,
             )
         except Exception as exc:
             logger.error("error querying qdrant: %s", exc)
@@ -146,7 +189,7 @@ class RetrievalService:
             source_age = payload.get("source_age", {})
 
             # exclude passages outside the child's developmental age.
-            if child_age_months is not None and not is_age_eligible(source_age, child_age_months):
+            if child_age_months is not None and not is_age_eligible(source_age, child_age_months, child_age_days=child_age_days):
                 continue
 
             # exclude passages when a specific routine is requested and tags do not match.

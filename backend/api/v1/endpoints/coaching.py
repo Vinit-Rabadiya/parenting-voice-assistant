@@ -31,11 +31,13 @@ async def coach(
     child = await run_in_threadpool(data_service.get_child, user["uid"], payload.child_id)
     if child is None:
         raise HTTPException(status_code=404, detail="Select a child profile before asking for guidance.")
+    if child.get("in_scope") is not True:
+        raise HTTPException(status_code=422, detail="Coaching supports children from birth through their second birthday. Select a profile within this age range.")
 
     started = time.perf_counter()
     stage = "Qdrant retrieval"
     try:
-        passages = await run_in_threadpool(retrieval_service.retrieve, payload.question, child["age_months"], payload.routine, 3)
+        passages = await run_in_threadpool(retrieval_service.retrieve, payload.question, child["completed_months"], payload.routine, 3, child_age_days=child["age_days"])
         stage = "Evidence selection"
         evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
         status = "answered" if evidence else "no_evidence"

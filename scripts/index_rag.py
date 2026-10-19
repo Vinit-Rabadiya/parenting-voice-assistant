@@ -7,6 +7,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Document, PointStruct
 
 from backend.core.config import PROJECT_ROOT, settings
+from scripts.create_qdrant_collection import ensure_age_indexes
 
 
 def load_passages(path: Path) -> list[dict]:
@@ -241,6 +242,7 @@ def upload_points(points: list[PointStruct], collection_name: str = "caregiver_g
 
     client = QdrantClient(
         url=url,
+        port=443,
         api_key=api_key,
         cloud_inference=True,
         timeout=30,
@@ -250,6 +252,7 @@ def upload_points(points: list[PointStruct], collection_name: str = "caregiver_g
             raise ValueError(
                 f"Collection '{collection_name}' not found. Run scripts/create_qdrant_collection.py first."
             )
+        ensure_age_indexes(client, collection_name)
         # upload batch to qdrant with cloud inference for embeddings
         client.upsert(collection_name=collection_name, points=points)
         return len(points)

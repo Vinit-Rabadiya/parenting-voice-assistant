@@ -27,6 +27,9 @@ class ChildProfileResponse(BaseModel):
     name: str
     date_of_birth: date
     age_months: float
+    age_days: int
+    completed_months: int
+    in_scope: bool
     age_label: str
     milestone_focus: str | None = None
     baseline_milestones: list[str]
