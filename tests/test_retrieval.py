@@ -1,6 +1,38 @@
 from unittest.mock import MagicMock
+import pytest
 
 from backend.services.retrieval import RetrievalService, is_age_eligible
+
+
+@pytest.mark.parametrize("source_age", [
+    None, [], "6-8 months", {}, {"label": "unknown"},
+    {"minimum_age": 0, "maximum_age": 24},
+    {"min_months": 0},
+    {"min_months": None, "max_months_exclusive": 9},
+    {"min_months": "6", "max_months_exclusive": 9},
+    {"min_months": True, "max_months_exclusive": 9},
+    {"min_months": -1, "max_months_exclusive": 9},
+    {"min_months": 9, "max_months_exclusive": 6},
+    {"min_days": 0, "max_days_exclusive": 0},
+    {"min_days": 7, "max_months_exclusive": None},
+    {"min_days": 7, "max_months_exclusive": 9},
+    {"min_months": 0, "max_months_exclusive": 9, "min_days": 0},
+])
+def test_age_eligibility_fails_closed_for_invalid_metadata(source_age):
+    assert is_age_eligible(source_age, 7.0) is False
+
+
+@pytest.mark.parametrize("age", [None, "7", True, -1, float("nan"), float("inf")])
+def test_age_eligibility_rejects_invalid_child_age(age):
+    assert is_age_eligible({"min_months": 0, "max_months_exclusive": 9}, age) is False
+
+
+def test_retrieval_excludes_missing_and_unknown_age_metadata():
+    missing = MagicMock(payload={"text": "Missing age"})
+    unknown = MagicMock(payload={"text": "Unknown age", "source_age": {"label": "all"}})
+    client = MagicMock()
+    client.query_points.return_value.points = [missing, unknown]
+    assert RetrievalService(client=client).retrieve("play", child_age_months=7) == []
 
 
 def test_is_age_eligible_first_week():

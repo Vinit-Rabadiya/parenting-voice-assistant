@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import logging
+from math import isfinite
 from typing import Any
 
 from qdrant_client import QdrantClient
@@ -27,13 +28,44 @@ def is_age_eligible(source_age: dict[str, Any], child_age_months: float) -> bool
     if not isinstance(source_age, dict):
         return False
 
+    if (type(child_age_months) not in (int, float)
+            or not isfinite(child_age_months) or child_age_months < 0):
+        return False
+
+    # Match the explicit formats accepted during indexing. Missing upper keys are
+    # invalid; only an explicitly null upper bound represents an open-ended band.
+    boundaries = set(source_age) - {"label"}
+    supported = (
+        {"min_days", "max_days_exclusive"},
+        {"min_days", "max_months_exclusive"},
+        {"min_months", "max_months_exclusive"},
+    )
+    if boundaries not in supported:
+        return False
+    for field in boundaries:
+        value = source_age[field]
+        if field.startswith("max_") and value is None:
+            continue
+        if type(value) is not int or value < 0:
+            return False
+
+    if boundaries == {"min_days", "max_months_exclusive"}:
+        # The reviewed mixed-unit format is one week to under six months.
+        if source_age["min_days"] != 7 or source_age["max_months_exclusive"] != 6:
+            return False
+    else:
+        unit = "days" if "min_days" in boundaries else "months"
+        upper = source_age[f"max_{unit}_exclusive"]
+        if upper is not None and upper <= source_age[f"min_{unit}"]:
+            return False
+
     approx_child_days = child_age_months * 30.4375
 
     # check day-based bounds for the newborn first week.
     if "min_days" in source_age and "max_days_exclusive" in source_age:
         min_days = source_age.get("min_days", 0)
         max_days = source_age.get("max_days_exclusive", 7)
-        return min_days <= approx_child_days < max_days
+        return approx_child_days >= min_days and (max_days is None or approx_child_days < max_days)
 
     # check mixed-unit range for one week to six months.
     if "min_days" in source_age and "max_months_exclusive" in source_age:
@@ -49,7 +81,7 @@ def is_age_eligible(source_age: dict[str, Any], child_age_months: float) -> bool
             return child_age_months >= min_months
         return min_months <= child_age_months < max_months
 
-    return True
+    return False
 
 
 class RetrievalService:
