@@ -9,6 +9,7 @@ import {
   getAccountSecurityStatus,
 } from "../services/auth";
 import QRCode from "qrcode";
+import { deleteAccount } from "../services/caregiving";
 function AccountPage({ verificationEmailRequested, email, accountAccess }) {
   const { logout } = useAuth();
   // remember this screen's progress, messages, and account setup details.
@@ -22,6 +23,22 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
   const [enrollmentCode, setEnrollmentCode] = useState("");
   // null means we have not checked whether an authenticator is set up yet.
   const [enrollmentComplete, setEnrollmentComplete] = useState(null);
+
+  async function handleDeleteAccount() {
+    if (busy) return;
+    if (!window.confirm("Permanently delete your account, all child profiles, questions, answers, and feedback? This cannot be undone.")) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      await deleteAccount();
+      window.speechSynthesis?.cancel();
+      await logout();
+    } catch (error) {
+      setMessage(error.message || "Account deletion could not finish. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   // ask firebase for current account details whenever this page opens.
   useEffect(() => {
@@ -323,6 +340,11 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
       <button type="button" disabled={busy} onClick={handleLogOut}>
         Log Out
       </button>
+      {accountAccess?.verified && <div className="account-deletion">
+        <h2>Delete account</h2>
+        <p>Permanently remove your account, child profiles, saved questions, answers, and feedback.</p>
+        <button className="delete-action" type="button" disabled={busy} onClick={handleDeleteAccount}>Delete my account</button>
+      </div>}
     </section>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { createChild, listChildren, updateChild } from "../services/caregiving";
+import { createChild, listChildren, updateChild, deleteChild } from "../services/caregiving";
 
-export default function ChildProfiles({ selectedChild, onSelect }) {
+export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = false }) {
   const [children, setChildren] = useState([]);
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -38,10 +38,30 @@ export default function ChildProfiles({ selectedChild, onSelect }) {
     }
   }
 
+  async function removeChild() {
+    if (!selectedChild || busy || guidanceBusy) return;
+    if (!window.confirm(`Delete ${selectedChild.name}'s profile and all related questions, answers, and feedback? This cannot be undone.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await deleteChild(selectedChild.id);
+      const remaining = children.filter((item) => item.id !== selectedChild.id);
+      setChildren(remaining);
+      setShowForm(false);
+      setEditingId(null);
+      onSelect(remaining[0] || null);
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return <section className="child-profiles" aria-labelledby="child-profile-title">
     <div className="section-heading"><h2 id="child-profile-title">Child profile</h2><div className="profile-actions"><button type="button" onClick={() => { setEditingId(null); setName(""); setDateOfBirth(""); setMilestones([]); setShowForm((value) => !value); }}>Add child</button>{selectedChild && <button type="button" onClick={() => { setEditingId(selectedChild.id); setName(selectedChild.name); setDateOfBirth(selectedChild.date_of_birth); setMilestones(selectedChild.milestones || []); setShowForm(true); }}>Edit active child</button>}</div></div>
     {busy && !children.length ? <p role="status">Loading profiles…</p> : children.length ? <><label>Active child<select value={selectedChild?.id || ""} onChange={(event) => onSelect(children.find((child) => child.id === event.target.value))}>{children.map((child) => <option value={child.id} key={child.id}>{child.name} — {child.age_label}</option>)}</select></label>{selectedChild && <div className="milestone-summary"><p>Baseline developmental focus</p><ul>{selectedChild.baseline_milestones.map((milestone) => <li key={milestone}>{milestone}</li>)}</ul></div>}</> : <p>Add a child profile to receive age-aware guidance.</p>}
     {selectedChild?.milestones?.length > 0 && <div className="milestone-summary"><p>Additional milestones</p><ul>{selectedChild.milestones.map((milestone, index) => <li key={index}>{milestone}</li>)}</ul></div>}
+    {selectedChild && <button className="delete-action" type="button" disabled={busy || guidanceBusy} onClick={removeChild}>Delete active child profile</button>}
     {showForm && <form className="child-form" onSubmit={addChild}>
       <label>Child name<input required value={name} maxLength="60" onChange={(event) => setName(event.target.value)} /></label>
       <label>Date of birth<input required type="date" value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></label>

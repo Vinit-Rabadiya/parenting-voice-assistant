@@ -1,5 +1,9 @@
 /* clean, modern layout for the parenting assistant interface */
 
+.account-deletion { display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 12px; }
+button.delete-action { border-color: var(--accent-border); color: var(--text-h); background: var(--accent-bg); }
+button.delete-action:hover:not(:disabled) { border-color: var(--accent); }
+
 main {
   width: 100%;
   max-width: 440px;

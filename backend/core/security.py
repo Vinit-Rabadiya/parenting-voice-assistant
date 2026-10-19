@@ -76,5 +76,7 @@ def require_authenticated_user(
             detail="Complete authenticator login first.",
         )
 
+    # Sensitive endpoints can require a recent sign-in using this verified claim.
+    request.state.auth_time = claims.get("auth_time", 0)
     # return the verified user id.
     return {"uid": claims["uid"]}

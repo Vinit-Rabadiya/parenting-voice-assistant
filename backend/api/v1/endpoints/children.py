@@ -11,6 +11,16 @@ from backend.services.caregiver_data import CaregiverDataService
 router = APIRouter(prefix="/children", dependencies=[Depends(require_authenticated_user)])
 
 
+@router.delete("/{child_id}", status_code=204)
+def delete_child(child_id: str, user: dict = Depends(require_authenticated_user), service: CaregiverDataService = Depends(get_caregiver_data_service)):
+    try:
+        deleted = service.delete_child(user["uid"], child_id)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Profile deletion could not finish. Please retry. Some related interactions may already have been removed.") from None
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Child profile not found.")
+
+
 @router.get("", response_model=list[ChildProfileResponse])
 def list_children(user: dict = Depends(require_authenticated_user), service: CaregiverDataService = Depends(get_caregiver_data_service)):
     return service.list_children(user["uid"])

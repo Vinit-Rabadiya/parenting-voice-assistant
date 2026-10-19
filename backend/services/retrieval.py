@@ -72,6 +72,8 @@ class RetrievalService:
                 raise ValueError("QDRANT_URL and QDRANT_API_KEY must be configured in settings.")
             self._client = QdrantClient(
                 url=self.url,
+                # Use standard HTTPS for Cloud endpoints on networks blocking port 6333.
+                port=443,
                 api_key=self.api_key,
                 cloud_inference=True,
                 timeout=15,

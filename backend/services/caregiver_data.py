@@ -3,6 +3,7 @@
 from datetime import date, datetime, timezone
 
 from firebase_admin import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 
 MAX_PROJECT_AGE_DAYS = 24 * 31
@@ -119,3 +120,18 @@ class CaregiverDataService:
         recorded_at = datetime.now(timezone.utc)
         document.update({"feedback": {"helpful": helpful, "comment": comment.strip() if comment else None, "recorded_at": recorded_at}})
         return recorded_at
+
+    def delete_child(self, uid: str, child_id: str) -> bool:
+        # Query only this user's interactions; recursive deletion includes future subcollections.
+        child = self._children(uid).document(child_id)
+        if not child.get().exists:
+            return False
+        interactions = self._interactions(uid).where(filter=FieldFilter("child_id", "==", child_id))
+        for interaction in interactions.stream():
+            self.client.recursive_delete(interaction.reference)
+        self.client.recursive_delete(child)
+        return True
+
+    def delete_account_data(self, uid: str) -> None:
+        # Deleting just the parent document would leave Firestore subcollections behind.
+        self.client.recursive_delete(self.client.collection("users").document(uid))
