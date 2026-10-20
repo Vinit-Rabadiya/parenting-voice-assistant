@@ -16,6 +16,25 @@ os.environ.setdefault("FIREBASE_PROJECT_ID", "test-project")
 os.environ.setdefault("FIREBASE_ADMIN_KEY_PATH", ".secrets/firebase-admin.json")
 
 
+CORPUS_PATH = Path(__file__).resolve().parent.parent / "data/processed/rag/passages.jsonl"
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--require-corpus", action="store_true", default=False,
+        help="Fail before testing if the prepared real passage corpus is missing.",
+    )
+
+
+def pytest_sessionstart(session):
+    if session.config.getoption("--require-corpus") and not CORPUS_PATH.is_file():
+        raise pytest.UsageError(
+            "--require-corpus needs data/processed/rag/passages.jsonl. "
+            "Run python -m scripts.prepare_rag_data and "
+            "python -m scripts.build_rag_passages with the source PDFs available."
+        )
+
+
 @pytest.fixture(scope="session")
 def mock_firebase_app():
     """Provides a mocked Firebase Admin application fixture for local test execution."""
