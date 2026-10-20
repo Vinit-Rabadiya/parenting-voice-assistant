@@ -1,0 +1,96 @@
+{
+  "case": {
+    "id": "aq10",
+    "target_months": 3,
+    "routine": "bathing",
+    "question": "I am bathing my baby.",
+    "expected_behaviour": "Offer supported interaction from a statement."
+  },
+  "profile": {
+    "evaluation_date": "2026-10-20",
+    "date_of_birth": "2026-07-20",
+    "age_days": 92,
+    "completed_months": 3,
+    "age_months": 3.0
+  },
+  "outcome": "answered",
+  "retrieved": [
+    {
+      "passage_id": "7726540107e02bed6b14",
+      "text": "Chat with baby • Talk to baby all the time – during changing, feeding and bath time • Describe what you are doing • Talk about what baby is doing • Soon baby will know your voice!",
+      "title": "Chat with baby",
+      "source_title": "Reach Up: Parent Manual",
+      "pdf_page": 37,
+      "source_url": "https://nurturing-care.org/parent-manual-activities-for-children-up-to-3/",
+      "score": 0.50038546,
+      "source_age_label": "0-5 months",
+      "routines": [
+        "feeding",
+        "bathing",
+        "changing"
+      ]
+    },
+    {
+      "passage_id": "f78a77c6f0225e3e5692",
+      "text": "2. Let baby know mummy! • Face baby, and smile, see if he smiles back • Open and close your mouth making a soft sound. See if baby looks at your mouth. • Hold baby’s hands and gently move them over your face. Let baby hold your nose. Chat with baby • Talk to baby all the time – during changing, feeding and bath time • Describe what you are doing • Talk about what baby is doing • Soon baby will know your voice!",
+      "title": "2. Let baby know mummy",
+      "source_title": "Reach Up: Parent Manual",
+      "pdf_page": 7,
+      "source_url": "https://nurturing-care.org/parent-manual-activities-for-children-up-to-3/",
+      "score": 0.42420655,
+      "source_age_label": "0-5 months",
+      "routines": []
+    },
+    {
+      "passage_id": "1065211b93171eb416c9",
+      "text": "5. Encourage baby to hold • Put one of your fingers in the middle of baby’s hand until he grasps it. • Gently pull your finger back and see if baby holds on. • Praise baby for holding on! Walk and talk with baby • Take a walk around the house or outside the house with baby • Show her different things and people and name them",
+      "title": "5. Encourage baby to hold",
+      "source_title": "Reach Up: Parent Manual",
+      "pdf_page": 8,
+      "source_url": "https://nurturing-care.org/parent-manual-activities-for-children-up-to-3/",
+      "score": 0.40316656,
+      "source_age_label": "0-5 months",
+      "routines": []
+    }
+  ],
+  "supplied_evidence": [
+    {
+      "passage_id": "7726540107e02bed6b14",
+      "text": "Chat with baby • Talk to baby all the time – during changing, feeding and bath time • Describe what you are doing • Talk about what baby is doing • Soon baby will know your voice!",
+      "title": "Chat with baby",
+      "source_title": "Reach Up: Parent Manual",
+      "pdf_page": 37,
+      "source_url": "https://nurturing-care.org/parent-manual-activities-for-children-up-to-3/",
+      "score": 0.50038546,
+      "source_age_label": "0-5 months",
+      "routines": [
+        "feeding",
+        "bathing",
+        "changing"
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "model": "gemini-3.5-flash-lite",
+      "prompt": "Child age: 3 months\nRoutine: bathing\nCaregiver question: I am bathing my baby.\n\nEvidence excerpts:\n[1] Chat with baby — Chat with baby • Talk to baby all the time – during changing, feeding and bath time • Describe what you are doing • Talk about what baby is doing • Soon baby will know your voice!\n\nWrite one warm, practical answer of at most 90 words. Use only the evidence excerpts.\nGive 2 to 4 short actions in plain language. Do not diagnose, prescribe medicine,\ngive a dose, invent a milestone, or make a claim not supported by the excerpts.\nIf the excerpts do not answer the question, say so and suggest contacting a health worker.\nDo not use markdown headings or citation markers; the application shows the sources separately.",
+      "generation_config": {
+        "temperature": 0.2
+      },
+      "outcome": "completed",
+      "seconds": 22.935
+    }
+  ],
+  "answer": "Bath time is a wonderful opportunity to chat with your baby! Here are some simple ways to connect:\n\n* Talk to your baby all the time during bath time.\n* Describe what you are doing.\n* Talk about what baby is doing. \n\nSoon baby will know your voice!",
+  "selected_model": "gemini-3.5-flash-lite",
+  "fallback_used": false,
+  "timings_seconds": {
+    "retrieval": 1.031,
+    "evidence_selection": 0.0,
+    "generation": 22.936,
+    "service_total": 23.967
+  },
+  "ratings": null,
+  "audio_playback": "not_checked",
+  "limitations": "Direct service evaluation: excludes authentication, Firestore, ASR and TTS."
+}

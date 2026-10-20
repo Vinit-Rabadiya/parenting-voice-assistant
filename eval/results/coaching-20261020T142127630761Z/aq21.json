@@ -1,0 +1,65 @@
+{
+  "case": {
+    "id": "aq21",
+    "target_months": 6,
+    "routine": "reading",
+    "question": "How can I share a picture book with my baby?",
+    "expected_behaviour": "Simple shared attention and communication where supported."
+  },
+  "profile": {
+    "evaluation_date": "2026-10-20",
+    "date_of_birth": "2026-04-20",
+    "age_days": 183,
+    "completed_months": 6,
+    "age_months": 6.0
+  },
+  "outcome": "no_evidence",
+  "retrieved": [
+    {
+      "passage_id": "f2a95a5820094bf198f7",
+      "text": "Talk with your children and listen to what they say • Pick baby up, look into his eyes, smile and talk softly and coo to baby. • Listen for sounds he makes and make the same sound back or a new sound. • Talk with your baby or child often. • Talk about what you or baby are doing. Talk about things and people in the home. • See what she is interested in and tell her about it. • Listen to what they say. Answer him every time he talks.",
+      "title": "Talk with your children",
+      "source_title": "Reach Up: Parent Manual",
+      "pdf_page": 34,
+      "source_url": "https://nurturing-care.org/parent-manual-activities-for-children-up-to-3/",
+      "score": 0.45363605,
+      "source_age_label": "0-24 months",
+      "routines": []
+    },
+    {
+      "passage_id": "c029d45bda8cd73be6a6",
+      "text": "3 Toy or object like a spoon and cloth • Give baby toy to play with • Then gently take from baby and hide under cloth. • Ask ‘Where is it?’ • Let baby find toy! Talk with baby at bath time • While bathing baby show him how to splash water • Have fun with baby! • Use a plastic container or cup and fill it with water and show baby how to empty it. Say ‘full’ and ‘empty’",
+      "title": "3 Toy or object like a spoon",
+      "source_title": "Reach Up: Parent Manual",
+      "pdf_page": 9,
+      "source_url": "https://nurturing-care.org/parent-manual-activities-for-children-up-to-3/",
+      "score": 0.44967204,
+      "source_age_label": "6-8 months",
+      "routines": []
+    },
+    {
+      "passage_id": "db4ae5edf4884d2de104",
+      "text": "COMMUNICATE Respond to your child’s sounds and interests. Call the child’s name, and see your child respond.",
+      "title": "6 months up to 9 months: communication",
+      "source_title": "Care for Child Development: Counselling Cards",
+      "pdf_page": 2,
+      "source_url": "https://www.unicef.org/media/91181/file/4-CCD-Counselling-Cards.pdf",
+      "score": 0.4334613,
+      "source_age_label": "6 months up to 9 months",
+      "routines": []
+    }
+  ],
+  "supplied_evidence": [],
+  "attempts": [],
+  "answer": "I couldn't find suitable guidance for this question in the available references. Try rephrasing it. For health or development concerns, contact a health worker.",
+  "selected_model": null,
+  "fallback_used": false,
+  "timings_seconds": {
+    "retrieval": 0.64,
+    "evidence_selection": 0.0,
+    "service_total": 0.64
+  },
+  "ratings": null,
+  "audio_playback": "not_checked",
+  "limitations": "Direct service evaluation: excludes authentication, Firestore, ASR and TTS."
+}

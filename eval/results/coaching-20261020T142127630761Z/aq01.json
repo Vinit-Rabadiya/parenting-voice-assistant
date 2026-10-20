@@ -1,0 +1,114 @@
+{
+  "case": {
+    "id": "aq01",
+    "target_months": 0,
+    "routine": "feeding",
+    "question": "How can I connect with my newborn during feeding?",
+    "expected_behaviour": "Gentle age-suitable interaction, without feeding-treatment advice."
+  },
+  "profile": {
+    "evaluation_date": "2026-10-20",
+    "date_of_birth": "2026-10-20",
+    "age_days": 0,
+    "completed_months": 0,
+    "age_months": 0.0
+  },
+  "outcome": "answered",
+  "retrieved": [
+    {
+      "passage_id": "aa6dc2a794b7676a14e2",
+      "text": "COMMUNICATE Look into baby’s eyes and talk to your baby. When you are breastfeeding is a good time. Even a newborn baby sees your face and hears your voice.",
+      "title": "birth up to 1 week: communication",
+      "source_title": "Care for Child Development: Counselling Cards",
+      "pdf_page": 2,
+      "source_url": "https://www.unicef.org/media/91181/file/4-CCD-Counselling-Cards.pdf",
+      "score": 0.6212583,
+      "source_age_label": "birth up to 1 week",
+      "routines": []
+    },
+    {
+      "passage_id": "f78a77c6f0225e3e5692",
+      "text": "2. Let baby know mummy! • Face baby, and smile, see if he smiles back • Open and close your mouth making a soft sound. See if baby looks at your mouth. • Hold baby’s hands and gently move them over your face. Let baby hold your nose. Chat with baby • Talk to baby all the time – during changing, feeding and bath time • Describe what you are doing • Talk about what baby is doing • Soon baby will know your voice!",
+      "title": "2. Let baby know mummy",
+      "source_title": "Reach Up: Parent Manual",
+      "pdf_page": 7,
+      "source_url": "https://nurturing-care.org/parent-manual-activities-for-children-up-to-3/",
+      "score": 0.5933685,
+      "source_age_label": "0-5 months",
+      "routines": []
+    },
+    {
+      "passage_id": "b49f787d7705c3b15394",
+      "text": "BREASTFEEDING Newborn upto 1 week • Immediately after birth, put the baby on skin-to-skin contact with the mother for at least one hour. • Initiate breastfeeding within the first hour after birth. Give your baby colostrum (the first yellowish, clear, whitish milk). It protects the baby from many illnesses. • Breastfeed on demand (day and night, as often as the baby wants) at least 8 times in 24 hours. Frequent feeding produces more milk. • If the baby is small (low birth weight - <2500g), feed at least every 2 to 3 hours. Wake the baby for feeding after 3 hours, if baby does not wake self. • DO NOT give other foods. Breast milk is all your baby needs.",
+      "title": "Breastfeeding: newborn up to 1 week",
+      "source_title": "Mother & Child Health Handbook",
+      "pdf_page": 43,
+      "source_url": "https://www.health.go.ke/sites/default/files/2023-05/Mother%20Child%20Health%20Handbook%20MOH-FOR%20PRINT.pdf",
+      "score": 0.56579185,
+      "source_age_label": "birth up to 1 week",
+      "routines": [
+        "feeding"
+      ]
+    }
+  ],
+  "supplied_evidence": [
+    {
+      "passage_id": "aa6dc2a794b7676a14e2",
+      "text": "COMMUNICATE Look into baby’s eyes and talk to your baby. When you are breastfeeding is a good time. Even a newborn baby sees your face and hears your voice.",
+      "title": "birth up to 1 week: communication",
+      "source_title": "Care for Child Development: Counselling Cards",
+      "pdf_page": 2,
+      "source_url": "https://www.unicef.org/media/91181/file/4-CCD-Counselling-Cards.pdf",
+      "score": 0.6212583,
+      "source_age_label": "birth up to 1 week",
+      "routines": []
+    },
+    {
+      "passage_id": "f78a77c6f0225e3e5692",
+      "text": "2. Let baby know mummy! • Face baby, and smile, see if he smiles back • Open and close your mouth making a soft sound. See if baby looks at your mouth. • Hold baby’s hands and gently move them over your face. Let baby hold your nose. Chat with baby • Talk to baby all the time – during changing, feeding and bath time • Describe what you are doing • Talk about what baby is doing • Soon baby will know your voice!",
+      "title": "2. Let baby know mummy",
+      "source_title": "Reach Up: Parent Manual",
+      "pdf_page": 7,
+      "source_url": "https://nurturing-care.org/parent-manual-activities-for-children-up-to-3/",
+      "score": 0.5933685,
+      "source_age_label": "0-5 months",
+      "routines": []
+    },
+    {
+      "passage_id": "b49f787d7705c3b15394",
+      "text": "BREASTFEEDING Newborn upto 1 week • Immediately after birth, put the baby on skin-to-skin contact with the mother for at least one hour. • Initiate breastfeeding within the first hour after birth. Give your baby colostrum (the first yellowish, clear, whitish milk). It protects the baby from many illnesses. • Breastfeed on demand (day and night, as often as the baby wants) at least 8 times in 24 hours. Frequent feeding produces more milk. • If the baby is small (low birth weight - <2500g), feed at least every 2 to 3 hours. Wake the baby for feeding after 3 hours, if baby does not wake self. • DO NOT give other foods. Breast milk is all your baby needs.",
+      "title": "Breastfeeding: newborn up to 1 week",
+      "source_title": "Mother & Child Health Handbook",
+      "pdf_page": 43,
+      "source_url": "https://www.health.go.ke/sites/default/files/2023-05/Mother%20Child%20Health%20Handbook%20MOH-FOR%20PRINT.pdf",
+      "score": 0.56579185,
+      "source_age_label": "birth up to 1 week",
+      "routines": [
+        "feeding"
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "model": "gemini-3.5-flash-lite",
+      "prompt": "Child age: 0 months\nRoutine: feeding\nCaregiver question: How can I connect with my newborn during feeding?\n\nEvidence excerpts:\n[1] birth up to 1 week: communication — COMMUNICATE Look into baby’s eyes and talk to your baby. When you are breastfeeding is a good time. Even a newborn baby sees your face and hears your voice.\n\n[2] 2. Let baby know mummy — 2. Let baby know mummy! • Face baby, and smile, see if he smiles back • Open and close your mouth making a soft sound. See if baby looks at your mouth. • Hold baby’s hands and gently move them over your face. Let baby hold your nose. Chat with baby • Talk to baby all the time – during changing, feeding and bath time • Describe what you are doing • Talk about what baby is doing • Soon baby will know your voice!\n\n[3] Breastfeeding: newborn up to 1 week — BREASTFEEDING Newborn upto 1 week • Immediately after birth, put the baby on skin-to-skin contact with the mother for at least one hour. • Initiate breastfeeding within the first hour after birth. Give your baby colostrum (the first yellowish, clear, whitish milk). It protects the baby from many illnesses. • Breastfeed on demand (day and night, as often as the baby wants) at least 8 times in 24 hours. Frequent feeding produces more milk. • If the baby is small (low birth weight - <2500g), feed at least every 2 to 3 hours. Wake the baby for feeding after 3 hours, if baby does not wake self. • DO NOT give other foods. Breast milk is all your baby needs.\n\nWrite one warm, practical answer of at most 90 words. Use only the evidence excerpts.\nGive 2 to 4 short actions in plain language. Do not diagnose, prescribe medicine,\ngive a dose, invent a milestone, or make a claim not supported by the excerpts.\nIf the excerpts do not answer the question, say so and suggest contacting a health worker.\nDo not use markdown headings or citation markers; the application shows the sources separately.",
+      "generation_config": {
+        "temperature": 0.2
+      },
+      "outcome": "completed",
+      "seconds": 30.271
+    }
+  ],
+  "answer": "Feeding time is a wonderful opportunity to connect with your newborn. Here are simple ways to bond:\n\n* Look into your baby's eyes and talk to them while you feed.\n* Chat with your baby and describe what you are doing.\n* Let your baby hear your voice so they will soon learn to recognize it.",
+  "selected_model": "gemini-3.5-flash-lite",
+  "fallback_used": false,
+  "timings_seconds": {
+    "retrieval": 1.629,
+    "evidence_selection": 0.0,
+    "generation": 31.349,
+    "service_total": 32.977
+  },
+  "ratings": null,
+  "audio_playback": "not_checked",
+  "limitations": "Direct service evaluation: excludes authentication, Firestore, ASR and TTS."
+}
