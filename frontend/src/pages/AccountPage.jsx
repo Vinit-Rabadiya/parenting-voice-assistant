@@ -21,7 +21,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
   // keep the setup key and qr only while setup is open.
   const [pendingEnrollment, setPendingEnrollment] = useState(null);
   const [enrollmentCode, setEnrollmentCode] = useState("");
-  // null means we have not checked whether an authenticator is set up yet.
+  // null means authenticator enrollment has not been checked yet.
   const [enrollmentComplete, setEnrollmentComplete] = useState(null);
 
   async function handleDeleteAccount() {
@@ -67,7 +67,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
     loadVerificationStatus();
 
     return () => {
-      // ignore the answer if the page was removed while we were waiting.
+      // Ignore the response if the page was removed while the request was pending.
       cancelled = true;
     };
   }, []);
@@ -303,7 +303,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
         </div>
       ) : (
         <div>
-          {/* after a reload, we may not know whether an email was requested earlier. */}
+          {/* After a reload, the previous email-request status may be unknown. */}
           {verificationEmailRequested === true ? (
             <p>Check your inbox and spam folder for the verification link.</p>
           ) : verificationEmailRequested === false ? (

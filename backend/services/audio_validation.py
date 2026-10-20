@@ -52,6 +52,6 @@ def validate_audio(audio_bytes: bytes) -> float:
             # return the duration for the transcription result.
             return duration_seconds
     except (wave.Error, EOFError) as exc:
-        # convert wav reading failures to our shared audio error.
+        # Convert WAV reading failures to the shared audio error.
         raise InvalidAudioError("Audio must be a valid PCM WAV recording.") from exc
 

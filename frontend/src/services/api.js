@@ -1,16 +1,16 @@
-// this file calls our python backend endpoints using the logged-in user's firebase token.
+// Calls the Python backend endpoints using the signed-in user's Firebase token.
 // the account-access hook uses this to verify the current session automatically.
 import { auth } from "./firebase";
 
 export async function getCurrentAccount(signal) {
-  // ask our python backend about the current user.
+  // Request the current user's account details from the Python backend.
   const user = auth.currentUser;
 
   if (!user) {
     throw new Error("Log in first.");
   }
 
-  // get firebase's proof of login without printing it or saving our own copy.
+  // Obtain the Firebase authentication token without logging or persisting it.
   const token = await user.getIdToken();
   signal?.throwIfAborted();
 

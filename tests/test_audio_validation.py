@@ -33,7 +33,7 @@ def make_wav(
 
 
 def test_empty_audio_raises_invalid_audio_error():
-    # missing audio must raise our shared validation error.
+    # Missing audio must raise the shared validation error.
     with pytest.raises(expected_exception=InvalidAudioError):
         validate_audio(b"")
 
@@ -60,7 +60,7 @@ def test_audio_over_duration_limit_is_rejected():
 
 
 def test_stereo_audio_is_rejected():
-    # two channels do not meet our mono audio requirement.
+    # Two channels do not meet the mono audio requirement.
     audio_bytes = make_wav(channels=2)
     with pytest.raises(InvalidAudioError):
         validate_audio(audio_bytes)
@@ -74,7 +74,7 @@ def test_wrong_sample_width_is_rejected():
 
 
 def test_wrong_sample_rate_is_rejected():
-    # 8000 hz does not meet our 16000 hz requirement.
+    # 8000 Hz does not meet the 16000 Hz requirement.
     audio_bytes = make_wav(sample_rate=8000)
     with pytest.raises(InvalidAudioError):
         validate_audio(audio_bytes)

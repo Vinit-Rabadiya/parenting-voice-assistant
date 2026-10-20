@@ -114,7 +114,7 @@ def validate_age_metadata(passage: dict) -> None:
         if age["min_days"] != 7 or age["max_months_exclusive"] != 6:
             raise ValueError("The supported mixed-unit range is 7 days to under 6 months.")
 
-    # project_scope limits our application independently of the document's age range.
+    # project_scope limits the application independently of the document's age range.
     scope = passage.get("project_scope")
     if not isinstance(scope, dict):
         raise ValueError("project_scope must be an object.")
@@ -149,7 +149,7 @@ def validate_routine_metadata(passage: dict) -> None:
 
 
 def validate_source_references(passages: list[dict], manifest_path: Path) -> None:
-    # the manifest is our versioned inventory of documents, page counts, and file fingerprints.
+    # The manifest is the versioned inventory of documents, page counts, and file fingerprints.
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(manifest, dict) or type(manifest.get("schema_version")) is not int:
         raise ValueError("Source manifest must be an object with an integer schema_version.")
