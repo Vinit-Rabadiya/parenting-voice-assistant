@@ -46,6 +46,33 @@ CI does not obtain the source PDFs or prepare the corpus, so a green CI result a
 not evidence that these checks ran. Use the explicit command above and retain the test
 summary, including skipped tests (`-ra`), with the PR verification record.
 
+## Date-based retrieval evaluation
+
+`data/evaluation/retrieval-queries.jsonl` contains development questions and passage labels.
+Each case specifies a synthetic `date_of_birth` and fixed `evaluation_date` in `YYYY-MM-DD`
+format. The runner calculates exact days and completed calendar months with the same age
+helpers used by profiles. It rejects missing or invalid dates, out-of-scope ages, and
+precomputed age fields rather than silently falling back to approximate month conversion.
+The dates are fixed so a case does not change age when the evaluation is rerun later.
+
+For example, birth on `2026-04-20` evaluated on `2026-10-20` means 183 days and six
+completed months. Birth on `2026-04-21` means five completed months, even if its display
+age rounds to `6.0`. Only the completed month count is used for month-bound eligibility.
+
+Offline runner checks, without Qdrant network requests:
+
+```powershell
+.\venv\Scripts\python.exe -m pytest tests/test_retrieval_evaluation.py
+```
+
+Running `python -m scripts.evaluate_retrieval` queries the configured live Qdrant collection
+and overwrites `data/evaluation/retrieval-results.json`. New reports use schema version 2
+and record both input dates, exact days, completed months, and rounded display months.
+Previously recorded results remain historical evidence until a new run replaces them;
+changing case inputs does not update old scores. The original 12 questions and labels are
+not a held-out evaluation set, and their labels need review against the current corpus
+before threshold calibration or claims about retrieval accuracy.
+
 ## Files and data flow
 
 ```text
