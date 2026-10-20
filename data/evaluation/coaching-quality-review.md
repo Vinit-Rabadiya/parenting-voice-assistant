@@ -137,5 +137,336 @@ Generation availability remains unresolved. Do not increase the timeout or chang
 model solely to turn a service failure into a passing quality result; first inspect
 availability and configuration separately from retrieval relevance.
 
+## Generation endpoint diagnostic
+
+Follow-up checks used SDK 1.75.0, the configured `gemini-3.8-flash` model, a 30-second
+timeout, and the standard `generativelanguage.googleapis.com` endpoint. No proxy or
+alternate Gemini endpoint environment variables were set in the diagnostic process.
+
+| Check | Outcome | Seconds |
+| --- | --- | --- |
+| Read configured model metadata | Succeeded; generateContent listed among supported actions | 2.764 |
+| Minimal generateContent request: reply READY | ServerError 504, deadline expired | 28.741 |
+| Minimal REST Interactions request: reply READY, store=false | HTTP 200, completed, returned READY | 9.471 |
+
+These observations show successful generation with the same model and API key through
+Interactions, while a minimal request on the existing generation path timed out. This
+supports investigating an endpoint/client integration change, not a Qdrant or passage-size
+fix. A single comparison does not establish that generateContent is permanently unavailable
+or that Interactions will always meet a latency target. The successful request used a tiny
+synthetic prompt, not the full coaching prompt.
+
+At the time of this diagnostic, the application still used generateContent. No model,
+SDK dependency, or generation API was changed during that check. The proposed next step was to migrate the service to
+Interactions, preserve the existing grounding instructions and response contract, explicitly
+disable interaction storage, and verify timeout/error handling before repeating the full
+coaching cases.
+
+Reference: [Gemini API getting started](https://ai.google.dev/gemini-api/docs/get-started).
+
+## Interactions implementation
+
+The coaching service now posts to `/v1beta/interactions` using the existing HTTPX
+dependency and the same configured Gemini model. The original age, routine, question,
+evidence, and safety prompt is preserved. Each request sets `store=false`, sends no
+previous interaction ID, and has the configured network timeout with no automatic retries.
+This disables Interactions resource storage; it does not claim exemption from all service
+logging or data-retention policies. Successful application chats still use Firestore.
+
+Only completed text answers are accepted. Current `model_output` steps and earlier
+`outputs` text blocks are supported; reasoning, tool output, incomplete responses, and
+empty answers are not displayed as coaching guidance. The external CoachingResult and
+API response format are unchanged. Generation HTTP 504 maps to the existing timeout
+response, while other HTTP failures remain service errors and are not saved as answers.
+
+The REST integration avoids relying on the installed SDK's experimental Interactions
+adapter and differing retry semantics. No new dependency or model change is required.
+Custom temperature is no longer sent: the current model ignores custom sampling values
+according to the [Gemini troubleshooting guide](https://ai.google.dev/gemini-api/docs/troubleshooting).
+
+Updated tests exercise the HTTP request through a local mock transport, storage settings,
+response parsing, incomplete/non-answer rejection, and error handling. These updated
+tests completed with 39 passing and two dependency deprecation warnings in 5.72 seconds.
+That result verifies mocked request/response handling, not live generation availability.
+
+## Full coaching check on Interactions
+
+The two fixed questions were run through the updated service with the same model,
+synthetic six-month profile, 30-second timeout, and `store=false`. The evidence IDs,
+rounded scores, and gate decisions matched the earlier results.
+
+| Case | Retrieval (seconds) | Generation (seconds) | Total (seconds) | Actual outcome |
+| --- | --- | --- | --- | --- |
+| cq01: play | 1.653 | 31.034 | 32.687 | HTTPX ReadTimeout; no answer |
+| cq02: feeding | 0.595 | 30.280 | 30.876 | HTTPX ReadTimeout; no answer |
+
+These are client read timeouts, not confirmed HTTP error responses from Gemini. Both
+process requests completed without manual termination. No Firestore chats were created.
+The check exercised retrieval, the evidence gate, and the actual generation request,
+but not the authenticated API route or browser UI.
+
+The full coaching rerun did not reproduce the earlier minimal READY success. The API
+change alone has not resolved generation availability, and the two answers still cannot
+be assessed for faithfulness, helpfulness, or practicality. The Interactions change remains
+uncommitted pending further investigation; do not describe it as a verified availability
+or performance fix. No threshold, model, or timeout increase was used to mask the failures.
+
+## Controlled prompt-size comparison
+
+Three prompts were fixed before execution and sent sequentially to Interactions with
+the same configured model, 30-second network timeout, and `store=false`. No generation
+parameters, model, or application code were changed for this comparison. Input sizes
+below are character counts, not token counts. Durations cover generation requests only.
+
+| Case | Prompt characters | Actual result | Seconds |
+| --- | --- | --- | --- |
+| Reply with READY | 33 | HTTP 200, completed, answer READY | 29.482 |
+| Short feeding coaching prompt with one real evidence excerpt | 400 | HTTPX ReadTimeout; no answer | 30.005 |
+| Full production feeding prompt with three accepted excerpts | 1447 | HTTPX ReadTimeout; no answer | 30.415 |
+
+The short prompt asked for two practical actions in at most 60 words, required the
+supplied feeding evidence, and prohibited diagnosis, prescribing, and invented facts.
+The full prompt was captured from the application service without sending a duplicate
+generation request during capture. Its evidence matched cq02's earlier passage IDs.
+
+The minimal successful response was also slow. Reducing the coaching prompt to 400
+characters did not produce an answer within the configured timeout. These observations
+do not establish prompt length as the root cause, and do not establish a faulty API key
+or Qdrant failure. Service load, model computation, and other upstream conditions remain
+possible contributors; this sequential three-request sample does not isolate them.
+No new coaching answer was available for quality assessment, no chats were saved, and
+no runtime settings were changed. Further investigation should examine current model
+availability and supported generation controls before changing production behaviour.
+
+## Model availability and generation controls check
+
+On 20 October 2026, the configured model metadata endpoint returned HTTP 200 in 1.742
+seconds for `models/gemini-3.8-flash`. It advertised an input limit of 1,048,576 tokens,
+an output limit of 65,536 tokens, and generateContent among its supported methods.
+Metadata access confirms model visibility, not guaranteed generation capacity or latency.
+
+The published model page lists the model as stable. The deprecation schedule lists no
+announced shutdown date. Thinking is enabled at medium by default; supported levels
+are low, medium, and high. Minimal is not supported for this model. The documented
+Interactions setting is `generation_config.thinking_level`. A controlled low-versus-default
+comparison is a possible next experiment, not an established timeout fix. No runtime
+thinking setting was changed in this check.
+
+Custom temperature, top_p, and top_k are ignored by current Gemini 3.6+ models and are
+documented for future rejection. They are not suitable latency-tuning controls here.
+The public status page did not expose readable status details through the available
+reader, so no claim about an active global outage is made.
+
+References:
+
+- [Model capabilities](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash)
+- [Deprecation schedule](https://ai.google.dev/gemini-api/docs/deprecations/)
+- [Thinking controls](https://ai.google.dev/gemini-api/docs/thinking/)
+- [Generation troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting)
+
+## Planned speech recognition model review
+
+Speech-to-text model selection remains a separate follow-up after the current project
+workflow is complete. `STT_MODEL` currently defaults to `tiny.en` and is passed to
+`SpeechService` at application startup. Keep this configurable rather than coupling
+generation changes to a particular speech model. Compatible faster-whisper model
+changes require a backend restart and accuracy/latency evaluation. A different engine
+may also require an adapter and dependency changes; configuration alone does not make
+every speech model interchangeable. No speech model was changed or downloaded here.
+
+## Default versus low thinking comparison
+
+The same 1,447-character full cq02 feeding prompt was sent sequentially with default
+and low thinking. The model, three evidence excerpts, 30-second network timeout, and
+`store=false` were identical. The low request alone added
+`generation_config: {"thinking_level": "low"}`. No application settings were changed.
+
+| Request | Result | Generation seconds |
+| --- | --- | --- |
+| Default thinking | HTTP 200, completed answer | 30.020 |
+| Low thinking | HTTPX ReadTimeout; no answer | 30.009 |
+
+The completed default response reported 332 input tokens, 101 output tokens, and
+763 thought tokens. No usage data was received for the timed-out low request.
+
+Actual default answer:
+
+> Feeding is a wonderful time to connect! Here are simple ways to talk with your baby:
+>
+> * Look into your baby's eyes, smile, and talk softly or sing to them.
+> * Talk about the foods your baby is eating and what you or your baby are doing.
+> * Listen to the sounds your baby makes and answer by making the same sound back.
+> * Respond to your baby's signs, such as when they show they want more, to help make mealtime happy.
+
+Initial text review of this answer:
+
+- Question relevance: supported; the actions concern interaction during feeding.
+- Evidence support: supported for the practical advice. Food descriptions and feeding
+  cues appear in Reach Up page 41; responding to sounds appears on page 34; looking,
+  talking, and singing during feeding appear in CCD page 3.
+- Age eligibility: the same accepted passages are eligible for the six-month profile.
+- Practicality: four short, concrete actions; caregiver usability has not been measured.
+- Scope: no diagnosis, medication, dose, or invented milestone appears in this answer.
+- Performance: approximately 30 seconds for generation alone does not meet the latency
+  target. A completed request near the network timeout is not evidence of reliable service.
+
+One completion and one timeout do not establish that default is faster than low or that
+thinking level causes the observed failures. There is no evidence here to adopt low as
+the production default. Retain the current default and preserve this as a small development
+comparison, not a benchmark or expert ECD evaluation. The play case remains unanswered.
+
+## Confirmed high-demand failure and model comparison
+
+A subsequent browser trace reached the Gemini SDK call after retrieval completed in
+1.093 seconds and client initialization in 0.430 seconds. The SDK call returned
+`ServerError`, code 503, status UNAVAILABLE after 12.137 seconds. Its service description
+reported high demand. That identifies the cause of this failure; it does not establish
+the cause of every earlier slow completion.
+
+A read-only model-list request included both `gemini-3.8-flash` and
+`gemini-3.5-flash-lite` with generateContent support. A prepared six-month feeding
+question was then compared on these two models with the same production prompt and
+three evidence passages. The diagnostic clients alone used a 30-second timeout and
+one attempt; production timeout and model settings were not changed.
+
+Evidence IDs: `5d58aed9ded439496279`, `b7f13e95fec7eb520e4c`, and
+`f2a95a5820094bf198f7`. Evidence length: 774 characters; full prompt: 1,458 characters.
+The initial local prompt-capture setup failed validation before any generation call;
+the corrected run produced these results:
+
+| Model | Outcome | Generation seconds |
+| --- | --- | --- |
+| gemini-3.8-flash | ClientError 429; free-tier request quota exceeded, reported limit 20 | 0.640 |
+| gemini-3.5-flash-lite | Completed coaching answer | 16.799 |
+
+The current-model response reported a retry delay of roughly 17 hours at the time of
+the check. This is not a permanent reset schedule or a reason to keep retrying.
+Diagnostic calls consume the same account quotas; further generation checks were
+stopped after this pair. The current-model error prevents a successful paired latency
+comparison, so no speedup ratio or reliability advantage is claimed.
+
+Actual Flash-Lite answer:
+
+> Feeding time is a wonderful opportunity to connect and talk with your baby.
+>
+> Here are a few simple ways to talk with your baby during feeding:
+> * Hold your baby close, look into their eyes, smile, and talk softly, coo, or sing.
+> * Talk about the foods your baby is eating or what you both are doing.
+> * Listen to the sounds your baby makes and make the same sound back or a new sound.
+> * Respond to your baby's signs, such as when they show they want more.
+>
+> Try to make mealtime happy!
+
+The request reported 334 prompt tokens and 119 answer tokens. Thinking-token usage
+was not supplied; absence of that count is not proof that no reasoning occurred.
+Initial text review found the practical advice supported by the three excerpts and
+relevant to feeding communication, with no diagnosis, medication, or invented milestone.
+This is one prepared example, not expert validation or evidence of general accuracy.
+The configured default remains gemini-3.8-flash; a model change requires a separate decision.
+
+The coaching API now distinguishes an explicit generation-service 503 with a busy
+message from a generation quota/rate-limit 429 with a request-limit message. These
+errors do not save an answer or trigger application retries. Non-generation failures
+retain their existing handling. New regression checks have not yet been run.
+
 Direct service checks do not verify login, Firestore persistence, microphone recording,
 browser rendering, or audio playback. Those require separate browser checks.
+
+## Baseline recovery
+
+Restored the generation service, endpoint, configuration, setup documentation, and
+related tests to revision `3d4b017`, before the timeout and Interactions changes.
+The investigation is preserved in local Git snapshot
+`830f35d4f0bcaf2ebd1aae66ff974bc0718fbf06`; the earlier timeout commit also remains in
+branch history. This section supersedes the implementation descriptions above for
+the current working tree. Retrieval, speech recognition, model selection, credentials,
+and stored application data were not changed. Subsequent browser responses returned
+guidance in 141.09 seconds, 60.97 seconds, and 292.29 seconds. These are reported backend
+processing times for individual requests, not controlled repetitions of the same case.
+Earlier chat records include 21.28-second and 39.35-second guidance responses. Recovery
+of the earlier response speed has not been established.
+
+## Workflow comparison and temporary timing diagnostics
+
+The generation function matches the initial coaching implementation in `65ccce1` as
+well as the pre-investigation baseline `3d4b017`. The same prompt template, configured
+model name, and maximum of three passages are used. Later workflow changes include
+exact calendar-age filtering and a relevance gate; they can change which excerpts
+reach generation. No exact historical dependency/environment or request snapshot is
+available to reproduce the earlier elapsed times as a controlled baseline.
+
+Temporary INFO console diagnostics now record start/finish and elapsed seconds for
+profile lookup, retrieval, evidence selection, generation, and interaction saving.
+Counts and total accepted-evidence character length are recorded without content.
+A random per-request diagnostic identifier links these lines; it is not a user,
+child, or interaction identifier. The model, prompt, threshold, generation API,
+timeout behaviour, and application response format are unchanged by this diagnostic.
+
+`reported_total` starts after profile lookup, matching the existing displayed processing
+timer. Authentication and dependency setup occur before these stage measurements.
+Stage timings include thread-pool scheduling where applicable, so a long generation
+stage alone does not prove that all its time was spent inside the remote model.
+Restart the non-reloading backend before collecting one browser request's console
+lines. Timing-log regression checks remain pending.
+
+### Completed browser stage measurement
+
+One browser request returned guidance with these diagnostic measurements:
+
+| Stage | Seconds |
+| --- | --- |
+| Profile lookup (outside displayed total) | 0.281 |
+| Retrieval | 1.390 |
+| Evidence selection | 0.000 (rounded) |
+| Generation, including thread-pool scheduling | 96.951 |
+| Interaction save | 0.363 |
+| Displayed processing total | 98.706 |
+
+Three references passed the gate, with 734 evidence characters in total. The request
+completed with HTTP 200 and saved the interaction. The dominant observed stage is
+generation, not retrieval or storage. No authentication or speech-recognition change
+is justified by this measurement.
+
+Additional temporary diagnostics split the generation service into client initialization,
+the SDK request, and response handling. They share the outer request's random identifier
+through a context variable copied into the worker thread. Available prompt, answer,
+thinking, and total token counts are recorded as non-negative integers only. Missing
+counts are reported as None. Error diagnostics record exception type and numeric code,
+not exception descriptions or request/response contents. No model, prompt, API,
+temperature, timeout, or retry settings were changed by this diagnostic addition.
+The SDK request timing includes network and remote service time and cannot separate
+those components on its own. Updated diagnostic checks and inner timing capture
+remain pending.
+
+### Quota-aware model selection
+
+The primary model is now `gemini-3.5-flash-lite`, with `gemini-3.8-flash`
+configured as a fallback. Only a primary generation error with code 429 triggers
+one fallback call. Both calls use identical prompts, evidence and generation
+settings. Empty or duplicate fallback configuration disables the second call.
+Other errors propagate without fallback; exhaustion of both models returns the
+existing request-limit response. SDK retries are explicitly limited to one
+attempt per model; network timeout settings remain unchanged.
+
+Technical logs identify the selected model without recording conversation
+content. Speech recognition, retrieval and safety instructions are unchanged.
+Regression cases cover primary success, quota fallback, disabled/duplicate
+fallback, non-quota errors, exhausted models, prompt preservation and SDK retry
+configuration. The focused regression run completed with 29 tests passed:
+
+```powershell
+.\venv\Scripts\python.exe -m pytest tests/test_coaching_service.py tests/test_evidence_gate.py
+```
+
+A signed-in feeding guidance request completed with HTTP 200 in 12.609 seconds
+of reported processing time. Profile lookup took 0.305 seconds separately;
+retrieval took 1.070 seconds, generation 11.213 seconds (including a 10.806-second
+SDK request), and interaction storage 0.325 seconds. Flash Lite answered directly
+without fallback, using three evidence passages (725 characters), 333 prompt
+tokens and 75 answer tokens. Guidance was displayed and playback through the
+Listen button completed successfully.
+
+This single live case verifies the primary-model workflow, not live fallback or
+consistent latency across requests. Fallback behavior is covered by mocked
+regression tests. Availability and guidance quality still require evaluation;
+fallback does not guarantee a latency target.

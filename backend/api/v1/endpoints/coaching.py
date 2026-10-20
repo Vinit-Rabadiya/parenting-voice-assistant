@@ -2,8 +2,10 @@
 
 import logging
 import time
+from contextlib import contextmanager
+from uuid import uuid4
 
-import httpx
+from google.genai import errors as genai_errors
 from fastapi import APIRouter, Depends, HTTPException
 from starlette.concurrency import run_in_threadpool
 
@@ -11,7 +13,7 @@ from backend.api.dependencies import get_caregiver_data_service, get_coaching_se
 from backend.core.security import require_authenticated_user
 from backend.schemas.coaching import CoachingRequest, CoachingResponse, CitationSchema, FeedbackRequest, FeedbackResponse
 from backend.services.caregiver_data import CaregiverDataService
-from backend.services.coaching import CoachingResult, CoachingService
+from backend.services.coaching import CoachingResult, CoachingService, generation_request_id
 from backend.services.retrieval import RetrievalService
 from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
 from backend.core.config import settings
@@ -19,6 +21,25 @@ from backend.core.config import settings
 
 router = APIRouter(prefix="/coach", dependencies=[Depends(require_authenticated_user)])
 logger = logging.getLogger(__name__)
+# Use Uvicorn's console logger so temporary diagnostics appear at normal INFO level.
+timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
+
+
+@contextmanager
+def timed_stage(request_id: str, stage: str):
+    token = generation_request_id.set(request_id)
+    started = time.perf_counter()
+    outcome = "failed"
+    timing_logger.info("coach_timing request=%s stage=%s event=started", request_id, stage)
+    try:
+        yield
+        outcome = "completed"
+    finally:
+        generation_request_id.reset(token)
+        timing_logger.info(
+            "coach_timing request=%s stage=%s event=%s seconds=%.3f",
+            request_id, stage, outcome, time.perf_counter() - started,
+        )
 
 
 @router.post("", response_model=CoachingResponse)
@@ -29,7 +50,10 @@ async def coach(
     retrieval_service: RetrievalService = Depends(get_retrieval_service),
     coaching_service: CoachingService = Depends(get_coaching_service),
 ) -> CoachingResponse:
-    child = await run_in_threadpool(data_service.get_child, user["uid"], payload.child_id)
+    # Random diagnostic correlation only; never log account or child identifiers.
+    request_id = uuid4().hex[:12]
+    with timed_stage(request_id, "profile_lookup"):
+        child = await run_in_threadpool(data_service.get_child, user["uid"], payload.child_id)
     if child is None:
         raise HTTPException(status_code=404, detail="Select a child profile before asking for guidance.")
     if child.get("in_scope") is not True:
@@ -38,24 +62,40 @@ async def coach(
     started = time.perf_counter()
     stage = "Qdrant retrieval"
     try:
-        passages = await run_in_threadpool(retrieval_service.retrieve, payload.question, child["completed_months"], payload.routine, 3, child_age_days=child["age_days"])
+        with timed_stage(request_id, "retrieval"):
+            passages = await run_in_threadpool(retrieval_service.retrieve, payload.question, child["completed_months"], payload.routine, 3, child_age_days=child["age_days"])
         stage = "Evidence selection"
-        evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
+        with timed_stage(request_id, "evidence_selection"):
+            evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
+        timing_logger.info(
+            "coach_timing request=%s passages=%d evidence=%d evidence_characters=%d",
+            request_id, len(passages), len(evidence), sum(len(item.text) for item in evidence),
+        )
         status = "answered" if evidence else "no_evidence"
         if evidence:
             stage = "Gemini generation"
-            result = await run_in_threadpool(coaching_service.generate, payload.question, child["age_months"], payload.routine, evidence)
+            with timed_stage(request_id, "generation"):
+                result = await run_in_threadpool(coaching_service.generate, payload.question, child["age_months"], payload.routine, evidence)
         else:
             # A normal response, not a service error: no generation call or supporting citations.
             result = CoachingResult(answer=NO_GUIDANCE_MESSAGE, passages=[])
-    except (TimeoutError, httpx.TimeoutException) as exc:
-        logger.warning("%s timed out (%s)", stage, type(exc).__name__)
-        if stage == "Gemini generation":
-            raise HTTPException(status_code=504, detail="Guidance generation timed out. Please try again.") from None
-        raise HTTPException(status_code=502, detail="Guidance generation is unavailable. Please try again.") from None
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
+        if (stage == "Gemini generation" and isinstance(exc, genai_errors.ClientError)
+                and exc.code == 429):
+            logger.warning("Gemini generation request limit reached (primary_model=%s, code=429)", coaching_service.model)
+            raise HTTPException(
+                status_code=429,
+                detail="The coaching service request limit has been reached. Please try again later.",
+            ) from None
+        if (stage == "Gemini generation" and isinstance(exc, genai_errors.ServerError)
+                and exc.code == 503):
+            logger.warning("Gemini generation unavailable (primary_model=%s, code=503)", coaching_service.model)
+            raise HTTPException(
+                status_code=503,
+                detail="The coaching service is temporarily busy. Please try again later.",
+            ) from None
         # Log diagnostic metadata only: provider exceptions can contain request content.
         logger.error("%s failed: %s (model=%s, code=%s, status=%s)", stage, type(exc).__name__,
                      coaching_service.model, getattr(exc, "code", None), getattr(exc, "status", None))
@@ -76,8 +116,13 @@ async def coach(
          "source_url": item.source_url, "title": item.title}
         for item in result.passages
     ]
-    interaction_id = await run_in_threadpool(
-        data_service.create_interaction, user["uid"], payload.child_id, payload.question, payload.routine, result.answer, citations, status
+    with timed_stage(request_id, "interaction_save"):
+        interaction_id = await run_in_threadpool(
+            data_service.create_interaction, user["uid"], payload.child_id, payload.question, payload.routine, result.answer, citations, status
+        )
+    timing_logger.info(
+        "coach_timing request=%s stage=reported_total event=completed seconds=%.3f",
+        request_id, time.perf_counter() - started,
     )
     return CoachingResponse(interaction_id=interaction_id, answer=result.answer,
         citations=[CitationSchema(**citation) for citation in citations], child_age_months=child["age_months"],

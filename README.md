@@ -128,9 +128,16 @@ QDRANT_URL=https://your-cluster-url.qdrant.io
 QDRANT_API_KEY=your-qdrant-api-key
 QDRANT_COLLECTION=caregiver_guidance_minilm_v1
 GEMINI_API_KEY=your-gemini-api-key
-GEMINI_MODEL=gemini-3.8-flash
-GEMINI_TIMEOUT_SECONDS=30
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_FALLBACK_MODEL=gemini-3.8-flash
 ```
+
+Flash Lite is the primary coaching model. If it returns a quota error (429),
+the backend tries the fallback once with identical context and references.
+Leave `GEMINI_FALLBACK_MODEL` empty to disable fallback. Each model receives one
+SDK attempt; other errors do not trigger fallback. Fallback availability depends
+on its own quota and does not guarantee lower latency. Restart the backend after
+changing these settings. The selected model is recorded in technical logs.
 
 Place the Admin JSON key at the configured path. The service account must belong
 to the configured Firebase project and have the required Firestore permissions.
@@ -311,7 +318,8 @@ are separate from the existing automated coverage.
 | Authentication temporarily unavailable | Backend internet access to Firebase; a healthy liveness endpoint does not verify cloud connectivity |
 | Child profiles fail to load | Firestore API activation, default database creation, service-account permissions, and backend logs |
 | Guidance generation fails | Qdrant/Gemini configuration, model access, quotas, and backend diagnostic messages |
-| Guidance generation times out (504) | Retry after checking Gemini availability. `GEMINI_TIMEOUT_SECONDS` controls the generation network timeout (default 30 seconds, range 1–120); automatic retries are disabled. This is not an end-to-end latency guarantee. |
+| Coaching service temporarily busy (503) | Gemini reported service unavailability. Retry later; the application does not add automatic retries. |
+| Coaching service request limit reached (429) | Check the configured project's Gemini quota and usage. Wait for the limit to reset or review the account plan before retrying. |
 | Frontend reports connection refused | Backend is ready on port 8000 and both development servers are running |
 | Microphone is unavailable | Site permission, supported browser, and localhost or HTTPS |
 | Port 8000 is occupied | Stop the earlier backend process before starting another instance |
