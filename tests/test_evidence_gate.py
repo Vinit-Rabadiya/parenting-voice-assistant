@@ -172,8 +172,11 @@ def test_referral_is_returned_even_when_interaction_storage_fails(client, servic
 
 @pytest.mark.parametrize("question,status,safety", [
     ("I want to die.", "crisis_support", "escalate"),
+    ("I am thinking about ending my life.", "crisis_support", "escalate"),
     ("I might hurt my baby.", "crisis_support", "escalate"),
+    ("My partner shakes our child.", "crisis_support", "escalate"),
     ("I feel hopeless.", "caregiver_support", "not_flagged"),
+    ("I feel depressed since giving birth.", "caregiver_support", "not_flagged"),
 ])
 def test_caregiver_support_bypasses_generation_and_retrieval(client, services, caplog, question, status, safety):
     import logging

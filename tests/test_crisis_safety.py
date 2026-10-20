@@ -8,15 +8,18 @@ from backend.services.crisis_safety import inspect_crisis
 @pytest.mark.parametrize("question,kind", [
     ("I want to die.", "crisis_support"),
     ("I am thinking about killing myself.", "crisis_support"),
+    ("I am thinking about ending my life.", "crisis_support"),
     ("I don't want to live.", "crisis_support"),
     ("I feel suicidal.", "crisis_support"),
     ("I might shake my baby.", "crisis_support"),
     ("My partner is hitting my child.", "crisis_support"),
+    ("My partner shakes our child.", "crisis_support"),
     ("My baby is being abused.", "crisis_support"),
     ("I think I have postpartum depression.", "caregiver_support"),
     ("I feel hopeless.", "caregiver_support"),
     ("I cannot cope.", "caregiver_support"),
     ("I can't bond with my baby.", "caregiver_support"),
+    ("I feel depressed since giving birth.", "caregiver_support"),
 ])
 def test_support_category_does_not_require_child_symptom_keywords(question, kind):
     result = inspect_crisis(question)
@@ -29,6 +32,9 @@ def test_support_category_does_not_require_child_symptom_keywords(question, kind
     "I am not suicidal.", "I do not hurt my baby.",
     "I am not going to hurt myself.", "How can I prevent self-harm?",
     "I don't want to kill myself.",
+    "I am not ending my life.",
+    "My partner never shakes our child.",
+    "I do not feel depressed since giving birth.",
     "What is postpartum depression?", "I am tired after feeding.",
     "How can I bond with my baby?", "I feel happy when my child smiles.",
 ])

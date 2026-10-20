@@ -5,16 +5,17 @@ import re
 
 
 SELF_HARM = re.compile(
-    r"\b(?:kill(?:ing)? myself|hurt(?:ing)? myself|harm(?:ing)? myself|end my life|take my own life|"
+    r"\b(?:kill(?:ing)? myself|hurt(?:ing)? myself|harm(?:ing)? myself|end(?:ing)? my life|take my own life|"
     r"i want to die|i don't want to live|i wish i (?:was|were) dead|suicidal|self[- ]harm)\b", re.I,
 )
 CHILD_HARM = re.compile(
-    r"\b(?:(?:hurt(?:ing)?|harm(?:ing)?|hit(?:ting|s)?|shak(?:e|ing)|kill(?:ing)?|abus(?:e|ing)) (?:my|the|our) (?:baby|child|infant)|"
+    r"\b(?:(?:hurt(?:ing)?|harm(?:ing)?|hit(?:ting|s)?|shak(?:es?|ing)|kill(?:ing)?|abus(?:e|ing)) (?:my|the|our) (?:baby|child|infant)|"
     r"(?:baby|child|infant) (?:is being|was|is) (?:hit|hurt|abused|shaken))\b", re.I,
 )
 DISTRESS = re.compile(
     r"\b(?:i (?:have|think i have|may have|might have) (?:postpartum|postnatal) depression|i (?:feel|am feeling) (?:hopeless|worthless)|"
-    r"i can't cope|i cannot cope|i (?:can't|cannot) bond with my baby)\b", re.I,
+    r"i can't cope|i cannot cope|i (?:can't|cannot) bond with my baby|"
+    r"i (?:feel|am feeling|have felt) depressed since (?:giving birth|having my baby))\b", re.I,
 )
 NEGATION = re.compile(r"\b(?:not|never|don't|do not|not going to|don't want to|do not want to|no thoughts of|prevent|preventing|risk of)\s*$", re.I)
 
