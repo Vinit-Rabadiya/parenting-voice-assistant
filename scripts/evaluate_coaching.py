@@ -5,6 +5,7 @@ from dataclasses import asdict
 from datetime import date, datetime, timezone
 import hashlib
 import json
+from pathlib import Path
 import subprocess
 import time
 from types import SimpleNamespace
@@ -16,8 +17,8 @@ from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
 from backend.services.retrieval import RetrievalService
 
 
-QUESTION_SET_COMMIT = "4edf7ec"
-QUESTION_SET_PATH = "data/evaluation/coaching-quality-review.md"
+QUESTION_SET_VERSION = "coaching-quality-v1"
+QUESTION_SET_PATH = "data/evaluation/coaching-questions.json"
 PILOT = ("aq01", "aq10", "aq21", "aq32")
 
 
@@ -27,26 +28,37 @@ def git_output(*args):
     ).strip()
 
 
-def load_cases():
-    """Read the approved revision, not a potentially changed working copy."""
-    source = git_output("show", f"{QUESTION_SET_COMMIT}:{QUESTION_SET_PATH}")
+def load_cases(path: Path | None = None):
+    """Load versioned evaluation data without requiring historical Git objects."""
+    data = json.loads((path or PROJECT_ROOT / QUESTION_SET_PATH).read_text(encoding="utf-8"))
+    if (not isinstance(data, dict) or type(data.get("schema_version")) is not int
+            or data["schema_version"] != 1
+            or data.get("question_set_version") != QUESTION_SET_VERSION
+            or not isinstance(data.get("cases"), list)):
+        raise ValueError("Unsupported coaching question-set format or version.")
     cases = {}
-    for line in source.splitlines():
-        if not line.startswith("| aq"):
-            continue
-        case_id, months, routine, question, expected = (
-            part.strip() for part in line.strip("|").split("|")
-        )
+    fields = {"id", "target_months", "routine", "question", "expected_behaviour"}
+    for case in data["cases"]:
+        if not isinstance(case, dict) or set(case) != fields:
+            raise ValueError("Each coaching case must define the required fields.")
+        case_id = case["id"]
+        if not isinstance(case_id, str) or case_id not in {f"aq{i:02}" for i in range(1, 41)}:
+            raise ValueError("Invalid coaching case identifier.")
         if case_id in cases:
-            raise ValueError("Duplicate case identifier in frozen question set.")
-        cases[case_id] = {
-            "id": case_id, "target_months": int(months),
-            "routine": None if routine == "general" else routine,
-            "question": question, "expected_behaviour": expected,
-        }
+            raise ValueError("Duplicate coaching case identifier.")
+        if type(case["target_months"]) is not int or case["target_months"] not in (0, 3, 6, 12, 24):
+            raise ValueError("Invalid target age in coaching case.")
+        if case["routine"] not in (None, "feeding", "bathing", "play", "dressing", "reading"):
+            raise ValueError("Invalid routine in coaching case.")
+        if any(not isinstance(case[field], str) or not case[field].strip()
+               for field in ("question", "expected_behaviour")):
+            raise ValueError("Coaching input and expected behaviour must be nonempty text.")
+        cases[case_id] = case
     if len(cases) != 40:
         raise ValueError("The approved question set must contain exactly 40 cases.")
-    return cases, hashlib.sha256(source.encode("utf-8")).hexdigest()
+    # Hash canonical data, so formatting and Windows/Linux line endings do not alter identity.
+    canonical = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return cases, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def profile_dates(evaluation_date, months):
@@ -166,7 +178,8 @@ def main():
     output = PROJECT_ROOT / "eval" / "results" / run_id
     output.mkdir(parents=True, exist_ok=False)
     metadata = {
-        "rubric": "coaching-quality-v1", "question_set_commit": git_output("rev-parse", QUESTION_SET_COMMIT),
+        "rubric": "coaching-quality-v1", "question_set_version": QUESTION_SET_VERSION,
+        "question_set_path": QUESTION_SET_PATH, "question_set_hash_method": "canonical-json-sha256",
         "question_set_sha256": digest, "code_revision": git_output("rev-parse", "HEAD"),
         "working_tree_status": git_output("status", "--porcelain", "--untracked-files=no"),
         "corpus_revision_asserted": args.corpus_revision, "collection": settings.QDRANT_COLLECTION,

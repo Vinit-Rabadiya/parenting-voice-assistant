@@ -1,14 +1,18 @@
 """Offline capture checks; no Qdrant, Gemini or Firestore requests."""
 
 from datetime import date
+import json
 from types import SimpleNamespace
 from unittest.mock import Mock
+
+import pytest
 
 from google.genai import errors
 
 from backend.services.coaching import CoachingService
 from backend.services.retrieval import RetrievedPassage
-from scripts.evaluate_coaching import capture_case, load_cases, profile_dates
+from scripts.evaluate_coaching import QUESTION_SET_PATH, capture_case, load_cases, profile_dates
+from backend.core.config import PROJECT_ROOT
 
 
 def setup_case(score=0.9):
@@ -23,7 +27,11 @@ def setup_case(score=0.9):
     return case, reference, retrieval, coaching, models
 
 
-def test_frozen_cases_and_calendar_profiles():
+def test_versioned_cases_and_calendar_profiles_without_git_history(monkeypatch):
+    def no_git(*args):
+        raise AssertionError("Loading evaluation cases must not call Git.")
+
+    monkeypatch.setattr("scripts.evaluate_coaching.git_output", no_git)
     cases, digest = load_cases()
     assert len(cases) == 40
     assert len(digest) == 64
@@ -31,6 +39,36 @@ def test_frozen_cases_and_calendar_profiles():
     profile = profile_dates(date(2026, 10, 20), 24)
     assert profile["date_of_birth"] == "2024-10-20"
     assert profile["completed_months"] == 24
+
+
+def test_question_set_hash_ignores_formatting_but_detects_content_changes(tmp_path):
+    data = json.loads((PROJECT_ROOT / QUESTION_SET_PATH).read_text(encoding="utf-8"))
+    path = tmp_path / "questions.json"
+    path.write_text(json.dumps(data, indent=4) + "\r\n", encoding="utf-8")
+    _, original = load_cases()
+    assert load_cases(path)[1] == original
+    data["cases"][0]["question"] = "A different evaluation input"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert load_cases(path)[1] != original
+
+
+@pytest.mark.parametrize("change", ["duplicate", "missing", "age", "question", "version"])
+def test_invalid_question_data_is_rejected(tmp_path, change):
+    data = json.loads((PROJECT_ROOT / QUESTION_SET_PATH).read_text(encoding="utf-8"))
+    if change == "duplicate":
+        data["cases"][-1] = data["cases"][0]
+    elif change == "missing":
+        data["cases"].pop()
+    elif change == "age":
+        data["cases"][0]["target_months"] = True
+    elif change == "question":
+        data["cases"][0]["question"] = " "
+    else:
+        data["question_set_version"] = "unknown"
+    path = tmp_path / "questions.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_cases(path)
 
 
 def test_capture_preserves_exact_evidence_and_answer():

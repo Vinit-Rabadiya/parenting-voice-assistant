@@ -2,7 +2,9 @@
 
 ## Structured response evaluation: issue #78
 
-Status: question set approved at `4edf7ec`. The initial four-case capture completed;
+Status: question set originally approved at `4edf7ec` and now stored in
+`data/evaluation/coaching-questions.json` as `coaching-quality-v1` with unchanged
+case wording. The initial four-case capture completed;
 independent rubric scoring and final project validation remain outstanding.
 See [initial run review](../../eval/results/coaching-20261020T142127630761Z/review.md).
 The historical development checks below are separate from this evaluation and
@@ -41,8 +43,10 @@ establish guidance quality, speech accuracy or clinical validity.
 
 ### Procedure
 
-1. Review and freeze the 40 cases below before generating their answers. Record
-   the question-set commit. These cases were not selected from retrieval scores,
+1. Review and freeze the 40 cases before generating their answers. The JSON data
+   file is the executable question set; the table below is its readable reference.
+   Record the question-set version, canonical JSON fingerprint and code revision.
+   These cases were not selected from retrieval scores,
    but some wording overlaps earlier development checks, so this is not an
    independent held-out benchmark.
 2. Use fictional profiles. For each case, record an evaluation date and a birth
@@ -163,7 +167,7 @@ full speech-to-speech latency target.
 ### Case-record template
 
 ```text
-Run ID / rubric version / question-set commit:
+Run ID / rubric version / question-set version and fingerprint:
 Case ID / code revision / corpus revision:
 Evaluation date / fictional DOB / computed age:
 Input / selected routine:
