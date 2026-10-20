@@ -10,6 +10,7 @@ from backend.services.coaching import CoachingResult
 from backend.services.evidence import select_evidence
 from backend.services.retrieval import RetrievedPassage
 from backend.services.response_safety import SAFE_RESPONSE
+from backend.services.input_safety import ESCALATION_MESSAGE
 
 
 def passage(score: float, text: str = "Talk with your baby during feeding.") -> RetrievedPassage:
@@ -120,6 +121,53 @@ def test_out_of_scope_profile_never_reaches_retrieval_or_generation(client, serv
     retrieval.retrieve.assert_not_called()
     coaching.generate.assert_not_called()
     data.create_interaction.assert_not_called()
+
+
+def test_danger_report_bypasses_retrieval_and_generation(client, services, caplog):
+    import logging
+
+    data, retrieval, coaching = services
+    question = "My baby cannot breathe."
+    with caplog.at_level(logging.INFO, logger="uvicorn.error.coaching_timing"):
+        response = client.post("/coach", json={"child_id": "child-1", "question": question})
+    body = response.json()
+    assert response.status_code == 200
+    assert body["status"] == "escalated"
+    assert body["safety"] == "escalate"
+    assert body["answer"] == ESCALATION_MESSAGE
+    assert body["citations"][0]["pdf_page"] == 45
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+    assert data.create_interaction.call_args.args[-1] == "escalated"
+    assert "outcome=escalate" in caplog.text
+    assert question not in caplog.text
+
+
+def test_danger_report_for_aged_out_managed_profile_still_returns_referral(client, services):
+    data, retrieval, coaching = services
+    data.get_child.return_value = {"age_months": 25, "completed_months": 25,
+                                   "age_days": 760, "in_scope": False}
+    response = client.post("/coach", json={"child_id": "child-1", "question": "My baby is choking."})
+    assert response.json()["status"] == "escalated"
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_referral_is_returned_even_when_interaction_storage_fails(client, services, caplog):
+    import logging
+
+    data, retrieval, coaching = services
+    data.create_interaction.side_effect = RuntimeError("PRIVATE_DATABASE_DETAILS")
+    with caplog.at_level(logging.WARNING, logger="uvicorn.error.coaching_timing"):
+        response = client.post("/coach", json={"child_id": "child-1", "question": "My baby is choking."})
+    assert response.status_code == 200
+    assert response.json()["status"] == "escalated"
+    assert response.json()["interaction_id"] is None
+    assert response.json()["answer"] == ESCALATION_MESSAGE
+    assert "persistence=failed" in caplog.text
+    assert "PRIVATE_DATABASE_DETAILS" not in caplog.text
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
 
 
 def test_timing_logs_show_stages_without_request_content(client, services, caplog):
