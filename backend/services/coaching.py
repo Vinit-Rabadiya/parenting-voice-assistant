@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 
 from backend.core.config import settings
 from backend.services.retrieval import RetrievedPassage
@@ -26,7 +26,16 @@ class CoachingService:
         if self._client is None:
             if not self.api_key:
                 raise ValueError("GEMINI_API_KEY is not configured.")
-            self._client = genai.Client(api_key=self.api_key)
+            timeout = settings.GEMINI_TIMEOUT_SECONDS
+            if type(timeout) is not int or not 1 <= timeout <= 120:
+                raise ValueError("GEMINI_TIMEOUT_SECONDS must be an integer from 1 to 120.")
+            self._client = genai.Client(
+                api_key=self.api_key,
+                http_options=types.HttpOptions(
+                    timeout=timeout * 1000,  # The SDK expects milliseconds.
+                    retry_options=types.HttpRetryOptions(attempts=1),
+                ),
+            )
         return self._client
 
     def generate(self, question: str, child_age_months: float, routine: str | None, passages: list[RetrievedPassage]) -> CoachingResult:
@@ -53,11 +62,16 @@ Give 2 to 4 short actions in plain language. Do not diagnose, prescribe medicine
 give a dose, invent a milestone, or make a claim not supported by the excerpts.
 If the excerpts do not answer the question, say so and suggest contacting a health worker.
 Do not use markdown headings or citation markers; the application shows the sources separately."""
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=prompt,
-            config=types.GenerateContentConfig(temperature=0.2),
-        )
+        try:
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.2),
+            )
+        except errors.APIError as exc:
+            if exc.code == 504:
+                raise TimeoutError("Guidance generation timed out.") from exc
+            raise
         answer = (response.text or "").strip()
         if not answer:
             raise RuntimeError("The language model returned an empty answer.")

@@ -3,6 +3,7 @@
 import logging
 import time
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from starlette.concurrency import run_in_threadpool
 
@@ -47,6 +48,11 @@ async def coach(
         else:
             # A normal response, not a service error: no generation call or supporting citations.
             result = CoachingResult(answer=NO_GUIDANCE_MESSAGE, passages=[])
+    except (TimeoutError, httpx.TimeoutException) as exc:
+        logger.warning("%s timed out (%s)", stage, type(exc).__name__)
+        if stage == "Gemini generation":
+            raise HTTPException(status_code=504, detail="Guidance generation timed out. Please try again.") from None
+        raise HTTPException(status_code=502, detail="Guidance generation is unavailable. Please try again.") from None
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:

@@ -129,6 +129,7 @@ QDRANT_API_KEY=your-qdrant-api-key
 QDRANT_COLLECTION=caregiver_guidance_minilm_v1
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.8-flash
+GEMINI_TIMEOUT_SECONDS=30
 ```
 
 Place the Admin JSON key at the configured path. The service account must belong
@@ -310,6 +311,7 @@ are separate from the existing automated coverage.
 | Authentication temporarily unavailable | Backend internet access to Firebase; a healthy liveness endpoint does not verify cloud connectivity |
 | Child profiles fail to load | Firestore API activation, default database creation, service-account permissions, and backend logs |
 | Guidance generation fails | Qdrant/Gemini configuration, model access, quotas, and backend diagnostic messages |
+| Guidance generation times out (504) | Retry after checking Gemini availability. `GEMINI_TIMEOUT_SECONDS` controls the generation network timeout (default 30 seconds, range 1–120); automatic retries are disabled. This is not an end-to-end latency guarantee. |
 | Frontend reports connection refused | Backend is ready on port 8000 and both development servers are running |
 | Microphone is unavailable | Site permission, supported browser, and localhost or HTTPS |
 | Port 8000 is occupied | Stop the earlier backend process before starting another instance |

@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+import httpx
 
 from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service
 from backend.core.security import require_authenticated_user
@@ -88,4 +89,16 @@ def test_out_of_scope_profile_never_reaches_retrieval_or_generation(client, serv
     assert response.status_code == 422
     retrieval.retrieve.assert_not_called()
     coaching.generate.assert_not_called()
+    data.create_interaction.assert_not_called()
+
+
+@pytest.mark.parametrize("error", [TimeoutError("timed out"), httpx.ReadTimeout("timed out")])
+def test_generation_timeout_is_not_saved_as_a_no_evidence_answer(client, services, error):
+    data, retrieval, coaching = services
+    retrieval.retrieve.return_value = [passage(0.7)]
+    coaching.generate.side_effect = error
+    response = client.post("/coach", json={"child_id": "child-1", "question": "Play ideas"})
+    assert response.status_code == 504
+    assert response.json()["detail"] == "Guidance generation timed out. Please try again."
+    assert "status" not in response.json()
     data.create_interaction.assert_not_called()

@@ -29,6 +29,7 @@ class Settings:
 
     GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    GEMINI_TIMEOUT_SECONDS: int = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "30"))
 
     FIREBASE_PROJECT_ID: str | None = os.getenv("FIREBASE_PROJECT_ID")
 
