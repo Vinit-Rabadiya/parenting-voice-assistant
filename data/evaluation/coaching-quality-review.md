@@ -2,9 +2,42 @@
 
 ## Structured response evaluation: issue #78
 
-Status: draft question set; no structured evaluation requests or scores recorded.
+Status: question set approved at `4edf7ec`. The initial four-case capture completed;
+independent rubric scoring and final project validation remain outstanding.
+See [initial run review](../../eval/results/coaching-20261020T142127630761Z/review.md).
 The historical development checks below are separate from this evaluation and
 must not be counted as completed cases in it.
+
+### TODO: final validation after implementation is complete
+
+This is a tracked development TODO, not a scheduled notification. Do not close
+issue #78 or describe final validation as complete based on the initial four cases.
+
+- [ ] Confirm remaining planned implementation work is complete and record the
+  final code revision, model configuration and corpus fingerprint.
+- [ ] Run `npm.cmd run check` and preserve the full results, including warnings.
+- [ ] Run all 40 approved coaching cases in a new results directory. Retain the
+  initial run separately; never overwrite earlier answers or failed outcomes.
+- [ ] Review faithfulness, helpfulness and age-appropriateness using the 1-5 rubric,
+  with independent reviewers where possible and ECD/health expertise recorded.
+- [ ] Check scope refusals, unsupported claims, medical-safety concerns and
+  in-scope no-evidence outcomes separately from numeric scores.
+- [ ] Exercise the signed-in browser workflow: voice recording, transcription,
+  transcript editing, age/routine context, guidance, citations, Listen/Stop,
+  interaction storage and feedback. Record expected and actual outcomes.
+- [ ] Evaluate speech recognition and audio playback separately; measure complete
+  voice-to-audio latency as well as individual processing stages across repeated
+  requests. Do not infer a 90th-percentile result from a single request.
+- [ ] Verify account isolation, access controls and account/child deletion using
+  fictional data, including relevant error and quota-fallback scenarios.
+- [ ] Turn findings into specific correction tasks, preserve baseline results,
+  rerun affected evaluations after changes and run the full automated checks again.
+- [ ] Summarize remaining limitations and final evidence before closing evaluation
+  issues or preparing the next release.
+
+The final run evaluates the completed system; its findings may require another
+implementation-and-verification cycle. A passing automated suite alone does not
+establish guidance quality, speech accuracy or clinical validity.
 
 ### Procedure
 
