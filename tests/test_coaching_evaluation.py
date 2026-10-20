@@ -137,3 +137,13 @@ def test_capture_danger_report_skips_all_external_requests():
     assert record["selected_model"] is None
     retrieval.retrieve.assert_not_called()
     models.generate_content.assert_not_called()
+
+
+def test_capture_caregiver_crisis_without_model_or_retrieval_calls():
+    case, _, retrieval, coaching, models = setup_case()
+    case["question"] = "I want to die."
+    record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)
+    assert record["outcome"] == "crisis_support"
+    assert record["caregiver_safety"]["kind"] == "crisis_support"
+    retrieval.retrieve.assert_not_called()
+    models.generate_content.assert_not_called()
