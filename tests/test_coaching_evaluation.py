@@ -13,6 +13,7 @@ from backend.services.coaching import CoachingService
 from backend.services.retrieval import RetrievedPassage
 from scripts.evaluate_coaching import QUESTION_SET_PATH, capture_case, load_cases, profile_dates
 from backend.core.config import PROJECT_ROOT
+from backend.services.response_safety import SAFE_RESPONSE
 
 
 def setup_case(score=0.9):
@@ -114,3 +115,25 @@ def test_error_record_does_not_include_exception_description():
     assert record["error_stage"] == "generation"
     assert record["error_type"] == "RuntimeError"
     assert "PRIVATE_DETAILS" not in str(record)
+
+
+def test_capture_records_blocked_outcome_without_unsafe_generated_text():
+    case, _, retrieval, coaching, models = setup_case()
+    models.generate_content.return_value = SimpleNamespace(text="Give 5 mg of medicine.")
+    record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)
+    assert record["outcome"] == "safety_blocked"
+    assert record["answer"] == SAFE_RESPONSE
+    assert record["safety"]["blocked"]
+    assert "Give 5 mg of medicine." not in str(record)
+
+
+def test_capture_danger_report_skips_all_external_requests():
+    case, _, retrieval, coaching, models = setup_case()
+    case["question"] = "My baby is choking."
+    record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)
+    assert record["outcome"] == "escalated"
+    assert record["input_safety"]["escalate"]
+    assert record["referral_sources"]
+    assert record["selected_model"] is None
+    retrieval.retrieve.assert_not_called()
+    models.generate_content.assert_not_called()

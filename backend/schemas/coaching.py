@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 class CitationSchema(BaseModel):
     passage_id: str
     source_title: str
-    pdf_page: int
+    pdf_page: int | None
     source_url: str
     title: str
 
@@ -21,12 +21,13 @@ class CoachingRequest(BaseModel):
 
 
 class CoachingResponse(BaseModel):
-    interaction_id: str
+    interaction_id: str | None
     answer: str
     citations: list[CitationSchema]
     child_age_months: float
     processing_seconds: float
-    status: Literal["answered", "no_evidence"] = "answered"
+    status: Literal["answered", "no_evidence", "safety_blocked", "escalated"] = "answered"
+    safety: Literal["not_flagged", "escalate"] = "not_flagged"
 
 
 class FeedbackRequest(BaseModel):
