@@ -26,7 +26,7 @@ class CoachingResponse(BaseModel):
     citations: list[CitationSchema]
     child_age_months: float
     processing_seconds: float
-    status: Literal["answered", "no_evidence"] = "answered"
+    status: Literal["answered", "no_evidence", "safety_blocked"] = "answered"
 
 
 class FeedbackRequest(BaseModel):

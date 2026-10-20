@@ -320,9 +320,34 @@ are separate from the existing automated coverage.
 | Guidance generation fails | Qdrant/Gemini configuration, model access, quotas, and backend diagnostic messages |
 | Coaching service temporarily busy (503) | Gemini reported service unavailability. Retry later; the application does not add automatic retries. |
 | Coaching service request limit reached (429) | Check the configured project's Gemini quota and usage. Wait for the limit to reset or review the account plan before retrying. |
+| Guidance could not be provided (`safety_blocked`) | A generated answer matched an output guardrail. Only a replacement message is returned and stored; no source cards support the withheld answer. |
 | Frontend reports connection refused | Backend is ready on port 8000 and both development servers are running |
 | Microphone is unavailable | Site permission, supported browser, and localhost or HTTPS |
 | Port 8000 is occupied | Stop the earlier backend process before starting another instance |
+
+### Coaching output guardrails
+
+After generation, `response_safety.py` checks common dose expressions, known
+medication-instruction and diagnostic patterns, explicit conflicting age claims,
+numeric citation bounds, model-generated links and source-record provenance.
+Source cards must match the evidence records supplied to generation, including
+their metadata. A blocked response is replaced before database storage and API
+delivery. The frontend distinguishes `safety_blocked` from `no_evidence` and audio
+playback reads only the returned replacement. Safety logs contain random request
+identifiers, outcomes and reason codes, not conversation text.
+
+These are limited deterministic guardrails, not comprehensive medical detection,
+semantic grounding verification or expert clinical validation. The dose rule is
+deliberately conservative and may block benign numerical references. Directly
+negated medication instructions are exempted, but complex wording and unlisted
+drugs or conditions can be missed. A passing check does not mean every claim is
+supported by a source or that the answer is safe. Emergency input triage and
+broader scope classification remain separate work. No additional model request
+or change to the generation prompt is introduced.
+
+The evaluation capture script applies the same checks. New records distinguish
+`safety_blocked` outcomes and retain reason codes rather than the blocked generated
+text. Earlier evaluation records remain unchanged; compare runs by code revision.
 
 ## Development roadmap
 

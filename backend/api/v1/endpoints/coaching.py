@@ -16,6 +16,7 @@ from backend.services.caregiver_data import CaregiverDataService
 from backend.services.coaching import CoachingResult, CoachingService, generation_request_id
 from backend.services.retrieval import RetrievalService
 from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
+from backend.services.response_safety import SAFE_RESPONSE, inspect_response
 from backend.core.config import settings
 
 
@@ -76,6 +77,18 @@ async def coach(
             stage = "Gemini generation"
             with timed_stage(request_id, "generation"):
                 result = await run_in_threadpool(coaching_service.generate, payload.question, child["age_months"], payload.routine, evidence)
+            stage = "Response safety"
+            with timed_stage(request_id, "response_safety"):
+                decision = inspect_response(result.answer, result.passages, evidence, child["age_months"])
+                timing_logger.info(
+                    "coaching_safety request=%s outcome=%s reasons=%s",
+                    request_id, "blocked" if decision.blocked else "passed",
+                    ",".join(decision.reasons) or "none",
+                )
+                if decision.blocked:
+                    # Replace before storage and delivery; never save the blocked text.
+                    status = "safety_blocked"
+                    result = CoachingResult(answer=SAFE_RESPONSE, passages=[])
         else:
             # A normal response, not a service error: no generation call or supporting citations.
             result = CoachingResult(answer=NO_GUIDANCE_MESSAGE, passages=[])

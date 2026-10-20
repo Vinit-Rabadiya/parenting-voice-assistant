@@ -9,6 +9,7 @@ from backend.main import app
 from backend.services.coaching import CoachingResult
 from backend.services.evidence import select_evidence
 from backend.services.retrieval import RetrievedPassage
+from backend.services.response_safety import SAFE_RESPONSE
 
 
 def passage(score: float, text: str = "Talk with your baby during feeding.") -> RetrievedPassage:
@@ -79,6 +80,35 @@ def test_retrieval_failure_is_not_a_no_evidence_response(client, services):
     assert response.status_code == 502
     assert "status" not in response.json()
     coaching.generate.assert_not_called()
+
+
+@pytest.mark.parametrize("answer,unknown_source", [
+    ("Give 5 mg of medicine.", False),
+    ("Talk softly [99].", False),
+    ("Talk softly.", True),
+])
+def test_output_safety_replaces_answer_before_storage_and_delivery(client, services, caplog, answer, unknown_source):
+    import logging
+
+    data, retrieval, coaching = services
+    accepted = passage(0.8)
+    retrieval.retrieve.return_value = [accepted]
+    returned = passage(0.8)
+    if unknown_source:
+        returned.passage_id = "invented-source"
+    coaching.generate.return_value = CoachingResult(answer, [returned])
+    with caplog.at_level(logging.INFO, logger="uvicorn.error.coaching_timing"):
+        response = client.post("/coach", json={"child_id": "child-1", "question": "PRIVATE_QUESTION"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "safety_blocked"
+    assert response.json()["answer"] == SAFE_RESPONSE
+    assert response.json()["citations"] == []
+    saved = data.create_interaction.call_args.args
+    assert saved[4:] == (SAFE_RESPONSE, [], "safety_blocked")
+    assert "coaching_safety" in caplog.text
+    assert "outcome=blocked" in caplog.text
+    assert answer not in caplog.text
+    assert "PRIVATE_QUESTION" not in caplog.text
 
 
 def test_out_of_scope_profile_never_reaches_retrieval_or_generation(client, services):

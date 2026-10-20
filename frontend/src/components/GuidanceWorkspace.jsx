@@ -66,9 +66,12 @@ export default function GuidanceWorkspace() {
       {error && <p role="alert">{error}</p>}
     </section>
     {result && <section className="guidance-answer" aria-live="polite" aria-labelledby="guidance-title">
-      <h2 id="guidance-title">{result.status === "no_evidence" ? "No suitable guidance found" : `Guidance for ${child?.name}`}</h2>
+      <h2 id="guidance-title">{result.status === "safety_blocked" ? "Guidance could not be provided"
+        : result.status === "no_evidence" ? "No suitable guidance found" : `Guidance for ${child?.name}`}</h2>
       <p className="guidance-text">{result.answer}</p>
-      <p className="guidance-meta">{result.status === "no_evidence"
+      <p className="guidance-meta">{result.status === "safety_blocked"
+        ? "The generated response was withheld by the coaching safety checks."
+        : result.status === "no_evidence"
         ? `References checked in ${result.processing_seconds.toFixed(2)} seconds. No coaching answer was generated.`
         : `Prepared in ${result.processing_seconds.toFixed(2)} seconds using age-aware reference material.`}</p>
       <div className="answer-actions"><button type="button" onClick={() => speak(result.answer)}>Listen</button><button type="button" onClick={() => window.speechSynthesis.cancel()}>Stop audio</button></div>

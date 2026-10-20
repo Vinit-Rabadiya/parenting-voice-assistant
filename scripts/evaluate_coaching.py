@@ -15,6 +15,7 @@ from backend.services.age import add_months, age_details, current_date
 from backend.services.coaching import CoachingService
 from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
 from backend.services.retrieval import RetrievalService
+from backend.services.response_safety import SAFE_RESPONSE, inspect_response
 
 
 QUESTION_SET_VERSION = "coaching-quality-v1"
@@ -139,6 +140,13 @@ def capture_case(case, profile, retrieval, coaching):
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
         record.update(outcome="answered", answer=result.answer)
         record["selected_model"] = observer.attempts[-1]["model"]
+        stage = "response_safety"
+        tick = time.perf_counter()
+        decision = inspect_response(result.answer, result.passages, evidence, profile["age_months"])
+        record["safety"] = {"blocked": decision.blocked, "reasons": list(decision.reasons)}
+        if decision.blocked:
+            record.update(outcome="safety_blocked", answer=SAFE_RESPONSE)
+        record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
     except Exception as exc:
         record.update(outcome="error", error_stage=stage, error_type=type(exc).__name__)
         code = getattr(exc, "code", None)
