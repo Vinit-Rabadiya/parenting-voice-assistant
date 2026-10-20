@@ -11,13 +11,15 @@ validation activities, not implicit claims made by these checks.
 
 Completion checklist for the branch:
 
-- [ ] Review the shared 60-case data file and report calculations.
-- [ ] Verify crisis/support routing, source information and explicit country selection.
-- [ ] Verify API, interface, persistence-failure and evaluation integration.
-- [ ] Review input/output false alarms, missed wording and source-card consistency.
-- [ ] Run offline checks and capture an actual report; record the code/data versions.
-- [ ] Run the full configured checks and the backend CI evaluation step.
-- [ ] Record remaining limitations and update issue evidence before one workstream PR.
+- [x] Review the shared 60-case data file and report calculations.
+- [x] Verify crisis/support routing, source information and explicit country selection.
+- [x] Verify API, interface, persistence-failure and evaluation integration.
+- [x] Review the implemented input/output rules and regression examples for false alarms,
+  missed wording and source-card consistency; broader clinical validation remains separate.
+- [x] Run offline checks and capture an actual report; record the code/data versions.
+- [x] Run the full configured project checks locally.
+- [ ] Verify the backend CI evaluation step on GitHub.
+- [x] Record remaining limitations and update issue evidence before one workstream PR.
 
 ## Shared data and report
 
@@ -74,11 +76,23 @@ examples, zero missed danger examples, zero false alarms and 30 correctly
 unflagged non-emergency examples: recall 1.0 and false-alarm rate 0.0 on this
 development set. Its dataset fingerprint was
 `21315a4bc6afdef47106afb40cdb266971a48d1588b8c4d2c2f32d21f7789047`.
-That run occurred before the implementation was committed and the report was
-printed rather than saved. Capture a separate report after the implementation
-commits so its recorded revision identifies the evaluated code. The full project
-checks, browser verification and GitHub CI verification remain outstanding for
-this workstream.
+That initial run occurred before the implementation was committed and printed
+rather than saved its report. A subsequent baseline is preserved separately in
+[results/safety-baseline.json](results/safety-baseline.json), committed as `30e29c6`.
+It identifies evaluated revision `dc47669ce63dc748ff04c16a2d82792b86e465b0`
+and the same dataset fingerprint. Its 60 cases produced 30 detections, no missed
+danger examples, no false alarms and 30 correctly unflagged non-emergency
+examples. Recall was 1.0 and the false-alarm rate was 0.0 on this development set.
+
+Manual browser checks completed for normal coaching, child danger-sign referrals,
+a prevention question, caregiver support, immediate-support messages, contact
+visibility with Kenya selected versus no location selected, and Listen/Stop audio.
+The full `npm.cmd run check` subsequently completed with all configured checks
+passed. Database-write failure behaviour was verified by automated tests, not by
+forcing a production database outage during browser checks. GitHub CI verification
+and professional clinical review remain outstanding. No real emergency response
+or helpline connection was tested, and the baseline is not a claim of real-world
+clinical accuracy.
 
 ## Caregiver support and resources
 
