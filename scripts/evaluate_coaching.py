@@ -17,6 +17,7 @@ from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
 from backend.services.retrieval import RetrievalService
 from backend.services.response_safety import SAFE_RESPONSE, inspect_response
 from backend.services.input_safety import ESCALATION_MESSAGE, inspect_input
+from backend.services.crisis_safety import inspect_crisis
 
 
 QUESTION_SET_VERSION = "coaching-quality-v1"
@@ -117,11 +118,14 @@ def capture_case(case, profile, retrieval, coaching):
     try:
         tick = time.perf_counter()
         stage = "input_safety"
+        crisis = inspect_crisis(case["question"])
         triage = inspect_input(case["question"], profile["completed_months"])
+        record["caregiver_safety"] = {"kind": crisis.kind, "reasons": list(crisis.reasons)}
         record["input_safety"] = {"escalate": triage.escalate, "reasons": list(triage.reasons)}
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
-        if triage.escalate:
-            record.update(outcome="escalated", answer=ESCALATION_MESSAGE,
+        if triage.escalate or crisis.kind:
+            record.update(outcome="escalated" if triage.escalate else crisis.kind,
+                          answer=ESCALATION_MESSAGE if triage.escalate else crisis.answer,
                           referral_sources=list(triage.citations))
             return record
         stage = "retrieval"

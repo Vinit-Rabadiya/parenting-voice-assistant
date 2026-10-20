@@ -18,6 +18,7 @@ from backend.services.retrieval import RetrievalService
 from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
 from backend.services.response_safety import SAFE_RESPONSE, inspect_response
 from backend.services.input_safety import ESCALATION_MESSAGE, inspect_input
+from backend.services.crisis_safety import inspect_crisis
 from backend.core.config import settings
 
 
@@ -61,33 +62,43 @@ async def coach(
     # Check before the age-scope rejection as well: an aged-out managed profile
     # must not turn a recognized danger report into only an age-range error.
     triage_started = time.perf_counter()
+    with timed_stage(request_id, "caregiver_safety"):
+        crisis = inspect_crisis(payload.question, payload.support_country)
     with timed_stage(request_id, "input_safety"):
         triage = inspect_input(payload.question, child["completed_months"])
+    timing_logger.info(
+        "coaching_caregiver_safety request=%s outcome=%s reasons=%s",
+        request_id, crisis.kind or "not_flagged", ",".join(crisis.reasons) or "none",
+    )
     timing_logger.info(
         "coaching_input_safety request=%s outcome=%s reasons=%s",
         request_id, "escalate" if triage.escalate else "not_flagged",
         ",".join(triage.reasons) or "none",
     )
-    if triage.escalate:
+    if triage.escalate or crisis.kind:
         citations = list(triage.citations)
+        # A child danger sign takes priority; caregiver resources are still retained.
+        status = "escalated" if triage.escalate else crisis.kind
+        answer = ESCALATION_MESSAGE if triage.escalate else crisis.answer
         # No retrieval or generation is needed for this fixed referral message.
         interaction_id = None
         try:
             with timed_stage(request_id, "interaction_save"):
                 interaction_id = await run_in_threadpool(
                     data_service.create_interaction, user["uid"], payload.child_id,
-                    payload.question, payload.routine, ESCALATION_MESSAGE, citations, "escalated",
+                    payload.question, payload.routine, answer, citations, status,
                 )
         except Exception:
             # A persistence outage must not replace a recognized danger referral
             # with a generic error. No fabricated interaction ID is returned.
             timing_logger.warning("coaching_input_safety request=%s persistence=failed", request_id)
         return CoachingResponse(
-            interaction_id=interaction_id, answer=ESCALATION_MESSAGE,
+            interaction_id=interaction_id, answer=answer,
             citations=[CitationSchema(**citation) for citation in citations],
             child_age_months=child["age_months"],
             processing_seconds=round(time.perf_counter() - triage_started, 3),
-            status="escalated", safety="escalate",
+            status=status, safety="not_flagged" if status == "caregiver_support" else "escalate",
+            support_resources=list(crisis.resources),
         )
     if child.get("in_scope") is not True:
         raise HTTPException(status_code=422, detail="Coaching supports children from birth through their second birthday. Select a profile within this age range.")

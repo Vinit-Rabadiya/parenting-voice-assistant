@@ -28,8 +28,8 @@ INJURY = {
 
 # Keep a source per category rather than attributing every rule to a single excerpt.
 RULES = (
-    ("breathing", r"\b(?:can(?:not|'t) breathe|not breathing|stopped breathing|struggling to breathe|difficulty breathing|difficult breathing|breathing (?:very )?fast|fast breathing|gasping)\b", KENYA),
-    ("not_feeding", r"\b(?:(?:cannot|can't|unable to|will not|won't|not able to) (?:drink|feed|breastfeed)|not (?:feeding|drinking|breastfeeding)|(?:feeding|drinking|breastfeeding) poorly)\b", KENYA),
+    ("breathing", r"\b(?:can(?:not|'t) breathe|not breathing(?!\s+fast\b)|stopped breathing|struggling to breathe|difficulty breathing|difficult breathing|breathing (?:very )?fast|fast breathing|gasping)\b", KENYA),
+    ("not_feeding", r"\b(?:(?:cannot|can't|unable to|will not|won't|not able to) (?:drink|feed|breastfeed)|not (?:feeding|drinking|breastfeeding)(?!\s+poorly\b)|(?:feeding|drinking|breastfeeding) poorly)\b", KENYA),
     ("convulsions", r"\b(?:convuls(?:ion|ions|ing)|seizures?)\b", WHO),
     ("unresponsive", r"\b(?:unconscious|unresponsive|lethargic|hard to wake|difficult to wake|cannot wake|can't wake|won't wake)\b", WHO),
     ("dehydration", r"\b(?:dehydrated|dehydration|no wet (?:nappies|diapers)|hasn't (?:peed|urinated)|has not (?:peed|urinated))\b", WHO),
@@ -63,7 +63,7 @@ def inspect_input(question: str, completed_months: int) -> InputSafetyDecision:
             prefix = text[max(0, match.start() - 45):match.start()]
             # Narrow exclusions only: do not suppress a whole question just because
             # it also contains a negated or preventative phrase elsewhere.
-            negated = re.search(r"\b(?:no|not|without|isn't|is not|doesn't have|has no|has not had)\s*$", prefix)
+            negated = re.search(r"\b(?:no|not|without|isn't|is not|doesn't have|does not have|has no|has not had|not having)(?: an?)?\s*$", prefix)
             prevention = re.search(r"\b(?:prevent|preventing|avoid|risk of)\s*$", prefix)
             if negated or prevention:
                 continue
