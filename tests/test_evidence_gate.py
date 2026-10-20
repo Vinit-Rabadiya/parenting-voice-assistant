@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+from google.genai import errors as genai_errors
 
 import pytest
 
@@ -88,4 +89,65 @@ def test_out_of_scope_profile_never_reaches_retrieval_or_generation(client, serv
     assert response.status_code == 422
     retrieval.retrieve.assert_not_called()
     coaching.generate.assert_not_called()
+    data.create_interaction.assert_not_called()
+
+
+def test_timing_logs_show_stages_without_request_content(client, services, caplog):
+    import logging
+
+    _, retrieval, coaching = services
+    accepted = passage(0.7, "PRIVATE_REFERENCE_TEXT")
+    retrieval.retrieve.return_value = [accepted]
+    coaching.generate.return_value = CoachingResult("PRIVATE_ANSWER_TEXT", [accepted])
+    with caplog.at_level(logging.INFO, logger="uvicorn.error.coaching_timing"):
+        response = client.post("/coach", json={"child_id": "child-1", "question": "PRIVATE_QUESTION_TEXT"})
+    assert response.status_code == 200
+    messages = "\n".join(record.getMessage() for record in caplog.records
+                         if record.name == "uvicorn.error.coaching_timing")
+    for stage in ("profile_lookup", "retrieval", "evidence_selection", "generation", "interaction_save"):
+        assert f"stage={stage} event=started" in messages
+        assert f"stage={stage} event=completed seconds=" in messages
+    assert "stage=reported_total event=completed" in messages
+    assert "passages=1 evidence=1 evidence_characters=" in messages
+    for private in ("PRIVATE_QUESTION_TEXT", "PRIVATE_REFERENCE_TEXT", "PRIVATE_ANSWER_TEXT", "user-1", "child-1"):
+        assert private not in messages
+
+
+def test_gemini_unavailable_returns_busy_message_without_saving_answer(client, services):
+    data, retrieval, coaching = services
+    retrieval.retrieve.return_value = [passage(0.7)]
+    coaching.generate.side_effect = genai_errors.ServerError(
+        503, {"error": {"status": "UNAVAILABLE", "message": "Service unavailable"}},
+    )
+    response = client.post("/coach", json={"child_id": "child-1", "question": "Feeding ideas"})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "The coaching service is temporarily busy. Please try again later."
+    assert "status" not in response.json()
+    coaching.generate.assert_called_once()
+    data.create_interaction.assert_not_called()
+
+
+def test_retrieval_unavailable_does_not_claim_gemini_is_busy(client, services):
+    data, retrieval, coaching = services
+    retrieval.retrieve.side_effect = genai_errors.ServerError(
+        503, {"error": {"message": "Retrieval failure"}},
+    )
+    response = client.post("/coach", json={"child_id": "child-1", "question": "Feeding ideas"})
+    assert response.status_code == 502
+    assert "busy" not in response.json()["detail"]
+    coaching.generate.assert_not_called()
+    data.create_interaction.assert_not_called()
+
+
+def test_gemini_quota_error_returns_limit_message_without_saving_answer(client, services):
+    data, retrieval, coaching = services
+    retrieval.retrieve.return_value = [passage(0.7)]
+    coaching.generate.side_effect = genai_errors.ClientError(
+        429, {"error": {"status": "RESOURCE_EXHAUSTED", "message": "Quota exceeded"}},
+    )
+    response = client.post("/coach", json={"child_id": "child-1", "question": "Feeding ideas"})
+    assert response.status_code == 429
+    assert response.json()["detail"] == "The coaching service request limit has been reached. Please try again later."
+    assert "status" not in response.json()
+    coaching.generate.assert_called_once()
     data.create_interaction.assert_not_called()
