@@ -384,6 +384,12 @@ Sources:
 
 ## Development roadmap
 
+The current safety workstream, shared dataset, report commands and completion
+checklist are documented in [eval/README.md](eval/README.md). Caregiver-support
+messages bypass model generation and show Kenya-specific contacts only after an
+explicit location selection. This supplements—not replaces—the input and output
+checks described above.
+
 Existing issues track retrieval quality and exact age handling, emergency triage
 and response validation, privacy controls, conversation history, speech evaluation,
 and production deployment. See [milestones](https://github.com/Vinit-Rabadiya/parenting-voice-assistant/milestones)
