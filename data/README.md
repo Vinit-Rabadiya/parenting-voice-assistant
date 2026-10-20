@@ -1,9 +1,9 @@
 # RAG data preparation
 
-This is the first selected reference corpus, not a complete knowledge base or a trained model.
-It contains 33 editorially selected passages: 12 WHO/UNICEF counselling-card passages and
-21 Reach Up activity passages. Selection and extraction have been checked by the coding
-agent; developmental appropriateness has not been evaluated by an ECD specialist.
+The selected reference corpus supports retrieval, not model training. The current prepared
+corpus contains 106 editorially selected passages: 18 WHO/UNICEF counselling-card passages,
+75 Reach Up passages, and 13 Kenya handbook passages. Selection and extraction checks do
+not constitute expert validation of developmental appropriateness.
 
 ## Reproduce on Windows
 
@@ -11,14 +11,67 @@ From the repository root, with the three PDFs present under `data/raw/pdfs/`:
 
 ```powershell
 .\venv\Scripts\python.exe -m pip install -r requirements-data.txt
-.\venv\Scripts\python.exe scripts/prepare_rag_data.py
-.\venv\Scripts\python.exe scripts/build_rag_passages.py
+.\venv\Scripts\python.exe -m scripts.prepare_rag_data
+.\venv\Scripts\python.exe -m scripts.build_rag_passages
 .\venv\Scripts\python.exe -m pytest tests/test_rag_data.py
 ```
 
 Both scripts resolve their default paths from the repository root, independently of the
-terminal's working directory. The tests also use synthetic inputs; the final local corpus
-test skips on CI when the source documents/extractions are unavailable.
+terminal's working directory. Source PDFs must match the fingerprints in `sources.json`.
+
+## Verify real-corpus age filtering
+
+Install the test dependencies with `pip install -r requirements-dev.txt`, then run:
+
+```powershell
+.\venv\Scripts\python.exe -m pytest --require-corpus -ra tests/test_retrieval_corpus.py tests/test_age_filter.py tests/test_caregiver_data.py tests/test_evidence_gate.py tests/test_corpus_requirement.py
+```
+
+`--require-corpus` stops the run with an error if `data/processed/rag/passages.jsonl` is
+missing. Invalid passage metadata or source references also fail the integration tests.
+The option checks file availability, not corpus freshness; regenerate from the source
+PDFs and versioned selection rules when preparing release evidence.
+
+The real-corpus tests load the prepared payloads into in-memory Qdrant. They check six
+days, seven days, the day before six months, exactly six months, and the second birthday.
+Coaching API checks also reject profiles the day after the second birthday and at thirty
+months, before retrieval, generation, or interaction storage.
+
+Fixed synthetic vectors isolate age filtering from semantic ranking. Authentication,
+generation, and persistence are isolated; these tests do not access cloud services or
+measure answer quality, embedding accuracy, or latency.
+
+Normal `pytest` runs skip the real-corpus checks when the generated passage file is absent.
+CI does not obtain the source PDFs or prepare the corpus, so a green CI result alone is
+not evidence that these checks ran. Use the explicit command above and retain the test
+summary, including skipped tests (`-ra`), with the PR verification record.
+
+## Date-based retrieval evaluation
+
+`data/evaluation/retrieval-queries.jsonl` contains development questions and passage labels.
+Each case specifies a synthetic `date_of_birth` and fixed `evaluation_date` in `YYYY-MM-DD`
+format. The runner calculates exact days and completed calendar months with the same age
+helpers used by profiles. It rejects missing or invalid dates, out-of-scope ages, and
+precomputed age fields rather than silently falling back to approximate month conversion.
+The dates are fixed so a case does not change age when the evaluation is rerun later.
+
+For example, birth on `2026-04-20` evaluated on `2026-10-20` means 183 days and six
+completed months. Birth on `2026-04-21` means five completed months, even if its display
+age rounds to `6.0`. Only the completed month count is used for month-bound eligibility.
+
+Offline runner checks, without Qdrant network requests:
+
+```powershell
+.\venv\Scripts\python.exe -m pytest tests/test_retrieval_evaluation.py
+```
+
+Running `python -m scripts.evaluate_retrieval` queries the configured live Qdrant collection
+and overwrites `data/evaluation/retrieval-results.json`. New reports use schema version 2
+and record both input dates, exact days, completed months, and rounded display months.
+Previously recorded results remain historical evidence until a new run replaces them;
+changing case inputs does not update old scores. The original 12 questions and labels are
+not a held-out evaluation set, and their labels need review against the current corpus
+before threshold calibration or claims about retrieval accuracy.
 
 ## Files and data flow
 
@@ -61,10 +114,21 @@ selection rules, scripts, and documentation are versionable. No download happens
 
 ## From passages to vector retrieval
 
-The next stage will encode passage text into numerical vectors using an embedding model.
-The vector store will keep each vector alongside its passage text and metadata. Age fields
-support eligibility filters; source IDs and page numbers support citations. Similarity alone
-does not enforce age suitability. The embedding model and vector database are not yet selected.
+`scripts.index_rag` uses `sentence-transformers/all-minilm-l6-v2` through Qdrant Cloud
+inference. Qdrant stores vectors with the original passage text, source metadata, and age
+boundaries. The collection name is configured by `QDRANT_COLLECTION` for live retrieval.
+Source IDs and page numbers support citations; similarity alone does not establish suitability.
+
+Before candidate selection, Qdrant filters the original `source_age` day and month fields.
+Integer indexes cover `min_days`, `max_days_exclusive`, `min_months`, and
+`max_months_exclusive`. Python validation additionally rejects unsupported or malformed age
+metadata. Collection setup preserves existing data and ensures these indexes:
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.create_qdrant_collection
+```
+
+This command changes the configured Qdrant collection; it is not required for the local tests.
 
 ## Age semantics
 
@@ -74,11 +138,12 @@ Source age ranges and project scope are separate. Retrieval must intersect both.
 - CCD `birth up to 1 week` uses `[0, 7)` days; the next band begins at day 7 and ends
   before six months. Do not round both bands to `0 months`.
 - The source range `24-26 months` remains `[24, 27)`. CCD `2 years and older` remains
-  open-ended. The project's upper age is separately recorded as 24 months inclusive.
-  These passages must not match younger children or extend project support beyond 24 months.
-- Future profile handling should calculate completed calendar months and exact age in days
-  from birth date; it should not use a fixed 30-day month. Clarify whether the final product
-  includes the full completed 24th month when defining profile eligibility.
+  open-ended. Coaching is supported from birth through the calendar second birthday,
+  inclusive. The following day is out of scope; the full completed 24th month is not included.
+- The backend derives completed calendar months and exact days from the stored birth date.
+  Live coaching uses days for day boundaries and completed months for month boundaries,
+  not rounded display age or a fixed month-to-day conversion. Older profiles remain
+  accessible for management, but the coaching API blocks out-of-scope requests before search.
 - `routines: []` means the selected passage has no specific routine annotation, not that
   every routine is supported. Topics/routines are editorial labels, not clinical milestones.
 
@@ -88,20 +153,20 @@ Source age ranges and project scope are separate. Retrieval must intersect both.
 | --- | --- |
 | CCD page 1 | Cover; not selected. |
 | CCD page 2 | All six columns extracted as 12 passages; preserve age limits. |
-| CCD page 3 | Counsellor-facing problem guidance; extracted, pending passage selection. |
+| CCD page 3 | Six selected passages; counsellor-facing context still requires relevance review. |
 | CCD page 4 | Rotated counselling checklist; pending structured review. |
-| Reach Up pages 1–31 | Front matter and programme tables; repeated activities are not separately indexed. |
-| Reach Up pages 32–35 | General parent guidance; extracted, pending selection. |
+| Reach Up pages 1–31 | Selected activities from pages 7–22; other content remains unselected. |
+| Reach Up pages 32–35 | Seven selected general parent-guidance passages. |
 | Reach Up page 36 | Section divider; not selected. |
 | Reach Up pages 37–52 | Selected individual activities, primarily communication; other activities remain unselected. |
 | Reach Up pages 53–64 | Extracted; unselected. Page 53 overlaps the 24-month boundary; later age groups exceed scope. |
-| Kenya handbook, all pages | Extracted only. Page 27 (PDF label 25) has a milestone table adjacent to clinical assessment content; requires table-specific modelling before inclusion. |
+| Kenya handbook | Thirteen selected passages from PDF pages 27, 43, and 45; neighbouring clinical content is outside the coaching scope. |
 
 The current subset covers each infant age band but is uneven across routines. It is not
 comprehensive feeding, bathing, sleep, soothing, motor-development, or milestone guidance.
 The local parenting CSV is not part of this RAG preparation; its training provenance remains
-a separate question. Expert evaluation, held-out caregiver questions, retrieval indexing,
-age-filter implementation, ranking evaluation, and LLM response generation are next stages.
+a separate question. Expert evaluation, held-out caregiver questions, and semantic ranking
+evaluation remain separate from the implemented indexing, age filtering, and LLM generation.
 
 ## Attribution and reuse metadata
 

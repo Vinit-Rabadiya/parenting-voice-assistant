@@ -1,21 +1,63 @@
 # evaluates retrieval quality against the live qdrant index using labelled caregiver questions.
-# run after indexing: python scripts/evaluate_retrieval.py
+# run after indexing: python -m scripts.evaluate_retrieval
 import json
 import platform
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from backend.core.config import PROJECT_ROOT, settings
+from backend.services.age import age_details, within_project_scope
 from backend.services.retrieval import RetrievalService
+
+
+def query_age_context(query: dict) -> dict:
+    """Derive reproducible retrieval ages from dates, never a supplied month value."""
+    dates = {}
+    for field in ("date_of_birth", "evaluation_date"):
+        value = query.get(field)
+        try:
+            if not isinstance(value, str):
+                raise ValueError
+            parsed = date.fromisoformat(value)
+            if parsed.isoformat() != value:
+                raise ValueError
+        except ValueError:
+            raise ValueError(f"{field} must be a valid YYYY-MM-DD date.") from None
+        dates[field] = parsed
+    if not within_project_scope(dates["date_of_birth"], dates["evaluation_date"]):
+        raise ValueError("Evaluation age must be from birth through the second birthday.")
+    if any(field in query for field in ("child_age_months", "child_age_days", "completed_months")):
+        raise ValueError("Supply birth and evaluation dates, not precomputed child ages.")
+    days, completed_months, display_months = age_details(
+        dates["date_of_birth"], dates["evaluation_date"],
+    )
+    return {
+        "date_of_birth": dates["date_of_birth"].isoformat(),
+        "evaluation_date": dates["evaluation_date"].isoformat(),
+        "child_age_days": days,
+        "completed_months": completed_months,
+        "child_age_months": round(display_months, 1),
+    }
 
 
 def load_queries(path: Path) -> list[dict]:
     queries = []
-    for line in path.open(encoding="utf-8"):
-        if line.strip():
-            queries.append(json.loads(line))
+    with path.open(encoding="utf-8") as source:
+        for line_number, line in enumerate(source, start=1):
+            if not line.strip():
+                continue
+            try:
+                query = json.loads(line)
+                if not isinstance(query, dict):
+                    raise ValueError("Each query must be an object.")
+                query_age_context(query)
+            except ValueError as exc:
+                raise ValueError(f"Query line {line_number}: {exc}") from None
+            queries.append(query)
+    if not queries:
+        raise ValueError("The query file contains no evaluation cases.")
     return queries
 
 
@@ -24,10 +66,12 @@ def evaluate_query(
     query: dict,
 ) -> dict:
     """Run one query against the live index and measure results + timing."""
+    age = query_age_context(query)
     start = time.perf_counter()
     results = service.retrieve(
         query=query["query"],
-        child_age_months=query["child_age_months"],
+        child_age_months=age["completed_months"],
+        child_age_days=age["child_age_days"],
         routine=query.get("routine"),
         limit=query["limit"],
     )
@@ -58,7 +102,7 @@ def evaluate_query(
         "id": query["id"],
         "category": query["category"],
         "query": query["query"],
-        "child_age_months": query["child_age_months"],
+        **age,
         "routine": query.get("routine"),
         "limit": query["limit"],
         "notes": query.get("notes", ""),
@@ -95,7 +139,7 @@ def build_report(queries: list[dict], results: list[dict]) -> dict:
     latencies = [r["latency_ms"] for r in results]
 
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "configuration": {
             "collection": settings.QDRANT_COLLECTION,
@@ -103,6 +147,7 @@ def build_report(queries: list[dict], results: list[dict]) -> dict:
             "inference": "qdrant cloud",
             "corpus_path": str(PROJECT_ROOT / "data/processed/rag/passages.jsonl"),
             "query_count": len(queries),
+            "age_policy": "Exact days and completed calendar months from fixed case dates",
         },
         "machine": {
             "python": sys.version.split()[0],
@@ -133,12 +178,14 @@ def build_report(queries: list[dict], results: list[dict]) -> dict:
         },
         "queries": results,
         "limitations": [
-            "The retrieval service has no score threshold; missing-topic queries still return the "
-            "highest-scoring age-eligible passages, which are false positives for that topic.",
+            "This report evaluates retrieval before the coaching evidence gate; returned "
+            "passages do not necessarily become generated answers.",
             "Labels are editorial judgements based on passage content, not ECD expert validation.",
-            "Recall is measured against a small labelled set; the corpus has 33 passages total.",
-            "Age filtering is applied post-retrieval in the service; the evaluation verifies "
-            "no forbidden passages appear, confirming boundary correctness independently.",
+            "Labels come from the original development set and require review against the "
+            "current corpus before calibration or held-out accuracy claims.",
+            "Qdrant applies age filters before candidate selection, with Python validation "
+            "as a safeguard. Leakage counts check listed forbidden IDs only, not every passage.",
+            "Case birth dates are synthetic evaluation inputs, not caregiver records.",
         ],
     }
     return report
@@ -151,7 +198,10 @@ def main() -> None:
     if not queries_path.exists():
         raise SystemExit(f"Queries file not found: {queries_path}")
 
-    queries = load_queries(queries_path)
+    try:
+        queries = load_queries(queries_path)
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"Invalid evaluation cases: {exc}") from None
     print(f"Loaded {len(queries)} evaluation queries from {queries_path.name}")
 
     # connect to the live qdrant index.
