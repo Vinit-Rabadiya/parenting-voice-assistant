@@ -20,7 +20,7 @@ try {
 
   const keyPath = isAbsolute(rawKeyPath) ? rawKeyPath : resolve(projectRoot, rawKeyPath);
 
-  // make sure the key matches the project we want to change.
+  // Verify that the key matches the configured project before changing settings.
   const key = JSON.parse(readFileSync(keyPath, "utf8"));
 
   if (key.project_id !== projectId) {

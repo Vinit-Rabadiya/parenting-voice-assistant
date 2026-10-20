@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "review_basis": "Agent editorial comparison of extracted plain/layout text; CCD pages 2-3, Reach Up pages 7-22 and 32-35, Kenya handbook pages 27 and 43-45 compared to source text. Not ECD expert validation.",
+  "review_basis": "Editorial comparison of extracted plain/layout text; CCD pages 2-3, Reach Up pages 7-22 and 32-35, Kenya handbook pages 27 and 43-45 compared to source text. Not ECD expert validation.",
   "scope": "Birth through age 24 months; preserve source ranges separately. A source starting at 24 months must never match a younger child.",
   "ccd_page_2": true,
   "ccd_page_3": true,

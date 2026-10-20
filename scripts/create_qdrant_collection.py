@@ -1,4 +1,4 @@
-# creates the collection used to store our caregiver passage vectors.
+# Creates the collection used to store caregiver passage vectors.
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PayloadSchemaType, VectorParams
 

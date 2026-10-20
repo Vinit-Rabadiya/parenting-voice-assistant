@@ -15,14 +15,14 @@ def initialize_firebase() -> firebase_admin.App:
     if not key_path:
         raise RuntimeError("FIREBASE_ADMIN_KEY_PATH is required.")
 
-    # make sure we connect to live firebase, not a local fake.
+    # Connect to Firebase rather than a local emulator.
     if os.getenv("FIREBASE_AUTH_EMULATOR_HOST"):
         raise RuntimeError("This backend expects live Firebase Authentication.")
 
     # load the private key file.
     credential = credentials.Certificate(key_path)
 
-    # make sure the key matches the project we want to use.
+    # Verify that the key matches the configured project.
     if credential.project_id != settings.FIREBASE_PROJECT_ID:
         raise RuntimeError("Firebase credential and project ID do not match.")
 
