@@ -1,12 +1,17 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import GuidanceWorkspace from "../../frontend/src/components/GuidanceWorkspace";
-import { requestCoaching } from "../../frontend/src/services/caregiving";
+import { createConversation, getConversation, listConversations, requestCoaching } from "../../frontend/src/services/caregiving";
 
 vi.mock("../../frontend/src/services/caregiving", () => ({
   requestCoaching: vi.fn(), sendFeedback: vi.fn(),
+  createConversation: vi.fn(), getConversation: vi.fn(), listConversations: vi.fn(), deleteConversation: vi.fn(),
 }));
-vi.mock("../../frontend/src/components/MicrophoneControls", () => ({ default: () => null }));
+vi.mock("../../frontend/src/components/MicrophoneControls", () => ({
+  default: ({ onTranscriptChange, compact }) => <button type="button" onClick={() => onTranscriptChange("I am feeding my baby.")}>
+    {compact ? "Record into message" : "Record transcript"}
+  </button>,
+}));
 vi.mock("../../frontend/src/components/ChildProfiles", () => ({
   default: ({ onSelect }) => <button onClick={() => onSelect({
     id: "test-child", name: "Test child", age_label: "6 months", in_scope: true,
@@ -14,10 +19,18 @@ vi.mock("../../frontend/src/components/ChildProfiles", () => ({
 }));
 
 beforeEach(() => {
+  vi.resetAllMocks();
+  listConversations.mockResolvedValue([]);
+  createConversation.mockResolvedValue({ id: "chat-1", title: "New conversation" });
   vi.stubGlobal("SpeechSynthesisUtterance", function (text) { this.text = text; });
   vi.stubGlobal("speechSynthesis", { cancel: vi.fn(), speak: vi.fn() });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+async function selectProfile() {
+  fireEvent.click(screen.getByRole("button", { name: "Select test profile" }));
+  await waitFor(() => expect(screen.queryByText("Loading conversations…")).toBeNull());
+}
 
 it("shows a blocked outcome distinctly and reads only the returned replacement", async () => {
   const replacement = "For medical advice, contact a qualified health professional.";
@@ -26,7 +39,7 @@ it("shows a blocked outcome distinctly and reads only the returned replacement",
     processing_seconds: 1.2, interaction_id: "test-interaction",
   });
   render(<GuidanceWorkspace />);
-  fireEvent.click(screen.getByRole("button", { name: "Select test profile" }));
+  await selectProfile();
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Feeding ideas" } });
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   expect(await screen.findByRole("heading", { name: "Guidance could not be provided" })).toBeTruthy();
@@ -45,7 +58,7 @@ it("shows an escalation without claiming it is generated coaching", async () => 
     processing_seconds: 0.2, interaction_id: "test-interaction",
   });
   render(<GuidanceWorkspace />);
-  fireEvent.click(screen.getByRole("button", { name: "Select test profile" }));
+  await selectProfile();
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "My baby is choking." } });
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   expect(await screen.findByRole("heading", { name: "Seek urgent medical care" })).toBeTruthy();
@@ -54,13 +67,52 @@ it("shows an escalation without claiming it is generated coaching", async () => 
   expect(screen.queryByText(/using age-aware reference material/)).toBeNull();
 });
 
+it("shares one editable message box between typing and recording", async () => {
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  expect(screen.getAllByRole("textbox")).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Typed draft" } });
+  fireEvent.click(screen.getByRole("button", { name: "Record into message" }));
+  expect(screen.getByLabelText("Question").value).toBe("I am feeding my baby.");
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "I am feeding my six-month-old baby." } });
+  expect(screen.getByLabelText("Question").value).toBe("I am feeding my six-month-old baby.");
+});
+
+it("changes from the welcome layout to the conversation layout after an answer", async () => {
+  requestCoaching.mockResolvedValue({ conversation_id: "chat-1", message_id: "answer-1",
+    interaction_id: null, answer: "Talk softly.", status: "answered", citations: [], processing_seconds: 1 });
+  const { container } = render(<GuidanceWorkspace />);
+  await selectProfile();
+  expect(screen.getByRole("heading", { name: "What are you doing with your baby today?" })).toBeTruthy();
+  expect(container.querySelector(".chat-main--empty")).not.toBeNull();
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Feeding ideas" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await screen.findByText("Talk softly.");
+  expect(container.querySelector(".chat-main--empty")).toBeNull();
+  expect(screen.getByRole("region", { name: "Message composer" })).toBeTruthy();
+});
+
+it("opens a saved conversation without another generation call", async () => {
+  listConversations.mockResolvedValue([{ id: "saved-chat", title: "Feeding conversation" }]);
+  getConversation.mockResolvedValue({ messages: [
+    { id: "question-1", role: "user", text: "Feeding ideas" },
+    { id: "answer-1", role: "assistant", text: "Talk softly.", status: "answered", citations: [], processing_seconds: 1 },
+  ] });
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  fireEvent.click(screen.getByRole("button", { name: "Feeding conversation" }));
+  await screen.findByText("Talk softly.");
+  expect(screen.getByText("Feeding ideas")).toBeTruthy();
+  expect(requestCoaching).not.toHaveBeenCalled();
+});
+
 it("does not offer feedback when an escalation could not be saved", async () => {
   requestCoaching.mockResolvedValue({
     status: "escalated", safety: "escalate", answer: "Seek urgent medical care now.",
     citations: [], processing_seconds: 0.2, interaction_id: null,
   });
   render(<GuidanceWorkspace />);
-  fireEvent.click(screen.getByRole("button", { name: "Select test profile" }));
+  await selectProfile();
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "My baby is choking." } });
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   expect(await screen.findByRole("heading", { name: "Seek urgent medical care" })).toBeTruthy();
@@ -77,7 +129,7 @@ it("shows location-labelled support contacts only from the returned resources", 
       source_url: "https://example.test/about", verified_on: "2026-10-20", country: "KE" }],
   });
   render(<GuidanceWorkspace />);
-  fireEvent.click(screen.getByRole("button", { name: "Select test profile" }));
+  await selectProfile();
   fireEvent.change(screen.getByLabelText("Support resources location (optional)"), { target: { value: "KE" } });
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "I need immediate support." } });
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));

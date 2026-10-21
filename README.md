@@ -275,8 +275,11 @@ in the JSON body. Feedback is stored on that assistant message.
 History reads accept a bounded `limit` and optional `before` document ID. For older
 conversation pages, use the last returned conversation ID; for older message
 pages, use the first returned message ID. Message pages are returned in reading
-order. Saved messages do not yet become model context, and the frontend history
-interface is not yet connected.
+order. The interface can open saved conversations and display messages, sources,
+audio controls, and feedback. Its composer uses one editable field for typed text
+and speech transcription beneath the scrolling message thread. Saved messages do
+not yet become model context. Legacy interactions remain unchanged and are not
+yet included in the conversation list.
 
 ## Data handling
 
