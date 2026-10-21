@@ -27,6 +27,11 @@ class Settings:
     # Provisional cutoff from recorded development examples; not a confidence percentage.
     RETRIEVAL_MIN_SCORE: float = float(os.getenv("RETRIEVAL_MIN_SCORE", "0.50"))
 
+    COACH_HOURLY_LIMIT: int = int(os.getenv("COACH_HOURLY_LIMIT", "30"))
+    COACH_DAILY_LIMIT: int = int(os.getenv("COACH_DAILY_LIMIT", "100"))
+    CHILD_CREATE_HOURLY_LIMIT: int = int(os.getenv("CHILD_CREATE_HOURLY_LIMIT", "5"))
+    CHILD_CREATE_DAILY_LIMIT: int = int(os.getenv("CHILD_CREATE_DAILY_LIMIT", "20"))
+
     GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     GEMINI_FALLBACK_MODEL: str = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.8-flash")
