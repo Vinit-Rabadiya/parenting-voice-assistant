@@ -103,6 +103,7 @@ npm.cmd --prefix frontend ci --include=optional
 ```
 
 `requirements-dev.txt` includes the runtime and data-preparation requirements.
+It also installs lint and test tooling; `requirements.txt` is the runtime install.
 Root npm dependencies install the Husky development hooks.
 
 ### 2. Configure environment files
@@ -131,6 +132,14 @@ GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.5-flash-lite
 GEMINI_FALLBACK_MODEL=gemini-3.8-flash
 ```
+
+The documented Uvicorn command explicitly sets the bind address and port. The
+`HOST` and `PORT` application settings do not override those command-line options.
+If changing the backend port, also update the Vite development proxy target.
+
+For verification, `npm.cmd run lint` runs only Python/frontend lint and
+`npm.cmd test` runs only Python/frontend tests. `npm.cmd run check` retains the
+full lint, test, and frontend-build sequence used by the pre-push hook.
 
 Flash Lite is the primary coaching model. If it returns a quota error (429),
 the backend tries the fallback once with identical context and references.
