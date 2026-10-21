@@ -340,11 +340,21 @@ conversations, coaching, feedback, and transcription. A missing or outdated reco
 does not block existing-data reads, deletion, or account settings. The notice
 offers a read-only history view without acceptance.
 
-Child names and existing data remain unchanged. DOB-only minimization, consent
-withdrawal controls, and broader privacy requirements still need separate work;
+Child names and dates of birth are retained for profile identification and
+age-aware guidance; profile photos are not collected. Consent withdrawal controls
+and broader privacy requirements still need separate work;
 this flow alone does not establish legal compliance. Use fictitious profiles for
 evaluation. Change the notice version when its processing terms change so an old
 acceptance cannot silently authorise new terms.
+
+Account settings offer separate **Delete my data** and **Delete my account**
+actions. Authenticated `DELETE /me/data` removes application data, including child
+profiles, conversations, feedback, legacy interactions, and the consent record,
+while retaining the login account. Consent must be accepted again before new
+processing. `DELETE /me` also deletes the login account. Both actions require a
+sign-in completed within the last five minutes and remain available without
+consent. Deletion affects application storage, not third-party provider records
+or backup copies.
 
 Coaching requests have a 60-second browser wait limit and a **Stop waiting**
 control in place of the Send arrow. Submitted messages appear immediately in the
@@ -475,7 +485,7 @@ Sources:
 The current safety workstream, shared dataset, report commands and completion
 checklist are documented in [eval/README.md](eval/README.md). Caregiver-support
 messages bypass model generation and show Kenya-specific contacts only after an
-explicit location selection. This supplements—not replaces—the input and output
+explicit location selection. This supplementsâ€”not replacesâ€”the input and output
 checks described above.
 
 Existing issues track retrieval quality and exact age handling, emergency triage

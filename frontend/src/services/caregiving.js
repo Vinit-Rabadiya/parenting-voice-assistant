@@ -28,6 +28,7 @@ export const acceptPrivacyConsent = (version, signal) => request("/privacy/conse
 });
 export const deleteChild = (id) => request(`/children/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const deleteAccount = () => request("/me", { method: "DELETE" });
+export const deleteMyData = () => request("/me/data", { method: "DELETE" });
 export const createChild = (child) => request("/children", { method: "POST", body: JSON.stringify(child) });
 export const updateChild = (id, child) => request(`/children/${id}`, { method: "PATCH", body: JSON.stringify(child) });
 export async function requestCoaching(payload, { signal, timeoutMs = 60000 } = {}) {

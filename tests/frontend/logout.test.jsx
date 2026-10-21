@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AuthProvider } from "../../frontend/src/context/AuthProvider";
 import { useAuth } from "../../frontend/src/hooks/useAuth";
 import AccountPage from "../../frontend/src/pages/AccountPage";
+import { deleteMyData } from "../../frontend/src/services/caregiving";
 
 const { user, logOut, unsubscribe } = vi.hoisted(() => ({
   user: { uid: "caregiver", email: "caregiver@example.test" },
@@ -14,6 +15,7 @@ vi.mock("../../frontend/src/services/firebase", () => ({
   auth: { onAuthStateChanged: (callback) => { callback(user); return unsubscribe; } },
 }));
 vi.mock("../../frontend/src/services/api", () => ({ getCurrentAccount: vi.fn() }));
+vi.mock("../../frontend/src/services/caregiving", () => ({ deleteMyData: vi.fn(), deleteAccount: vi.fn() }));
 vi.mock("../../frontend/src/services/auth", () => ({
   logOut,
   getAccountSecurityStatus: async () => ({ emailVerified: true, totpEnrolled: true }),
@@ -38,10 +40,41 @@ function AccountHarness() {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  deleteMyData.mockReset();
   logOut.mockReset();
   logOut.mockResolvedValue(undefined);
 });
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+it("deletes saved data after confirmation without logging out", async () => {
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  deleteMyData.mockResolvedValue(undefined);
+  render(<AuthProvider><AccountHarness /></AuthProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: "Delete my data" }));
+  await screen.findByText(/Your saved app data was deleted/);
+  expect(deleteMyData).toHaveBeenCalledTimes(1);
+  expect(logOut).not.toHaveBeenCalled();
+  expect(screen.getByTestId("account-state").textContent).toBe("caregiver");
+  expect(screen.getByRole("button", { name: "Delete my data" }).disabled).toBe(true);
+});
+
+it("does not delete data when confirmation is cancelled", async () => {
+  vi.spyOn(window, "confirm").mockReturnValue(false);
+  render(<AuthProvider><AccountHarness /></AuthProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: "Delete my data" }));
+  expect(deleteMyData).not.toHaveBeenCalled();
+});
+
+it("keeps the login active and allows retry after data deletion fails", async () => {
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  deleteMyData.mockRejectedValue(new Error("Data deletion could not finish. Please retry."));
+  render(<AuthProvider><AccountHarness /></AuthProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: "Delete my data" }));
+  await screen.findByText("Data deletion could not finish. Please retry.");
+  expect(screen.getByRole("button", { name: "Delete my data" }).disabled).toBe(false);
+  expect(logOut).not.toHaveBeenCalled();
+});
 
 // the page uses provider logout so account and signup state are cleared together.
 it("clears account state and onboarding data after successful logout", async () => {

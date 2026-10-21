@@ -118,6 +118,62 @@ def test_account_deletion_does_not_require_consent(client, consent_api):
     consent_api.get_consent.assert_not_called()
 
 
+def test_data_deletion_keeps_login_and_does_not_require_consent(client, consent_api):
+    import time
+
+    def recent_login(request: Request):
+        request.state.auth_time = time.time()
+        return {"uid": "account-a"}
+
+    app.dependency_overrides[require_authenticated_user] = recent_login
+    with patch("backend.api.v1.endpoints.auth.auth.delete_user") as delete_login:
+        assert client.delete("/me/data").status_code == 204
+        assert client.get("/me").status_code == 200
+    consent_api.delete_account_data.assert_called_once_with("account-a")
+    delete_login.assert_not_called()
+    consent_api.get_consent.assert_not_called()
+
+
+@pytest.mark.parametrize("path", ["/me/data", "/me"])
+@pytest.mark.parametrize("auth_time", [None, 0, True, float("nan"), float("inf")])
+def test_deletion_requires_valid_recent_sign_in(client, consent_api, path, auth_time):
+    def invalid_login(request: Request):
+        request.state.auth_time = auth_time
+        return {"uid": "account-a"}
+
+    app.dependency_overrides[require_authenticated_user] = invalid_login
+    assert client.delete(path).status_code == 403
+    consent_api.delete_account_data.assert_not_called()
+
+
+def test_data_deletion_failure_returns_retryable_error_without_deleting_login(client, consent_api):
+    import time
+
+    def recent_login(request: Request):
+        request.state.auth_time = time.time()
+        return {"uid": "account-a"}
+
+    app.dependency_overrides[require_authenticated_user] = recent_login
+    consent_api.delete_account_data.side_effect = RuntimeError("PRIVATE_DETAILS")
+    with patch("backend.api.v1.endpoints.auth.auth.delete_user") as delete_login:
+        result = client.delete("/me/data")
+    assert result.status_code == 503
+    assert "PRIVATE_DETAILS" not in result.text
+    delete_login.assert_not_called()
+
+
+def test_data_deletion_requires_authentication(client):
+    assert client.delete("/me/data").status_code == 401
+
+
+def test_data_deletion_recursively_targets_only_the_authenticated_account():
+    storage = MagicMock()
+    CaregiverDataService(storage).delete_account_data("account-a")
+    storage.collection.assert_called_once_with("users")
+    storage.collection.return_value.document.assert_called_once_with("account-a")
+    storage.recursive_delete.assert_called_once_with(storage.collection.return_value.document.return_value)
+
+
 def test_storage_failure_blocks_new_processing(client, consent_api):
     consent_api.get_consent.side_effect = RuntimeError("PRIVATE_DETAILS")
     result = client.post("/conversations", json={"child_id": "child-1"})

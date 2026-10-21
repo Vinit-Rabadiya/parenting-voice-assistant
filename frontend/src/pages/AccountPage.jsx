@@ -9,8 +9,8 @@ import {
   getAccountSecurityStatus,
 } from "../services/auth";
 import QRCode from "qrcode";
-import { deleteAccount } from "../services/caregiving";
-function AccountPage({ verificationEmailRequested, email, accountAccess }) {
+import { deleteAccount, deleteMyData } from "../services/caregiving";
+function AccountPage({ verificationEmailRequested, email, accountAccess, onDataDeleted }) {
   const { logout } = useAuth();
   // remember this screen's progress, messages, and account setup details.
   const [busy, setBusy] = useState(false);
@@ -23,6 +23,24 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
   const [enrollmentCode, setEnrollmentCode] = useState("");
   // null means authenticator enrollment has not been checked yet.
   const [enrollmentComplete, setEnrollmentComplete] = useState(null);
+
+  const [dataDeleted, setDataDeleted] = useState(false);
+
+  async function handleDeleteData() {
+    if (busy || dataDeleted) return;
+    if (!window.confirm("Permanently delete all saved child profiles, chats, feedback, and privacy consent? Your login account will remain. This cannot be undone.")) return;
+    setBusy(true); setMessage("");
+    try {
+      await deleteMyData();
+      window.speechSynthesis?.cancel();
+      setDataDeleted(true);
+      onDataDeleted?.();
+      setMessage("Your saved app data was deleted. Your account is still active. Review the privacy notice again before adding profiles or requesting guidance.");
+    } catch (error) {
+      onDataDeleted?.();
+      setMessage(error.message || "Data deletion could not finish. Please try again.");
+    } finally { setBusy(false); }
+  }
 
   async function handleDeleteAccount() {
     if (busy) return;
@@ -341,6 +359,9 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
         Log Out
       </button>
       {accountAccess?.verified && <div className="account-deletion">
+        <h2>Delete saved data</h2>
+        <p>Remove all saved child profiles, chats, feedback, and privacy consent. Keep your login account.</p>
+        <button className="delete-action" type="button" disabled={busy || dataDeleted} onClick={handleDeleteData}>Delete my data</button>
         <h2>Delete account</h2>
         <p>Permanently remove your account, child profiles, saved questions, answers, and feedback.</p>
         <button className="delete-action" type="button" disabled={busy} onClick={handleDeleteAccount}>Delete my account</button>
