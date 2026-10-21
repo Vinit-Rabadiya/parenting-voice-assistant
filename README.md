@@ -499,3 +499,39 @@ Existing issues track retrieval quality and exact age handling, emergency triage
 and response validation, privacy controls, conversation history, speech evaluation,
 and production deployment. See [milestones](https://github.com/Vinit-Rabadiya/parenting-voice-assistant/milestones)
 for planned work and [RELEASE.md](RELEASE.md) for the current release scope.
+
+## API usage controls
+
+My Account includes a read-only Usage section with counts, remaining allowances,
+and reset times displayed in the browser's local time. Refresh usage retrieves
+updated figures without consuming allowance. The authenticated `GET /me/usage`
+endpoint reads only the current account's counters and disables response caching.
+
+Authenticated accounts have configurable limits on coaching requests and new child profiles:
+
+| Action | Per hour | Per day |
+| --- | ---: | ---: |
+| Coaching | 30 | 100 |
+| Child profile creation | 5 | 20 |
+
+Configure `COACH_HOURLY_LIMIT`, `COACH_DAILY_LIMIT`,
+`CHILD_CREATE_HOURLY_LIMIT`, and `CHILD_CREATE_DAILY_LIMIT` as positive integers
+and restart the backend after changing them. Hourly limits use fixed clock-hour
+windows; daily limits reset at midnight in Africa/Nairobi (UTC+3).
+
+Counters are reserved atomically in Firestore under
+`users/{uid}/usage/{action}`, so server processes share the same limits.
+Accepted attempts count even when no evidence is found or later processing fails.
+Recognized safety concerns receive the fixed safety response without consuming
+coaching quota. Reading, updating, and deleting existing profiles or history are
+not subject to these new limits.
+
+An exhausted limit returns HTTP 429 with a numeric `Retry-After` header.
+The interface displays the waiting interval and does not automatically resend.
+If counters cannot be checked, protected requests return HTTP 503 rather than
+bypassing the limit. Limit events exclude account identifiers and message text.
+
+These controls are not external-provider quota tracking or a billing guarantee.
+Fixed windows allow bursts around reset boundaries. Deleting account data also
+deletes its counters; these limits do not prevent account recreation or replace
+broader abuse protection.

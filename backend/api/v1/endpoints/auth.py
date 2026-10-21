@@ -8,8 +8,21 @@ from backend.api.dependencies import get_caregiver_data_service
 from backend.services.caregiver_data import CaregiverDataService
 from backend.core.security import require_authenticated_user
 from backend.schemas.auth import UserResponse
+from backend.api.dependencies import get_usage_control_service, usage_limits
+from backend.schemas.usage import UsageResponse
+from backend.services.usage import UsageControlService
 
 router = APIRouter()
+
+
+@router.get("/me/usage", response_model=UsageResponse)
+def account_usage(response: Response, user: dict = Depends(require_authenticated_user),
+                  service: UsageControlService = Depends(get_usage_control_service)):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return service.read(user["uid"], usage_limits())
+    except Exception:
+        raise HTTPException(status_code=503, detail="Usage could not be loaded. Please try again.") from None
 
 
 def require_recent_sign_in(request: Request, action: str) -> None:

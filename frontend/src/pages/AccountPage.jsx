@@ -9,6 +9,7 @@ import {
   getAccountSecurityStatus,
 } from "../services/auth";
 import QRCode from "qrcode";
+import AccountUsage from "../components/AccountUsage";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
 function AccountPage({ verificationEmailRequested, email, accountAccess, onDataDeleted }) {
   const { logout } = useAuth();
@@ -364,6 +365,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
       )}
       </section>
       <p className="account-feedback" role="status">{message}</p>
+      {accountAccess?.verified && <AccountUsage revision={dataDeleted} />}
       <section className="account-card account-session" aria-labelledby="account-session-title">
         <div><h2 id="account-session-title">Current session</h2><p>Sign out on shared devices to keep your information private.</p></div>
         <button type="button" disabled={busy} onClick={handleLogOut}>Log Out</button>

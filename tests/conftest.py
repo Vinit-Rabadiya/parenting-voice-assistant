@@ -49,11 +49,18 @@ def client(mock_firebase_app):
     """Provides a FastAPI TestClient fixture configured with mocked application lifespan."""
     from backend.main import app
     from backend.api.consent import require_processing_consent
+    from backend.api.dependencies import get_usage_control_service
+    from backend.services.usage import UsageDecision
 
     # Existing feature tests assume consent is already granted. Consent tests
     # explicitly remove this override to exercise the actual access policy.
     overrides = app.dependency_overrides.copy()
     app.dependency_overrides[require_processing_consent] = lambda: None
+    # Feature tests have available quota; dedicated usage tests replace this
+    # service with controlled counters and exercise the real enforcement helper.
+    usage = MagicMock()
+    usage.consume.return_value = UsageDecision(True)
+    app.dependency_overrides[get_usage_control_service] = lambda: usage
     try:
         with patch("backend.main.SpeechService"):
             with TestClient(app) as test_client:

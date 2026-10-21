@@ -126,6 +126,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
         {chat.messages.map((message) => message.role === "user"
           ? <article className="caregiver-message" key={message.id}><h3>You</h3><p>{message.text}</p>
               {message.delivery === "cancelled" && <small role="status">Request cancelled. Stopped waiting for guidance.</small>}
+              {message.delivery === "limited" && <small role="status">Request limit reached. No new guidance was generated.</small>}
               {message.delivery === "unconfirmed" && <small>Answer not confirmed. This message is shown locally; reopen the conversation to check saved history.</small>}
             </article>
           : <GuidanceAnswer key={message.id} message={message} childName={child.name} allowFeedback={!readOnly}

@@ -11,11 +11,13 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service
+from backend.api.dependencies import enforce_usage_limit, get_usage_control_service
 from backend.core.security import require_authenticated_user
 from backend.api.consent import require_processing_consent
 from backend.schemas.coaching import CoachingRequest, CoachingResponse, CitationSchema, FeedbackRequest, FeedbackResponse
 from backend.services.caregiver_data import CaregiverDataService
 from backend.services.coaching import CoachingResult, CoachingService, generation_request_id
+from backend.services.usage import UsageControlService
 from backend.services.retrieval import RetrievalService
 from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
 from backend.services.response_safety import SAFE_RESPONSE, inspect_response
@@ -79,6 +81,7 @@ async def coach(
     data_service: CaregiverDataService = Depends(get_caregiver_data_service),
     retrieval_service: RetrievalService = Depends(get_retrieval_service),
     coaching_service: CoachingService = Depends(get_coaching_service),
+    usage: UsageControlService = Depends(get_usage_control_service),
 ) -> CoachingResponse:
     # Random diagnostic correlation only; never log account or child identifiers.
     request_id = uuid4().hex[:12]
@@ -141,6 +144,7 @@ async def coach(
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found for the selected child.")
         context = select_conversation_context(conversation["messages"])
+    await run_in_threadpool(enforce_usage_limit, usage, user["uid"], "coaching")
     retrieval_query = contextual_retrieval_query(payload.question, context)
     unresolved_follow_up = is_follow_up(payload.question) and retrieval_query == payload.question
     stage = "Qdrant retrieval"
