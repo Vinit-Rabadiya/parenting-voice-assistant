@@ -48,6 +48,27 @@ class CaregiverDataService:
     def _children(self, uid: str):
         return self.client.collection("users").document(uid).collection("children")
 
+    def get_consent(self, uid: str) -> dict:
+        document = self.client.collection("users").document(uid).get()
+        return (document.to_dict() or {}) if document.exists else {}
+
+    def save_consent(self, uid: str, version: str) -> datetime:
+        document = self.client.collection("users").document(uid)
+
+        @firestore.transactional
+        def accept(transaction):
+            snapshot = document.get(transaction=transaction)
+            data = (snapshot.to_dict() or {}) if snapshot.exists else {}
+            if (data.get("consent_version") == version and data.get("consent_at") is not None
+                    and data.get("caregiver_authority") is True):
+                return data["consent_at"]
+            accepted_at = datetime.now(timezone.utc)
+            transaction.set(document, {"consent_version": version, "consent_at": accepted_at,
+                                       "caregiver_authority": True}, merge=True)
+            return accepted_at
+
+        return accept(self.client.transaction())
+
     def _interactions(self, uid: str):
         return self.client.collection("users").document(uid).collection("interactions")
 

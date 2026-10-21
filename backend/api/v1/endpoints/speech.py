@@ -6,6 +6,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.api.dependencies import get_speech_service
 from backend.core.security import require_authenticated_user
+from backend.api.consent import require_processing_consent
 from backend.schemas.speech import TranscriptionResponse
 from backend.services.speech import SpeechService
 from backend.services.speech_errors import InvalidAudioError, SpeechServiceError
@@ -21,7 +22,7 @@ router = APIRouter(
 )
 
 
-@router.post("/transcribe", response_model=TranscriptionResponse)
+@router.post("/transcribe", response_model=TranscriptionResponse, dependencies=[Depends(require_processing_consent)])
 async def transcribe_audio(
     request: Request,
     service: SpeechService = Depends(get_speech_service),

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from backend.api.dependencies import get_caregiver_data_service
 from backend.core.security import require_authenticated_user
+from backend.api.consent import require_processing_consent
 from backend.schemas.children import ChildCreateRequest, ChildProfileResponse, ChildUpdateRequest
 from backend.services.caregiver_data import CaregiverDataService
 
@@ -26,7 +27,7 @@ def list_children(user: dict = Depends(require_authenticated_user), service: Car
     return service.list_children(user["uid"])
 
 
-@router.post("", response_model=ChildProfileResponse, status_code=201)
+@router.post("", response_model=ChildProfileResponse, status_code=201, dependencies=[Depends(require_processing_consent)])
 def create_child(payload: ChildCreateRequest, user: dict = Depends(require_authenticated_user), service: CaregiverDataService = Depends(get_caregiver_data_service)):
     try:
         return service.create_child(user["uid"], payload.name, payload.date_of_birth, payload.milestone_focus, payload.milestones)
@@ -34,7 +35,7 @@ def create_child(payload: ChildCreateRequest, user: dict = Depends(require_authe
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.patch("/{child_id}", response_model=ChildProfileResponse)
+@router.patch("/{child_id}", response_model=ChildProfileResponse, dependencies=[Depends(require_processing_consent)])
 def update_child(child_id: str, payload: ChildUpdateRequest, user: dict = Depends(require_authenticated_user), service: CaregiverDataService = Depends(get_caregiver_data_service)):
     try:
         child = service.update_child(user["uid"], child_id, payload.model_dump(exclude_unset=True))
