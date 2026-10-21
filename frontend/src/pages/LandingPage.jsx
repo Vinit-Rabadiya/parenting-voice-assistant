@@ -6,7 +6,7 @@ import "./LandingPage.css";
 // arrange the landing screen while hooks own recording and network behavior.
 export default function LandingPage({ isAuthenticated, userId, accountAccess, onLogin }) {
   return (
-    <div className="landing-page">
+    <div className={`landing-page${isAuthenticated ? " landing-page--chat" : ""}`}>
       <section className="landing-intro" aria-labelledby="landing-title">
         <p className="landing-eyebrow">YOUR BABY’S FIRST TWO YEARS</p>
         <h1 id="landing-title">Start with your voice.</h1>

@@ -165,6 +165,12 @@ Enable the Cloud Firestore API and create the default Firestore database in
 production mode. Backend Admin SDK operations use service-account authorization;
 the frontend does not write profiles or feedback directly.
 
+Conversation listing requires the composite index recorded in
+`firestore.indexes.json`: collection `conversations`, collection scope,
+`child_id` ascending and `updated_at` descending. Create this index in the
+Firestore console before using conversation history. The file records the index
+definition; starting the backend does not create or deploy it.
+
 Enable TOTP using the included administration script:
 
 ```powershell
@@ -240,8 +246,12 @@ email, and a login completed with TOTP. Backend routes are also mounted under
 | POST | `/children` | Create a profile with name, date_of_birth, and optional milestones |
 | PATCH | `/children/{child_id}` | Update an owned profile |
 | POST | `/speech/transcribe` | Transcribe raw WAV audio |
-| POST | `/coach` | Submit child_id, question, and optional routine |
-| POST | `/coach/{interaction_id}/feedback` | Save helpful boolean and optional comment |
+| POST | `/conversations` | Create a conversation for an owned child profile |
+| GET | `/conversations?child_id=...` | List a child's conversations, newest first |
+| GET | `/conversations/{conversation_id}` | Read a page of conversation messages |
+| DELETE | `/conversations/{conversation_id}` | Delete a conversation and its messages |
+| POST | `/coach` | Submit child_id, question, optional routine and conversation_id |
+| POST | `/coach/{interaction_id}/feedback` | Rate an interaction or a conversation answer |
 
 Speech requests accept mono PCM16 WAV at 16 kHz, up to 30 seconds, with a
 964096-byte body limit. One transcription runs at a time per server process;
@@ -251,21 +261,74 @@ concurrent requests receive HTTP 429. The response includes `text`,
 Coaching responses include `interaction_id`, `answer`, `citations`,
 `child_age_months`, and `processing_seconds`. Playback is handled in the browser.
 
+When `conversation_id` is supplied, `/coach` verifies that the conversation belongs
+to the authenticated account and selected child. It saves the submitted message
+and checked response together, then returns `conversation_id` and `message_id`;
+`interaction_id` is null. Without a conversation ID, the existing interaction
+storage and feedback contract remain available. New conversation messages are not
+duplicated in the interactions collection.
+
+For conversation feedback, put the assistant's `message_id` in the existing
+feedback route and include `conversation_id` with `helpful` and optional `comment`
+in the JSON body. Feedback is stored on that assistant message.
+
+History reads accept a bounded `limit` and optional `before` document ID. For older
+conversation pages, use the last returned conversation ID; for older message
+pages, use the first returned message ID. Message pages are returned in reading
+order. The interface can open saved conversations and display messages, sources,
+audio controls, and feedback. Its composer uses one editable field for typed text
+and speech transcription beneath the scrolling message thread. For conversation
+requests, the backend loads at most six recent messages and selects up to three
+complete answered exchanges within a 3,000-character budget. History helps
+interpret follow-ups but is not reference evidence. Safety responses and
+unsuccessful answers form a boundary: earlier turns are not carried past them.
+Legacy interactions remain unchanged and are not yet included in the conversation
+list.
+
+Explicit short follow-ups such as "What else can I try?" include the recent
+caregiver topic in reference search. A new standalone question keeps its own
+search wording. No additional language-model rewrite call is used, and follow-ups
+without a usable topic do not generate arbitrary guidance. Context is limited to
+the selected conversation, not other chats or child profiles.
+For requests for more ideas, the generation instructions distinguish new actions
+from reworded or rearranged earlier advice. If the current references provide no
+additional supported actions, the answer should acknowledge that instead of
+filling another list. Requests for explanation may clarify a previous suggestion
+without presenting it as new advice. These are prompt-level controls and require
+live response evaluation; automated prompt tests do not establish semantic novelty.
+
 ## Data handling
 
 Firebase manages sign-in credentials. FastAPI verifies token validity and revocation,
 email verification, and TOTP status before serving protected requests.
 
-Profiles are stored under `users/{uid}/children/{id}`. Questions, answers, references,
-timestamps, and feedback are stored under `users/{uid}/interactions/{id}`.
+Profiles are stored under `users/{uid}/children/{id}`. New conversation messages,
+references, timestamps, and feedback are stored under
+`users/{uid}/conversations/{id}/messages/{id}`. Earlier standalone interactions
+remain under `users/{uid}/interactions/{id}`.
 Recorded audio is processed for transcription and is not deliberately persisted by
 the application. Edited text is submitted only when **Get guidance** is selected.
 
-Qdrant Cloud inference processes question text for retrieval. Gemini receives the
-question, calculated age, routine context, and retrieved reference passages.
+Qdrant Cloud inference processes question text for retrieval; explicit follow-ups
+can also include a recent caregiver message from the selected conversation.
+Gemini receives the question, current calculated age, routine, retrieved reference
+passages, and bounded recent conversation context when available.
 Optional milestones are currently stored and displayed without affecting answer
-generation. Consent, retention information, and account-data deletion controls
-remain outstanding; use fictitious profiles for evaluation.
+generation. The conversation privacy disclosure explains that application history
+is retained until the conversation, child profile, or account is deleted.
+This is not a claim about third-party
+provider or backup retention. Account deletion is available in account settings.
+Consent tracking and broader privacy requirements remain outstanding; use
+fictitious profiles for evaluation.
+
+Coaching requests have a 60-second browser wait limit and a **Stop waiting**
+control in place of the Send arrow. Submitted messages appear immediately in the
+thread and clear the input; failed or cancelled requests leave a local message
+with an unconfirmed-answer status. Any new draft stays in the input. Cancellation
+does not automatically retry.
+It stops the browser waiting, not necessarily server processing: the answer may
+still be saved. Reopen the conversation before deciding whether to send again.
+Sources are collapsed by default and can be expanded for inspection.
 
 ## Repository structure
 

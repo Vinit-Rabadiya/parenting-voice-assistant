@@ -15,7 +15,8 @@ class CitationSchema(BaseModel):
 
 
 class CoachingRequest(BaseModel):
-    child_id: str = Field(min_length=1, max_length=128)
+    child_id: str = Field(min_length=1, max_length=128, pattern=r"^[^/]+$")
+    conversation_id: str | None = Field(default=None, min_length=1, max_length=128, pattern=r"^[^/]+$")
     question: str = Field(min_length=2, max_length=1200)
     routine: str | None = Field(default=None, max_length=40)
     support_country: Literal["KE"] | None = None
@@ -33,6 +34,8 @@ class SupportResource(BaseModel):
 
 class CoachingResponse(BaseModel):
     interaction_id: str | None
+    conversation_id: str | None = None
+    message_id: str | None = None
     answer: str
     citations: list[CitationSchema]
     child_age_months: float
@@ -42,12 +45,22 @@ class CoachingResponse(BaseModel):
     support_resources: list[SupportResource] = Field(default_factory=list)
 
 
-class FeedbackRequest(BaseModel):
+class FeedbackValues(BaseModel):
     helpful: bool
     comment: str | None = Field(default=None, max_length=500)
 
 
+class FeedbackRequest(FeedbackValues):
+    conversation_id: str | None = Field(default=None, min_length=1, max_length=128, pattern=r"^[^/]+$")
+
+
+class FeedbackRecord(FeedbackValues):
+    recorded_at: datetime
+
+
 class FeedbackResponse(BaseModel):
-    interaction_id: str
+    interaction_id: str | None
+    conversation_id: str | None = None
+    message_id: str | None = None
     helpful: bool
     recorded_at: datetime

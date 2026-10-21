@@ -17,6 +17,15 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); });
 
+it("passes compact-mode transcription to the message field without a second textarea", async () => {
+  const onTranscriptChange = vi.fn();
+  transcribeAudio.mockResolvedValue({ text: "I am feeding my baby.", audio_seconds: 1, processing_seconds: 0.2 });
+  microphone.recording = { wavBlob: new Blob(["wav"]), chunks: [], sampleRate: 16000 };
+  render(<MicrophoneControls compact onTranscriptChange={onTranscriptChange} />);
+  await waitFor(() => expect(onTranscriptChange).toHaveBeenCalledWith("I am feeding my baby."));
+  expect(screen.queryByRole("textbox")).toBeNull();
+});
+
 // the actual component and request hook connect a completed wav to editable text.
 it("automatically submits after stop and displays editable transcript", async () => {
   transcribeAudio.mockResolvedValue({ text: "My baby is hungry.", audio_seconds: 1, processing_seconds: 0.2 });

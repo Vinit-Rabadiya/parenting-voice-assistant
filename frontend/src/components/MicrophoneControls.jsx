@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import MicrophoneButton from "./MicrophoneButton";
 import "./MicrophoneControls.css";
 
-export default function MicrophoneControls({ onTranscriptChange }) {
+export default function MicrophoneControls({ onTranscriptChange, compact = false, disabled = false, onCaptureStateChange }) {
   const { status, error, start, stop, recording } = useMicrophone();
   // a finished recording passes from the microphone hook into the transcription hook.
   const transcription = useTranscription(recording);
@@ -16,6 +16,9 @@ export default function MicrophoneControls({ onTranscriptChange }) {
   const capturing = status !== "idle";
   const transcribing = transcription.status === "transcribing";
   const recordingNow = status === "recording";
+  useEffect(() => {
+    onCaptureStateChange?.(capturing || transcribing);
+  }, [capturing, transcribing, onCaptureStateChange]);
   const buttonBusy = (capturing && !recordingNow) || transcribing;
   const buttonLabel = status === "requesting" ? "Waiting for microphone…"
     : status === "stopping" ? "Stopping recording…"
@@ -32,7 +35,7 @@ export default function MicrophoneControls({ onTranscriptChange }) {
   const transcriptionMessages = {
     transcribing: "Transcribing… Your microphone is off.",
     success: transcription.text.trim()
-      ? "Transcription complete. Review and edit your words below."
+      ? "Transcription complete. Review and edit your message before sending."
       : "No words to display. If speech was not recognized, try speaking closer to the microphone.",
     error: "Transcription did not complete.",
     cancelled: "Transcription cancelled. You can retry or start a new recording.",
@@ -47,12 +50,12 @@ export default function MicrophoneControls({ onTranscriptChange }) {
   // sample count divided by samples per second gives the captured duration.
   const durationSeconds = recording ? sampleCount / recording.sampleRate : 0;
   return (
-    <section className="microphone-controls" aria-label="Speech to text">
-      <p>Record up to 30 seconds. Your words appear after you stop. Starting again replaces the current transcript.</p>
+    <section className={`microphone-controls${compact ? " microphone-controls--compact" : ""}`} aria-label="Speech to text">
+      {!compact && <p>Record up to 30 seconds. Your words appear after you stop. Starting again replaces the current transcript.</p>}
       <MicrophoneButton
         label={buttonLabel}
         recording={recordingNow}
-        busy={buttonBusy}
+        busy={buttonBusy || (disabled && !recordingNow)}
         describedBy="microphone-status"
         onClick={() => {
           if (recordingNow) stop();
@@ -69,17 +72,17 @@ export default function MicrophoneControls({ onTranscriptChange }) {
       {!capturing && ["error", "cancelled"].includes(transcription.status) && recording?.wavBlob && (
         <button type="button" onClick={transcription.retry}>Retry transcription</button>
       )}
-      <p id="microphone-status" role="status">
+      <p id="microphone-status" role="status" className={compact ? "visually-hidden" : undefined}>
         {capturing ? microphoneMessages[status] : transcriptionMessages[transcription.status] || microphoneMessages.idle}
       </p>
       {error && <p role="alert">{error}</p>}
       {transcription.error && <p role="alert">{transcription.error}</p>}
-      {recording && (
+      {recording && !compact && (
         <p>Recorded {durationSeconds.toFixed(2)} seconds.
           {transcription.processingSeconds !== null && ` Server processing: ${transcription.processingSeconds.toFixed(2)} seconds.`}
         </p>
       )}
-      <label htmlFor="speech-transcript">Your transcript</label>
+      {!compact && <><label htmlFor="speech-transcript">Your transcript</label>
       <textarea
         id="speech-transcript"
         rows={6}
@@ -91,7 +94,7 @@ export default function MicrophoneControls({ onTranscriptChange }) {
         readOnly={capturing || transcription.status !== "success"}
         placeholder="Your spoken words will appear here after recording."
       />
-      <p>Review and edit your transcript, then select Get guidance to submit your question.</p>
+      <p>Review and edit your transcript, then select Get guidance to submit your question.</p></>}
     </section>
   );
 }
