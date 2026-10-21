@@ -14,6 +14,11 @@ const localPython = [".venv", "venv"]
 
 const pythonCommand = localPython ?? "python";
 const npmPath = process.env.npm_execpath;
+const mode = process.argv[2] ?? "--all";
+if (process.argv.length > 3 || !["--all", "--lint", "--tests"].includes(mode)) {
+  console.error("Usage: node scripts/check.mjs [--all|--lint|--tests]");
+  process.exit(1);
+}
 
 if (!npmPath) {
   console.error("Script must be executed within npm context (e.g., npm run check)");
@@ -42,13 +47,17 @@ function runCheck(label, command, args) {
 }
 
 // check python code with ruff.
-runCheck("Python lint", pythonCommand, ["-m", "ruff", "check", "."]);
+if (mode !== "--tests") {
+  runCheck("Python lint", pythonCommand, ["-m", "ruff", "check", "."]);
+}
 
 // run backend tests with pytest.
-runCheck("Python tests", pythonCommand, ["-m", "pytest"]);
+if (mode !== "--lint") {
+  runCheck("Python tests", pythonCommand, ["-m", "pytest"]);
+}
 
 // check frontend code with eslint.
-runCheck("Frontend lint", process.execPath, [
+if (mode !== "--tests") runCheck("Frontend lint", process.execPath, [
   npmPath,
   "--prefix",
   "frontend",
@@ -57,10 +66,10 @@ runCheck("Frontend lint", process.execPath, [
 ]);
 
 // check binary audio helpers and react request lifecycle behavior.
-runCheck("Frontend tests", process.execPath, [npmPath, "--prefix", "frontend", "run", "test"]);
+if (mode !== "--lint") runCheck("Frontend tests", process.execPath, [npmPath, "--prefix", "frontend", "run", "test"]);
 
 // test building the frontend with vite.
-runCheck("Frontend build", process.execPath, [
+if (mode === "--all") runCheck("Frontend build", process.execPath, [
   npmPath,
   "--prefix",
   "frontend",
@@ -68,4 +77,4 @@ runCheck("Frontend build", process.execPath, [
   "build",
 ]);
 
-console.log("\nAll configured checks passed.");
+console.log(mode === "--all" ? "\nAll configured checks passed." : `\n${mode === "--lint" ? "Lint" : "Test"} checks passed.`);

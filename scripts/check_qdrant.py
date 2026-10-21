@@ -36,7 +36,7 @@ def main() -> None:
         print("Qdrant connection successful.")
         print(f"Collections available: {len(result.collections)}")
         # inspect the collection before uploading passage vectors.
-        collection = client.get_collection("caregiver_guidance_minilm_v1")
+        collection = client.get_collection(settings.QDRANT_COLLECTION)
         print("Vector configuration:", collection.config.params.vectors)
         print("Stored points:", collection.points_count)
     except UnexpectedResponse as exc:
