@@ -116,6 +116,22 @@ it("keeps the submitted message in the thread after stopping guidance", async ()
   expect(requestCoaching).toHaveBeenCalledTimes(1);
 });
 
+it("shows saved sources in a collapsed disclosure and includes a privacy notice", async () => {
+  listConversations.mockResolvedValue([{ id: "saved-chat", title: "Feeding conversation" }]);
+  getConversation.mockResolvedValue({ messages: [{ id: "answer-1", role: "assistant", text: "Talk softly.",
+    status: "answered", citations: [{ passage_id: "p1", source_title: "Reference", title: "Feeding",
+      pdf_page: 7, source_url: "https://example.test/reference" }] }] });
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  fireEvent.click(screen.getByRole("button", { name: "Feeding conversation" }));
+  const summary = await screen.findByText("Sources used (1)");
+  expect(summary.closest("details").open).toBe(false);
+  fireEvent.click(summary);
+  expect(summary.closest("details").open).toBe(true);
+  expect(screen.getByRole("link", { name: "Reference, page 7: Feeding" })).toBeTruthy();
+  expect(screen.getByText("Conversation privacy")).toBeTruthy();
+});
+
 it("shows a blocked outcome distinctly and reads only the returned replacement", async () => {
   const replacement = "For medical advice, contact a qualified health professional.";
   requestCoaching.mockResolvedValue({

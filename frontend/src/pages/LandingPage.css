@@ -154,3 +154,14 @@ main.landing-shell:has(.landing-page--chat) { width: 100%; max-width: none; min-
   main.landing-shell { width: calc(100% - 16px); margin: 12px auto; padding: 20px 16px; }
   .landing-page .landing-voice { padding: 16px; }
 }
+.conversation-privacy, .answer-sources {
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.conversation-privacy summary, .answer-sources summary {
+  cursor: pointer;
+  padding-block: 0.35rem;
+}
+.conversation-privacy p {
+  margin-block: 0.4rem;
+}

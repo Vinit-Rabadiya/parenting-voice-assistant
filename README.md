@@ -314,8 +314,21 @@ can also include a recent caregiver message from the selected conversation.
 Gemini receives the question, current calculated age, routine, retrieved reference
 passages, and bounded recent conversation context when available.
 Optional milestones are currently stored and displayed without affecting answer
-generation. Consent, retention information, and account-data deletion controls
-remain outstanding; use fictitious profiles for evaluation.
+generation. The conversation privacy disclosure explains that application history
+is retained until the conversation, child profile, or account is deleted; there
+is no application-level 30-day expiry. This is not a claim about third-party
+provider or backup retention. Account deletion is available in account settings.
+Consent tracking and broader privacy requirements remain outstanding; use
+fictitious profiles for evaluation.
+
+Coaching requests have a 60-second browser wait limit and a **Stop waiting**
+control in place of the Send arrow. Submitted messages appear immediately in the
+thread and clear the input; failed or cancelled requests leave a local message
+with an unconfirmed-answer status. Any new draft stays in the input. Cancellation
+does not automatically retry.
+It stops the browser waiting, not necessarily server processing: the answer may
+still be saved. Reopen the conversation before deciding whether to send again.
+Sources are collapsed by default and can be expanded for inspection.
 
 ## Repository structure
 

@@ -56,7 +56,7 @@ export default function GuidanceAnswer({ message, childName, conversationId }) {
           <p>Resource information checked: {resource.verified_on}</p>
         </li>)}</ul>
       </section>}
-      {result.citations.length > 0 && <><h3>Sources used</h3><ul>{result.citations.map((citation) => <li key={citation.passage_id}><a href={citation.source_url} target="_blank" rel="noreferrer">{citation.source_title}{citation.pdf_page != null ? `, page ${citation.pdf_page}` : ""}: {citation.title}</a></li>)}</ul></>}
+      {result.citations.length > 0 && <details className="answer-sources"><summary>Sources used ({result.citations.length})</summary><ul>{result.citations.map((citation) => <li key={citation.passage_id}><a href={citation.source_url} target="_blank" rel="noreferrer">{citation.source_title}{citation.pdf_page != null ? `, page ${citation.pdf_page}` : ""}: {citation.title}</a></li>)}</ul></details>}
       {targetId && <div className="feedback"><p>Was this helpful?</p><label htmlFor={commentId}>Optional comment<input id={commentId} maxLength="500" value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} /></label><button type="button" onClick={() => recordFeedback(true)}>Helpful</button><button type="button" onClick={() => recordFeedback(false)}>Not helpful</button><p role="status">{feedbackStatus}</p></div>}
     </section>);
 }
