@@ -1,0 +1,83 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import PrivacyConsent from "../../frontend/src/components/PrivacyConsent";
+import { acceptPrivacyConsent, getPrivacyConsent } from "../../frontend/src/services/caregiving";
+
+vi.mock("../../frontend/src/services/caregiving", () => ({
+  getPrivacyConsent: vi.fn(), acceptPrivacyConsent: vi.fn(),
+}));
+const notice = { version: "test-v1", accepted: false, notice: ["Information about processing."] };
+const workspace = (allowed) => <p>{allowed ? "Coaching workspace" : "Read-only history"}</p>;
+beforeEach(() => {
+  vi.resetAllMocks();
+  getPrivacyConsent.mockResolvedValue(notice);
+});
+afterEach(() => cleanup());
+
+it("requires both unchecked confirmations before recording consent", async () => {
+  acceptPrivacyConsent.mockResolvedValue({ ...notice, accepted: true });
+  render(<PrivacyConsent>{workspace}</PrivacyConsent>);
+  await screen.findByText("Information about processing.");
+  expect(screen.queryByText("Coaching workspace")).toBeNull();
+  const checkboxes = screen.getAllByRole("checkbox");
+  expect(checkboxes.every((input) => !input.checked)).toBe(true);
+  const accept = screen.getByRole("button", { name: "Accept and continue" });
+  expect(accept.disabled).toBe(true);
+  fireEvent.click(checkboxes[0]);
+  expect(accept.disabled).toBe(true);
+  fireEvent.click(checkboxes[1]);
+  fireEvent.click(accept);
+  await screen.findByText("Coaching workspace");
+  expect(acceptPrivacyConsent).toHaveBeenCalledWith("test-v1", expect.any(AbortSignal));
+});
+
+it("opens existing data read-only without accepting", async () => {
+  render(<PrivacyConsent>{workspace}</PrivacyConsent>);
+  fireEvent.click(screen.getByRole("button", { name: "View or delete existing data without accepting" }));
+  await screen.findByText("Read-only history");
+  expect(screen.queryByText("Coaching workspace")).toBeNull();
+  expect(acceptPrivacyConsent).not.toHaveBeenCalled();
+});
+
+it("loads the workspace directly only for current accepted consent", async () => {
+  getPrivacyConsent.mockResolvedValue({ ...notice, accepted: true });
+  render(<PrivacyConsent>{workspace}</PrivacyConsent>);
+  await screen.findByText("Coaching workspace");
+  expect(acceptPrivacyConsent).not.toHaveBeenCalled();
+});
+
+it("does not unlock coaching if consent storage fails", async () => {
+  acceptPrivacyConsent.mockRejectedValue(new Error("Consent could not be saved."));
+  render(<PrivacyConsent>{workspace}</PrivacyConsent>);
+  await screen.findByText("Information about processing.");
+  screen.getAllByRole("checkbox").forEach((input) => fireEvent.click(input));
+  fireEvent.click(screen.getByRole("button", { name: "Accept and continue" }));
+  await screen.findByRole("alert");
+  expect(screen.queryByText("Coaching workspace")).toBeNull();
+});
+
+it("reloads a changed notice with confirmations cleared", async () => {
+  render(<PrivacyConsent>{workspace}</PrivacyConsent>);
+  await screen.findByText("Information about processing.");
+  screen.getAllByRole("checkbox").forEach((input) => fireEvent.click(input));
+  getPrivacyConsent.mockResolvedValue({ ...notice, version: "test-v2" });
+  fireEvent.click(screen.getByRole("button", { name: "Reload notice" }));
+  await screen.findByText("Notice version: test-v2");
+  expect(screen.getAllByRole("checkbox").every((input) => !input.checked)).toBe(true);
+});
+
+it("does not trust a malformed accepted response", async () => {
+  getPrivacyConsent.mockResolvedValue({ accepted: true });
+  render(<PrivacyConsent>{workspace}</PrivacyConsent>);
+  await screen.findByRole("alert");
+  expect(screen.queryByText("Coaching workspace")).toBeNull();
+});
+
+it("aborts an in-flight notice request when the account workspace unmounts", async () => {
+  getPrivacyConsent.mockReturnValue(new Promise(() => {}));
+  const view = render(<PrivacyConsent>{workspace}</PrivacyConsent>);
+  await waitFor(() => expect(getPrivacyConsent).toHaveBeenCalledTimes(1));
+  const signal = getPrivacyConsent.mock.calls[0][0];
+  view.unmount();
+  expect(signal.aborted).toBe(true);
+});

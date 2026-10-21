@@ -4,6 +4,7 @@ import ChildProfiles from "./ChildProfiles";
 import GuidanceAnswer from "./GuidanceAnswer";
 import MicrophoneControls from "./MicrophoneControls";
 import useConversations from "../hooks/useConversations";
+import PrivacyConsent from "./PrivacyConsent";
 
 function ConversationListItem({ conversation, active, disabled, onOpen, onDelete }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -61,7 +62,7 @@ function ConversationListItem({ conversation, active, disabled, onOpen, onDelete
   </li>;
 }
 
-function ConversationWorkspace({ child, onBusyChange, profileControls }) {
+function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly = false }) {
   const chat = useConversations(child.id, onBusyChange);
   const [question, setQuestion] = useState("");
   const [routine, setRoutine] = useState("");
@@ -84,7 +85,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
 
   async function submit(event) {
     event.preventDefault();
-    if (chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200) return;
+    if (readOnly || chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200) return;
     window.speechSynthesis?.cancel();
     const message = question.trim();
     setQuestion("");
@@ -96,7 +97,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
     <aside className="chat-sidebar" aria-label="Conversation history" id="conversation-sidebar">
       <div className="sidebar-brand">Caregiver coaching</div>
       <section className="conversation-history" aria-label="Conversations">
-        <button type="button" disabled={chat.busy || voiceBusy || chat.loading} onClick={() => {
+        <button type="button" disabled={readOnly || chat.busy || voiceBusy || chat.loading} onClick={() => {
           chat.newChat(); setQuestion(""); setRoutine(""); setSidebarOpen(false);
         }}>New chat</button>
         <h2 className="history-label">Your conversations</h2>
@@ -125,13 +126,13 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
               {message.delivery === "cancelled" && <small role="status">Request cancelled. Stopped waiting for guidance.</small>}
               {message.delivery === "unconfirmed" && <small>Answer not confirmed. This message is shown locally; reopen the conversation to check saved history.</small>}
             </article>
-          : <GuidanceAnswer key={message.id} message={message} childName={child.name}
+          : <GuidanceAnswer key={message.id} message={message} childName={child.name} allowFeedback={!readOnly}
               conversationId={message.conversation_id === null ? null : chat.conversationId} />)}
         {!chat.messages.length && <div className="chat-welcome"><h3>What are you doing with your baby today?</h3>
           <p>Describe the moment, or ask for guidance.</p></div>}
         {chat.generating && <p className="guidance-loading" role="status">Preparing guidance…</p>}
       </section>
-      <section className="question-panel chat-composer" aria-label="Message composer">
+      {readOnly ? <p className="chat-composer">Read-only access: you can review or delete existing data. Accept the notice above to request coaching.</p> : <section className="question-panel chat-composer" aria-label="Message composer">
         {child.in_scope === false && <p role="status">This profile is outside the coaching age range. Saved conversations remain available.</p>}
         <form onSubmit={submit}>
           <label className="visually-hidden" htmlFor="caregiver-question">Question</label>
@@ -173,21 +174,25 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
           <p>Conversations and feedback stay in your history until you delete the conversation, its child profile, or your account.</p>
           <p>To answer follow-ups, recent messages from this conversation may be sent to the AI service. Reference search may include a recent caregiver message. Recorded audio is processed for transcription and is not deliberately saved by the application.</p>
         </details>
-      </section>
+      </section>}
       </div>
     </div>
   </div>;
 }
 
-export default function GuidanceWorkspace() {
+function Workspace({ processingAllowed }) {
   const [child, setChild] = useState(null);
   const [busy, setBusy] = useState(false);
   const selectChild = useCallback((nextChild) => {
     window.speechSynthesis?.cancel(); setBusy(false); setChild(nextChild);
   }, []);
-  const profileControls = <ChildProfiles selectedChild={child} onSelect={selectChild} guidanceBusy={busy} />;
+  const profileControls = <ChildProfiles selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} />;
   return <div className="guidance-workspace">
-    {child ? <ConversationWorkspace key={child.id} child={child} onBusyChange={setBusy} profileControls={profileControls} />
+    {child ? <ConversationWorkspace key={child.id} child={child} onBusyChange={setBusy} profileControls={profileControls} readOnly={!processingAllowed} />
       : <div className="profile-onboarding">{profileControls}<p>Select or add a child profile first.</p></div>}
   </div>;
+}
+
+export default function GuidanceWorkspace() {
+  return <PrivacyConsent>{(allowed) => <Workspace key={String(allowed)} processingAllowed={allowed} />}</PrivacyConsent>;
 }

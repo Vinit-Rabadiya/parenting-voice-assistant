@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import GuidanceWorkspace from "../../frontend/src/components/GuidanceWorkspace";
 import { createConversation, deleteConversation, getConversation, listConversations, requestCoaching } from "../../frontend/src/services/caregiving";
+const { consentState } = vi.hoisted(() => ({ consentState: { allowed: true } }));
 
 vi.mock("../../frontend/src/services/caregiving", () => ({
   requestCoaching: vi.fn(), sendFeedback: vi.fn(),
@@ -18,8 +19,12 @@ vi.mock("../../frontend/src/components/ChildProfiles", () => ({
   })}>Select test profile</button>,
 }));
 
+// Workspace behaviour is tested with prior consent; PrivacyConsent has its own tests.
+vi.mock("../../frontend/src/components/PrivacyConsent", () => ({ default: ({ children }) => children(consentState.allowed) }));
+
 beforeEach(() => {
   vi.resetAllMocks();
+  consentState.allowed = true;
   listConversations.mockResolvedValue([]);
   createConversation.mockResolvedValue({ id: "chat-1", title: "New conversation" });
   vi.stubGlobal("SpeechSynthesisUtterance", function (text) { this.text = text; });
@@ -31,6 +36,23 @@ async function selectProfile() {
   fireEvent.click(screen.getByRole("button", { name: "Select test profile" }));
   await waitFor(() => expect(screen.queryByText("Loading conversations…")).toBeNull());
 }
+
+it("allows history review and deletion without mounting input or feedback before consent", async () => {
+  consentState.allowed = false;
+  listConversations.mockResolvedValue([{ id: "saved-chat", title: "Feeding conversation" }]);
+  getConversation.mockResolvedValue({ messages: [{ id: "answer-1", role: "assistant", text: "Talk softly.",
+    status: "answered", citations: [], feedback: null }] });
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  fireEvent.click(screen.getByRole("button", { name: "Feeding conversation" }));
+  await screen.findByText("Talk softly.");
+  expect(screen.queryByRole("textbox", { name: "Question" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Record into message" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Helpful" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "More options for Feeding conversation" }));
+  expect(screen.getByRole("button", { name: "Delete conversation" })).toBeTruthy();
+  expect(requestCoaching).not.toHaveBeenCalled();
+});
 
 it("sends a message with Enter through the existing submission flow", async () => {
   requestCoaching.mockResolvedValue({ conversation_id: "chat-1", message_id: "answer-1",

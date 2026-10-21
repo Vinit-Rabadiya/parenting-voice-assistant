@@ -327,8 +327,24 @@ generation. The conversation privacy disclosure explains that application histor
 is retained until the conversation, child profile, or account is deleted.
 This is not a claim about third-party
 provider or backup retention. Account deletion is available in account settings.
-Consent tracking and broader privacy requirements remain outstanding; use
-fictitious profiles for evaluation.
+Before new processing, the interface displays a versioned notice and requires
+explicit acceptance and confirmation of caregiver authority. The backend records
+`consent_version`, server-generated `consent_at`, and `caregiver_authority` on
+`users/{uid}`. Existing accounts without a current record must also accept; no
+consent is inferred from previously stored profiles.
+
+Authenticated `GET /privacy/consent` returns the current notice and acceptance
+status. `POST /privacy/consent` accepts only the current version with both explicit
+confirmations. The backend checks consent before profile creation/updates, new
+conversations, coaching, feedback, and transcription. A missing or outdated record
+does not block existing-data reads, deletion, or account settings. The notice
+offers a read-only history view without acceptance.
+
+Child names and existing data remain unchanged. DOB-only minimization, consent
+withdrawal controls, and broader privacy requirements still need separate work;
+this flow alone does not establish legal compliance. Use fictitious profiles for
+evaluation. Change the notice version when its processing terms change so an old
+acceptance cannot silently authorise new terms.
 
 Coaching requests have a 60-second browser wait limit and a **Stop waiting**
 control in place of the Send arrow. Submitted messages appear immediately in the

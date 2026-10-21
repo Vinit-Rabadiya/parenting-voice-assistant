@@ -21,6 +21,11 @@ async function request(path, options = {}) {
 }
 
 export const listChildren = () => request("/children");
+export const getPrivacyConsent = (signal) => request("/privacy/consent", { signal });
+export const acceptPrivacyConsent = (version, signal) => request("/privacy/consent", {
+  method: "POST", signal,
+  body: JSON.stringify({ version, accepted: true, caregiver_authority: true }),
+});
 export const deleteChild = (id) => request(`/children/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const deleteAccount = () => request("/me", { method: "DELETE" });
 export const createChild = (child) => request("/children", { method: "POST", body: JSON.stringify(child) });
