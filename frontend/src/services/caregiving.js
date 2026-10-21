@@ -16,7 +16,12 @@ async function request(path, options = {}) {
   const body = await response.json().catch(() => ({}));
   options.signal?.throwIfAborted();
   if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
-  if (!response.ok) throw new Error(body.detail || "The request could not be completed.");
+  if (!response.ok) {
+    if (response.headers?.get("X-Consent-Required") === "true") {
+      window.dispatchEvent(new Event("privacy-consent-required"));
+    }
+    throw new Error(body.detail || "The request could not be completed.");
+  }
   return body;
 }
 

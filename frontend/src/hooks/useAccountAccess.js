@@ -12,6 +12,7 @@ export default function useAccountAccess(user) {
     if (!user) return;
     let active = true;
     let controller;
+    let accessConfirmed = false;
 
     async function check() {
       controller?.abort();
@@ -26,6 +27,7 @@ export default function useAccountAccess(user) {
       try {
         await getCurrentAccount(request.signal);
         if (active && controller === request && !request.signal.aborted) {
+          accessConfirmed = true;
           setResult({ user, attempt, verified: true, status: "verified", error: "" });
         }
       } catch (cause) {
@@ -42,12 +44,13 @@ export default function useAccountAccess(user) {
     }
 
     void check();
-    // returning from email verification or account setup refreshes the badge.
-    window.addEventListener("focus", check);
+    // Retry unfinished setup on focus, but reuse confirmed access in this session.
+    const checkUnconfirmedAccess = () => { if (!accessConfirmed) void check(); };
+    window.addEventListener("focus", checkUnconfirmedAccess);
     return () => {
       active = false;
       controller?.abort();
-      window.removeEventListener("focus", check);
+      window.removeEventListener("focus", checkUnconfirmedAccess);
     };
   }, [user, attempt]);
 

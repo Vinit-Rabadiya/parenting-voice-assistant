@@ -48,6 +48,18 @@ it("does not check signed-out visitors", () => {
   expect(getCurrentAccount).not.toHaveBeenCalled();
 });
 
+it("does not repeat confirmed access checks when the window regains focus", async () => {
+  getCurrentAccount.mockResolvedValue({ uid: "one" });
+  const user = { uid: "one" };
+  const { result } = renderHook(() => useAccountAccess(user));
+  await waitFor(() => expect(result.current.verified).toBe(true));
+  await act(async () => {
+    window.dispatchEvent(new Event("focus"));
+    window.dispatchEvent(new Event("focus"));
+  });
+  expect(getCurrentAccount).toHaveBeenCalledTimes(1);
+});
+
 it("times out even if the pending operation ignores cancellation", async () => {
   vi.useFakeTimers();
   let approve;

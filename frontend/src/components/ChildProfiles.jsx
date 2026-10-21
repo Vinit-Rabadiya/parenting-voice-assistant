@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { createChild, listChildren, updateChild, deleteChild } from "../services/caregiving";
 import "./ChildProfiles.css";
 
-export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = false, allowChanges = true }) {
+export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = false, allowChanges = true, isActive = true }) {
   const [children, setChildren] = useState([]);
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -45,11 +45,13 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
       if (!pickerRef.current?.contains(event.target)) setPickerPosition(null);
     }
     document.addEventListener("pointerdown", outside);
+    document.addEventListener("focusin", outside);
     document.addEventListener("keydown", escape);
     window.addEventListener("scroll", scroll, true);
     window.addEventListener("resize", scroll);
     return () => {
       document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("focusin", outside);
       document.removeEventListener("keydown", escape);
       window.removeEventListener("scroll", scroll, true);
       window.removeEventListener("resize", scroll);
@@ -57,11 +59,11 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
   }, [pickerOpen]);
 
   useEffect(() => {
-    if (!mode) return;
+    if (!mode || !isActive) return;
     const dialog = dialogRef.current;
     dialog.showModal();
     return () => { if (dialog.open) dialog.close(); };
-  }, [mode]);
+  }, [mode, isActive]);
 
   function togglePicker() {
     if (pickerOpen) { setPickerPosition(null); return; }
@@ -129,7 +131,7 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
     </button>
     {busy && !children.length && !mode && <p role="status">Loading profiles…</p>}
     {error && !mode && <p role="alert">{error}</p>}
-    {pickerOpen && createPortal(<div className="child-profile-popover" ref={pickerRef} id={pickerId}
+    {pickerOpen && isActive && createPortal(<div className="child-profile-popover" ref={pickerRef} id={pickerId}
       role="dialog" aria-label="Choose child profile" style={pickerPosition}>
       <p className="profile-popover-label">Child profiles</p>
       <div className="profile-picker-list">{children.map((child) => <button type="button" key={child.id} disabled={busy || guidanceBusy}
@@ -141,7 +143,7 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
         {allowChanges && <button type="button" disabled={busy || guidanceBusy} onClick={() => openDetails("edit")}>Edit child profile</button>}</>}
       {allowChanges && <button type="button" disabled={busy || guidanceBusy} onClick={() => openDetails("add")}>＋ Add child</button>}
     </div>, document.body)}
-    {mode && createPortal(<dialog ref={dialogRef} className="child-profile-dialog" aria-labelledby={headingId}
+    {mode && isActive && createPortal(<dialog ref={dialogRef} className="child-profile-dialog" aria-labelledby={headingId}
       onCancel={(event) => { event.preventDefault(); closeDialog(); }}>
       <header className="profile-dialog-header"><h2 id={headingId}>{mode === "add" ? "Add child" : mode === "edit" ? "Edit child profile" : "Child details"}</h2>
         <button type="button" disabled={busy} aria-label="Close child profile" onClick={closeDialog}>×</button></header>

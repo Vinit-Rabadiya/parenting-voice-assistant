@@ -68,6 +68,25 @@ it("sends a message with Enter through the existing submission flow", async () =
   expect(input.value).toBe("");
 });
 
+it("preserves the open conversation and draft when leaving and returning to chat", async () => {
+  listConversations.mockResolvedValue([{ id: "saved-chat", title: "Feeding conversation" }]);
+  getConversation.mockResolvedValue({ messages: [
+    { id: "a1", role: "assistant", text: "Talk softly.", status: "answered", citations: [] },
+  ] });
+  const view = render(<GuidanceWorkspace />);
+  await selectProfile();
+  fireEvent.click(screen.getByRole("button", { name: "Feeding conversation" }));
+  await screen.findByText("Talk softly.");
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "My next question" } });
+  view.rerender(<GuidanceWorkspace isActive={false} />);
+  expect(screen.queryByRole("button", { name: "Record into message" })).toBeNull();
+  view.rerender(<GuidanceWorkspace isActive />);
+  expect(screen.getByLabelText("Question").value).toBe("My next question");
+  expect(screen.getByText("Talk softly.")).toBeTruthy();
+  expect(listConversations).toHaveBeenCalledTimes(1);
+  expect(getConversation).toHaveBeenCalledTimes(1);
+});
+
 it.each([
   ["Shift+Enter", { shiftKey: true }],
   ["composition", { isComposing: true }],

@@ -73,6 +73,17 @@ it("does not trust a malformed accepted response", async () => {
   expect(screen.queryByText("Coaching workspace")).toBeNull();
 });
 
+it("reloads accepted consent only when the server explicitly requires it again", async () => {
+  getPrivacyConsent.mockResolvedValueOnce({ ...notice, accepted: true })
+    .mockResolvedValueOnce({ ...notice, version: "test-v2" });
+  render(<PrivacyConsent>{workspace}</PrivacyConsent>);
+  await screen.findByText("Coaching workspace");
+  fireEvent(window, new Event("privacy-consent-required"));
+  await screen.findByText("Notice version: test-v2");
+  expect(screen.queryByText("Coaching workspace")).toBeNull();
+  expect(getPrivacyConsent).toHaveBeenCalledTimes(2);
+});
+
 it("aborts an in-flight notice request when the account workspace unmounts", async () => {
   getPrivacyConsent.mockReturnValue(new Promise(() => {}));
   const view = render(<PrivacyConsent>{workspace}</PrivacyConsent>);

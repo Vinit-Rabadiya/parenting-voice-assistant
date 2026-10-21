@@ -6,7 +6,7 @@ import MicrophoneControls from "./MicrophoneControls";
 import useConversations from "../hooks/useConversations";
 import PrivacyConsent from "./PrivacyConsent";
 
-function ConversationListItem({ conversation, active, disabled, onOpen, onDelete }) {
+function ConversationListItem({ conversation, active, disabled, onOpen, onDelete, workspaceActive }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [optionsPosition, setOptionsPosition] = useState({ top: 0, left: 0 });
   const optionsId = useId();
@@ -27,6 +27,7 @@ function ConversationListItem({ conversation, active, disabled, onOpen, onDelete
       triggerRef.current?.focus();
     }
     document.addEventListener("pointerdown", outside);
+    document.addEventListener("focusin", outside);
     document.addEventListener("keydown", escape);
     function closeOnViewportChange(event) {
       if (!optionsRef.current?.contains(event.target)) setOptionsOpen(false);
@@ -35,6 +36,7 @@ function ConversationListItem({ conversation, active, disabled, onOpen, onDelete
     window.addEventListener("resize", closeOnViewportChange);
     return () => {
       document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("focusin", outside);
       document.removeEventListener("keydown", escape);
       window.removeEventListener("scroll", closeOnViewportChange, true);
       window.removeEventListener("resize", closeOnViewportChange);
@@ -55,14 +57,14 @@ function ConversationListItem({ conversation, active, disabled, onOpen, onDelete
             : Math.max(8, bounds.right - width), width });
         setOptionsOpen((value) => !value);
       }}><span aria-hidden="true">⋯</span></button>
-    {optionsOpen && createPortal(<div ref={optionsRef} className="conversation-options" id={optionsId} style={optionsPosition}>
+    {optionsOpen && workspaceActive && createPortal(<div ref={optionsRef} className="conversation-options" id={optionsId} style={optionsPosition}>
       <button type="button" className="delete-action" ref={deleteRef} disabled={disabled}
         onClick={() => { setOptionsOpen(false); triggerRef.current?.focus(); onDelete(conversation.id); }}>Delete conversation</button>
     </div>, document.body)}
   </li>;
 }
 
-function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly = false }) {
+function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly = false, isActive }) {
   const chat = useConversations(child.id, onBusyChange);
   const [question, setQuestion] = useState("");
   const [routine, setRoutine] = useState("");
@@ -106,7 +108,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
           <button type="button" disabled={chat.busy || voiceBusy} onClick={chat.loadOlderConversations}>Retry history</button></>}
         {!chat.loading && !chat.historyError && !chat.conversations.length && <p>No saved conversations for this child yet.</p>}
         <ul className="conversation-list">{chat.conversations.map((item) => <ConversationListItem
-          key={item.id} conversation={item} active={chat.conversationId === item.id}
+          key={item.id} conversation={item} active={chat.conversationId === item.id} workspaceActive={isActive}
           disabled={chat.busy || voiceBusy || chat.loading} onDelete={chat.remove}
           onOpen={async (id) => { if (await chat.open(id)) { setQuestion(""); setSidebarOpen(false); } }} />)}</ul>
         {chat.moreConversations && <button type="button" disabled={chat.busy || voiceBusy} onClick={chat.loadOlderConversations}>Load older conversations</button>}
@@ -157,8 +159,8 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
             </div>
           </details>
           <div className="composer-actions">
-            <MicrophoneControls key={chat.conversationId || "new-chat"} compact onTranscriptChange={setQuestion}
-              onCaptureStateChange={setVoiceBusy} disabled={chat.busy} />
+            {isActive && <MicrophoneControls key={chat.conversationId || "new-chat"} compact onTranscriptChange={setQuestion}
+              onCaptureStateChange={setVoiceBusy} disabled={chat.busy} />}
             {chat.generating ? <button type="button" className="send-message" aria-label="Stop waiting" title="Stop waiting" onClick={chat.cancelGeneration}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1" /></svg>
             </button> : <button type="submit" className="send-message" aria-label="Get guidance" title="Send message" disabled={chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200}>
@@ -180,19 +182,19 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
   </div>;
 }
 
-function Workspace({ processingAllowed }) {
+function Workspace({ processingAllowed, isActive }) {
   const [child, setChild] = useState(null);
   const [busy, setBusy] = useState(false);
   const selectChild = useCallback((nextChild) => {
     window.speechSynthesis?.cancel(); setBusy(false); setChild(nextChild);
   }, []);
-  const profileControls = <ChildProfiles selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} />;
+  const profileControls = <ChildProfiles selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} isActive={isActive} />;
   return <div className="guidance-workspace">
-    {child ? <ConversationWorkspace key={child.id} child={child} onBusyChange={setBusy} profileControls={profileControls} readOnly={!processingAllowed} />
+    {child ? <ConversationWorkspace key={child.id} child={child} onBusyChange={setBusy} profileControls={profileControls} readOnly={!processingAllowed} isActive={isActive} />
       : <div className="profile-onboarding">{profileControls}<p>Select or add a child profile first.</p></div>}
   </div>;
 }
 
-export default function GuidanceWorkspace() {
-  return <PrivacyConsent>{(allowed) => <Workspace key={String(allowed)} processingAllowed={allowed} />}</PrivacyConsent>;
+export default function GuidanceWorkspace({ isActive = true }) {
+  return <PrivacyConsent>{(allowed) => <Workspace key={String(allowed)} processingAllowed={allowed} isActive={isActive} />}</PrivacyConsent>;
 }

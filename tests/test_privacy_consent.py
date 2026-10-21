@@ -70,6 +70,7 @@ def test_invalid_acceptance_never_writes(client, consent_api, changes, status):
 def test_new_processing_requires_consent(client, consent_api, method, path, payload):
     response = client.request(method, path, json=payload)
     assert response.status_code == 403
+    assert response.headers["X-Consent-Required"] == "true"
     consent_api.create_child.assert_not_called()
     consent_api.update_child.assert_not_called()
     consent_api.create_conversation.assert_not_called()

@@ -62,3 +62,16 @@ it("rejects a response after the signed-in account changes", async () => {
   }));
   await expect(requestCoaching({})).rejects.toThrow("Account changed");
 });
+
+it("invalidates cached consent when a protected request requires a new acceptance", async () => {
+  const required = vi.fn();
+  window.addEventListener("privacy-consent-required", required);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false,
+    headers: new Headers({ "X-Consent-Required": "true" }),
+    json: async () => ({ detail: "Review the privacy notice." }),
+  }));
+  try {
+    await expect(requestCoaching({})).rejects.toThrow("Review the privacy notice.");
+    expect(required).toHaveBeenCalledTimes(1);
+  } finally { window.removeEventListener("privacy-consent-required", required); }
+});

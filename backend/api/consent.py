@@ -17,4 +17,5 @@ def require_processing_consent(
         raise HTTPException(status_code=503, detail="Privacy consent could not be checked. Please retry.") from None
     if (consent.get("consent_version") != CONSENT_VERSION or consent.get("consent_at") is None
             or consent.get("caregiver_authority") is not True):
-        raise HTTPException(status_code=403, detail="Review and accept the current privacy notice before continuing.")
+        raise HTTPException(status_code=403, detail="Review and accept the current privacy notice before continuing.",
+                            headers={"X-Consent-Required": "true"})

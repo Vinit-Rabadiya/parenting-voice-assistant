@@ -347,6 +347,13 @@ this flow alone does not establish legal compliance. Use fictitious profiles for
 evaluation. Change the notice version when its processing terms change so an old
 acceptance cannot silently authorise new terms.
 
+Within the same open signed-in session, account navigation preserves the chat
+workspace, selected conversation, draft, and loaded consent state in memory.
+Recording and spoken playback stop when leaving chat. Confirmed account access
+is not rechecked merely on window focus. Reloading the app or changing accounts
+revalidates access; backend authentication and consent checks still apply to each
+protected request. Data deletion resets the retained workspace and consent state.
+
 Account settings offer separate **Delete my data** and **Delete my account**
 actions. Authenticated `DELETE /me/data` removes application data, including child
 profiles, conversations, feedback, legacy interactions, and the consent record,
@@ -485,7 +492,7 @@ Sources:
 The current safety workstream, shared dataset, report commands and completion
 checklist are documented in [eval/README.md](eval/README.md). Caregiver-support
 messages bypass model generation and show Kenya-specific contacts only after an
-explicit location selection. This supplementsâ€”not replacesâ€”the input and output
+explicit location selection. This supplements—not replaces—the input and output
 checks described above.
 
 Existing issues track retrieval quality and exact age handling, emergency triage

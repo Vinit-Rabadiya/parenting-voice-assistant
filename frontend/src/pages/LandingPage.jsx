@@ -4,7 +4,7 @@ import GuidanceWorkspace from "../components/GuidanceWorkspace";
 import "./LandingPage.css";
 
 // arrange the landing screen while hooks own recording and network behavior.
-export default function LandingPage({ isAuthenticated, userId, accountAccess, onLogin }) {
+export default function LandingPage({ isAuthenticated, userId, accountAccess, onLogin, isActive = true }) {
   return (
     <div className={`landing-page${isAuthenticated ? " landing-page--chat" : ""}`}>
       <section className="landing-intro" aria-labelledby="landing-title">
@@ -20,7 +20,7 @@ export default function LandingPage({ isAuthenticated, userId, accountAccess, on
             </p>
           )}
           {/* a changed user key clears private child and question state from the prior account. */}
-          {accountAccess?.verified && <GuidanceWorkspace key={`guidance-${userId}`} />}
+          {accountAccess?.verified && <GuidanceWorkspace key={`guidance-${userId}`} isActive={isActive} />}
         </div>
       ) : (
         <section className="landing-voice landing-sign-in" aria-labelledby="voice-entry-title">

@@ -21,6 +21,16 @@ export default function PrivacyConsent({ children }) {
   useEffect(() => () => saveRequest.current?.abort(), []);
 
   useEffect(() => {
+    const reloadRequiredConsent = () => {
+      saveRequest.current?.abort();
+      setBusy(false); setNotice(null); setAccepted(false); setAuthority(false); setError("");
+      setAttempt((value) => value + 1);
+    };
+    window.addEventListener("privacy-consent-required", reloadRequiredConsent);
+    return () => window.removeEventListener("privacy-consent-required", reloadRequiredConsent);
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
     getPrivacyConsent(controller.signal).then((value) => {
       if (controller.signal.aborted) return;
