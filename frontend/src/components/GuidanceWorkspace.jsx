@@ -122,7 +122,6 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
         {chat.moreMessages && <button type="button" disabled={chat.busy} onClick={chat.loadOlderMessages}>Load earlier messages</button>}
         {chat.messages.map((message) => message.role === "user"
           ? <article className="caregiver-message" key={message.id}><h3>You</h3><p>{message.text}</p>
-              {message.delivery === "pending" && <small>Waiting for guidance…</small>}
               {message.delivery === "cancelled" && <small role="status">Request cancelled. Stopped waiting for guidance.</small>}
               {message.delivery === "unconfirmed" && <small>Answer not confirmed. This message is shown locally; reopen the conversation to check saved history.</small>}
             </article>
@@ -130,7 +129,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
               conversationId={message.conversation_id === null ? null : chat.conversationId} />)}
         {!chat.messages.length && <div className="chat-welcome"><h3>What are you doing with your baby today?</h3>
           <p>Describe the moment, or ask for guidance.</p></div>}
-        {chat.busy && <p role="status">Preparing guidance…</p>}
+        {chat.generating && <p className="guidance-loading" role="status">Preparing guidance…</p>}
       </section>
       <section className="question-panel chat-composer" aria-label="Message composer">
         {child.in_scope === false && <p role="status">This profile is outside the coaching age range. Saved conversations remain available.</p>}

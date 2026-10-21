@@ -10,10 +10,10 @@
   "scripts": {
     "dev:backend": "uvicorn backend.main:app --reload",
     "dev:frontend": "npm --prefix frontend run dev",
-    "test": "node scripts/check.mjs",
+    "test": "node scripts/check.mjs --tests",
     "test:backend": "pytest",
     "test:frontend": "npm --prefix frontend run test",
-    "lint": "node scripts/check.mjs",
+    "lint": "node scripts/check.mjs --lint",
     "lint:backend": "ruff check .",
     "lint:frontend": "npm --prefix frontend run lint",
     "build:frontend": "npm --prefix frontend run build",

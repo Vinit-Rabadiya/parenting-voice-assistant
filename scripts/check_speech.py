@@ -1,6 +1,7 @@
 # reads a local wav and calls the same speech service as the api, printing the result.
 import argparse
 from pathlib import Path
+from backend.core.config import settings
 
 from backend.services.speech import SpeechService
 from backend.services.speech_errors import InvalidAudioError, SpeechServiceError
@@ -18,7 +19,7 @@ def main() -> None:
         parser.error(f"could not read audio file: {exc}")
 
     try:
-        service = SpeechService("tiny.en")
+        service = SpeechService(settings.STT_MODEL)
         result = service.transcribe(audio_bytes)
     except (InvalidAudioError, SpeechServiceError) as exc:
         parser.exit(status=1, message=f"speech check failed: {exc}\n")

@@ -87,6 +87,8 @@ it("moves the message into the thread immediately and replaces Send with Stop", 
   expect(screen.getByText("Feeding ideas").closest(".caregiver-message")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Stop waiting" }).querySelector("rect")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Get guidance" })).toBeNull();
+  expect(screen.getAllByText("Preparing guidance…")).toHaveLength(1);
+  expect(screen.queryByText("Waiting for guidance…")).toBeNull();
   await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(1));
   fireEvent.change(input, { target: { value: "My next draft" } });
   finish({ answer: "Talk softly.", status: "answered", citations: [], message_id: "a1" });
