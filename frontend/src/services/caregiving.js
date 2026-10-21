@@ -22,3 +22,18 @@ export const createChild = (child) => request("/children", { method: "POST", bod
 export const updateChild = (id, child) => request(`/children/${id}`, { method: "PATCH", body: JSON.stringify(child) });
 export const requestCoaching = (payload) => request("/coach", { method: "POST", body: JSON.stringify(payload) });
 export const sendFeedback = (interactionId, payload) => request(`/coach/${interactionId}/feedback`, { method: "POST", body: JSON.stringify(payload) });
+
+export const createConversation = (childId) => request("/conversations", {
+  method: "POST", body: JSON.stringify({ child_id: childId }),
+});
+export const deleteConversation = (id) => request(`/conversations/${encodeURIComponent(id)}`, { method: "DELETE" });
+export const listConversations = (childId, before = null) => {
+  const query = new URLSearchParams({ child_id: childId, limit: "30" });
+  if (before) query.set("before", before);
+  return request(`/conversations?${query}`);
+};
+export const getConversation = (id, before = null) => {
+  const query = new URLSearchParams({ limit: "50" });
+  if (before) query.set("before", before);
+  return request(`/conversations/${encodeURIComponent(id)}?${query}`);
+};
