@@ -4,6 +4,19 @@ import { auth } from "../../frontend/src/services/firebase";
 
 vi.mock("../../frontend/src/services/firebase", () => ({ auth: { currentUser: null } }));
 
+it("shows the server retry interval without automatically retrying", async () => {
+  const fetch = vi.fn().mockResolvedValue({ ok: false, status: 429,
+    headers: new Headers({ "Retry-After": "65" }),
+    json: async () => ({ detail: "Hourly request limit reached." }),
+  });
+  vi.stubGlobal("fetch", fetch);
+  await expect(requestCoaching({ question: "Play ideas" })).rejects.toMatchObject({
+    status: 429, retryAfterSeconds: 65,
+    message: "Hourly request limit reached. Please try again in 2 minutes.",
+  });
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
 beforeEach(() => {
   auth.currentUser = { getIdToken: vi.fn().mockResolvedValue("test-token") };
 });
