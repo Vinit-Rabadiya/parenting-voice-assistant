@@ -315,8 +315,8 @@ Gemini receives the question, current calculated age, routine, retrieved referen
 passages, and bounded recent conversation context when available.
 Optional milestones are currently stored and displayed without affecting answer
 generation. The conversation privacy disclosure explains that application history
-is retained until the conversation, child profile, or account is deleted; there
-is no application-level 30-day expiry. This is not a claim about third-party
+is retained until the conversation, child profile, or account is deleted.
+This is not a claim about third-party
 provider or backup retention. Account deletion is available in account settings.
 Consent tracking and broader privacy requirements remain outstanding; use
 fictitious profiles for evaluation.

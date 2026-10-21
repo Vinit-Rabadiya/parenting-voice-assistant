@@ -171,7 +171,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
         </form>
         {chat.error && <p role="alert">{chat.error}</p>}
         <details className="conversation-privacy"><summary>Conversation privacy</summary>
-          <p>Conversations and feedback stay in your history until you delete the conversation, its child profile, or your account. The application does not automatically delete them after 30 days.</p>
+          <p>Conversations and feedback stay in your history until you delete the conversation, its child profile, or your account.</p>
           <p>To answer follow-ups, recent messages from this conversation may be sent to the AI service. Reference search may include a recent caregiver message. Recorded audio is processed for transcription and is not deliberately saved by the application.</p>
         </details>
       </section>
