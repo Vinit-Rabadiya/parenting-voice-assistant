@@ -4,9 +4,10 @@ import logging
 import time
 from contextlib import contextmanager
 from uuid import uuid4
+from typing import Annotated
 
 from google.genai import errors as genai_errors
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service
@@ -26,6 +27,28 @@ router = APIRouter(prefix="/coach", dependencies=[Depends(require_authenticated_
 logger = logging.getLogger(__name__)
 # Use Uvicorn's console logger so temporary diagnostics appear at normal INFO level.
 timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
+
+
+async def save_coaching_response(data_service: CaregiverDataService, uid: str,
+                                 payload: CoachingRequest, response: CoachingResponse) -> None:
+    """Use one storage path per answer; never duplicate new messages as interactions."""
+    if payload.conversation_id is not None:
+        stored = response.model_dump(include={
+            "citations", "support_resources", "status", "safety",
+            "child_age_months", "processing_seconds",
+        })
+        stored["text"] = response.answer
+        response.message_id = await run_in_threadpool(
+            data_service.save_conversation_turn, uid, payload.conversation_id,
+            payload.child_id, payload.question, payload.routine, stored,
+        )
+        response.conversation_id = payload.conversation_id
+    else:
+        response.interaction_id = await run_in_threadpool(
+            data_service.create_interaction, uid, payload.child_id, payload.question,
+            payload.routine, response.answer,
+            [citation.model_dump() for citation in response.citations], response.status,
+        )
 
 
 @contextmanager
@@ -81,27 +104,31 @@ async def coach(
         status = "escalated" if triage.escalate else crisis.kind
         answer = ESCALATION_MESSAGE if triage.escalate else crisis.answer
         # No retrieval or generation is needed for this fixed referral message.
-        interaction_id = None
-        try:
-            with timed_stage(request_id, "interaction_save"):
-                interaction_id = await run_in_threadpool(
-                    data_service.create_interaction, user["uid"], payload.child_id,
-                    payload.question, payload.routine, answer, citations, status,
-                )
-        except Exception:
-            # A persistence outage must not replace a recognized danger referral
-            # with a generic error. No fabricated interaction ID is returned.
-            timing_logger.warning("coaching_input_safety request=%s persistence=failed", request_id)
-        return CoachingResponse(
-            interaction_id=interaction_id, answer=answer,
+        response = CoachingResponse(
+            interaction_id=None, answer=answer,
             citations=[CitationSchema(**citation) for citation in citations],
             child_age_months=child["age_months"],
             processing_seconds=round(time.perf_counter() - triage_started, 3),
             status=status, safety="not_flagged" if status == "caregiver_support" else "escalate",
             support_resources=list(crisis.resources),
         )
+        try:
+            with timed_stage(request_id, "interaction_save"):
+                await save_coaching_response(data_service, user["uid"], payload, response)
+        except Exception:
+            # A persistence outage must not replace a recognized danger referral
+            # with a generic error. No fabricated interaction ID is returned.
+            timing_logger.warning("coaching_input_safety request=%s persistence=failed", request_id)
+        response.processing_seconds = round(time.perf_counter() - triage_started, 3)
+        return response
     if child.get("in_scope") is not True:
         raise HTTPException(status_code=422, detail="Coaching supports children from birth through their second birthday. Select a profile within this age range.")
+    if payload.conversation_id is not None:
+        belongs = await run_in_threadpool(
+            data_service.conversation_belongs_to_child, user["uid"], payload.conversation_id, payload.child_id,
+        )
+        if not belongs:
+            raise HTTPException(status_code=404, detail="Conversation not found for the selected child.")
 
     started = time.perf_counter()
     stage = "Qdrant retrieval"
@@ -172,27 +199,46 @@ async def coach(
          "source_url": item.source_url, "title": item.title}
         for item in result.passages
     ]
-    with timed_stage(request_id, "interaction_save"):
-        interaction_id = await run_in_threadpool(
-            data_service.create_interaction, user["uid"], payload.child_id, payload.question, payload.routine, result.answer, citations, status
-        )
+    response = CoachingResponse(
+        interaction_id=None, answer=result.answer,
+        citations=[CitationSchema(**citation) for citation in citations],
+        child_age_months=child["age_months"],
+        processing_seconds=round(time.perf_counter() - started, 3), status=status,
+    )
+    try:
+        with timed_stage(request_id, "interaction_save"):
+            await save_coaching_response(data_service, user["uid"], payload, response)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Conversation not found for the selected child.") from None
+    except Exception:
+        raise HTTPException(status_code=503, detail="Guidance could not be saved. Please try again.") from None
     timing_logger.info(
         "coach_timing request=%s stage=reported_total event=completed seconds=%.3f",
         request_id, time.perf_counter() - started,
     )
-    return CoachingResponse(interaction_id=interaction_id, answer=result.answer,
-        citations=[CitationSchema(**citation) for citation in citations], child_age_months=child["age_months"],
-        processing_seconds=round(time.perf_counter() - started, 3), status=status)
+    response.processing_seconds = round(time.perf_counter() - started, 3)
+    return response
 
 
 @router.post("/{interaction_id}/feedback", response_model=FeedbackResponse)
 async def feedback(
-    interaction_id: str,
+    interaction_id: Annotated[str, Path(min_length=1, max_length=128, pattern=r"^[^/]+$")],
     payload: FeedbackRequest,
     user: dict = Depends(require_authenticated_user),
     data_service: CaregiverDataService = Depends(get_caregiver_data_service),
 ) -> FeedbackResponse:
-    recorded_at = await run_in_threadpool(data_service.save_feedback, user["uid"], interaction_id, payload.helpful, payload.comment)
+    if payload.conversation_id is not None:
+        recorded_at = await run_in_threadpool(
+            data_service.save_message_feedback, user["uid"], payload.conversation_id,
+            interaction_id, payload.helpful, payload.comment,
+        )
+    else:
+        recorded_at = await run_in_threadpool(data_service.save_feedback, user["uid"], interaction_id, payload.helpful, payload.comment)
     if recorded_at is None:
         raise HTTPException(status_code=404, detail="Interaction not found.")
-    return FeedbackResponse(interaction_id=interaction_id, helpful=payload.helpful, recorded_at=recorded_at)
+    return FeedbackResponse(
+        interaction_id=interaction_id if payload.conversation_id is None else None,
+        conversation_id=payload.conversation_id,
+        message_id=interaction_id if payload.conversation_id is not None else None,
+        helpful=payload.helpful, recorded_at=recorded_at,
+    )

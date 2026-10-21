@@ -246,8 +246,12 @@ email, and a login completed with TOTP. Backend routes are also mounted under
 | POST | `/children` | Create a profile with name, date_of_birth, and optional milestones |
 | PATCH | `/children/{child_id}` | Update an owned profile |
 | POST | `/speech/transcribe` | Transcribe raw WAV audio |
-| POST | `/coach` | Submit child_id, question, and optional routine |
-| POST | `/coach/{interaction_id}/feedback` | Save helpful boolean and optional comment |
+| POST | `/conversations` | Create a conversation for an owned child profile |
+| GET | `/conversations?child_id=...` | List a child's conversations, newest first |
+| GET | `/conversations/{conversation_id}` | Read a page of conversation messages |
+| DELETE | `/conversations/{conversation_id}` | Delete a conversation and its messages |
+| POST | `/coach` | Submit child_id, question, optional routine and conversation_id |
+| POST | `/coach/{interaction_id}/feedback` | Rate an interaction or a conversation answer |
 
 Speech requests accept mono PCM16 WAV at 16 kHz, up to 30 seconds, with a
 964096-byte body limit. One transcription runs at a time per server process;
@@ -256,6 +260,23 @@ concurrent requests receive HTTP 429. The response includes `text`,
 
 Coaching responses include `interaction_id`, `answer`, `citations`,
 `child_age_months`, and `processing_seconds`. Playback is handled in the browser.
+
+When `conversation_id` is supplied, `/coach` verifies that the conversation belongs
+to the authenticated account and selected child. It saves the submitted message
+and checked response together, then returns `conversation_id` and `message_id`;
+`interaction_id` is null. Without a conversation ID, the existing interaction
+storage and feedback contract remain available. New conversation messages are not
+duplicated in the interactions collection.
+
+For conversation feedback, put the assistant's `message_id` in the existing
+feedback route and include `conversation_id` with `helpful` and optional `comment`
+in the JSON body. Feedback is stored on that assistant message.
+
+History reads accept a bounded `limit` and optional `before` document ID. For older
+conversation pages, use the last returned conversation ID; for older message
+pages, use the first returned message ID. Message pages are returned in reading
+order. Saved messages do not yet become model context, and the frontend history
+interface is not yet connected.
 
 ## Data handling
 

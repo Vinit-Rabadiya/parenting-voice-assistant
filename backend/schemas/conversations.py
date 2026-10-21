@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from backend.schemas.coaching import CitationSchema, SupportResource
+from backend.schemas.coaching import CitationSchema, FeedbackRecord, SupportResource
 
 
 class ConversationCreateRequest(BaseModel):
@@ -27,6 +27,11 @@ class ConversationMessageResponse(BaseModel):
     citations: list[CitationSchema] = Field(default_factory=list)
     support_resources: list[SupportResource] = Field(default_factory=list)
     status: str | None = None
+    routine: str | None = None
+    child_age_months: float | None = None
+    processing_seconds: float | None = None
+    safety: str | None = None
+    feedback: FeedbackRecord | None = None
 
 
 class ConversationDetailResponse(ConversationResponse):

@@ -90,7 +90,7 @@ class CaregiverDataService:
         if not snapshot.exists:
             return None
         messages_collection = document.collection("messages")
-        query = messages_collection.order_by("created_at", direction=firestore.Query.DESCENDING)
+        query = messages_collection.order_by("sequence", direction=firestore.Query.DESCENDING)
         if before is not None:
             cursor = messages_collection.document(before).get()
             if not cursor.exists:
@@ -100,10 +100,67 @@ class CaregiverDataService:
         messages = [{**message.to_dict(), "id": message.id} for message in query.stream()]
         return {**self._conversation_response(snapshot), "messages": list(reversed(messages))}
 
+    def conversation_belongs_to_child(self, uid: str, conversation_id: str, child_id: str) -> bool:
+        snapshot = self._conversations(uid).document(conversation_id).get()
+        return (snapshot.exists and snapshot.to_dict().get("child_id") == child_id
+                and not snapshot.to_dict().get("deleting", False))
+
+    def save_conversation_turn(self, uid: str, conversation_id: str, child_id: str,
+                               question: str, routine: str | None, response: dict) -> str:
+        """Save both messages together, after rechecking ownership at write time."""
+        conversation = self._conversations(uid).document(conversation_id)
+        messages = conversation.collection("messages")
+        question_document, answer_document = messages.document(), messages.document()
+
+        @firestore.transactional
+        def save(transaction):
+            snapshot = conversation.get(transaction=transaction)
+            child = self._children(uid).document(child_id).get(transaction=transaction)
+            if not snapshot.exists or not child.exists or snapshot.to_dict().get("child_id") != child_id:
+                raise ValueError("Conversation not found for the selected child.")
+            data = snapshot.to_dict()
+            if data.get("deleting", False) or child.to_dict().get("deleting", False):
+                raise ValueError("Conversation not found for the selected child.")
+            sequence = data.get("message_count", 0)
+            common = {"created_at": firestore.SERVER_TIMESTAMP, "routine": routine}
+            transaction.set(question_document, {**common, "role": "user", "text": question,
+                                                "sequence": sequence})
+            transaction.set(answer_document, {
+                **common, **response, "role": "assistant", "sequence": sequence + 1,
+            })
+            update = {"message_count": sequence + 2, "updated_at": firestore.SERVER_TIMESTAMP}
+            if sequence == 0:
+                update["title"] = " ".join(question.split())[:80]
+            transaction.update(conversation, update)
+
+        save(self.client.transaction())
+        return answer_document.id
+
+    def save_message_feedback(self, uid: str, conversation_id: str, message_id: str,
+                              helpful: bool, comment: str | None) -> datetime | None:
+        conversation = self._conversations(uid).document(conversation_id)
+        message = conversation.collection("messages").document(message_id)
+        feedback = self._feedback_data(helpful, comment)
+
+        @firestore.transactional
+        def save(transaction):
+            parent = conversation.get(transaction=transaction)
+            snapshot = message.get(transaction=transaction)
+            if not parent.exists or not snapshot.exists or snapshot.to_dict().get("role") != "assistant":
+                return None
+            if parent.to_dict().get("deleting", False):
+                return None
+            transaction.update(message, {"feedback": feedback})
+            return feedback["recorded_at"]
+
+        return save(self.client.transaction())
+
     def delete_conversation(self, uid: str, conversation_id: str) -> bool:
         document = self._conversations(uid).document(conversation_id)
         if not document.get().exists:
             return False
+        # Reject in-flight message writes while recursive cleanup is running.
+        document.update({"deleting": True})
         self.client.recursive_delete(document)
         return True
 
@@ -174,15 +231,21 @@ class CaregiverDataService:
         document = self._interactions(uid).document(interaction_id)
         if not document.get().exists:
             return None
-        recorded_at = datetime.now(timezone.utc)
-        document.update({"feedback": {"helpful": helpful, "comment": comment.strip() if comment else None, "recorded_at": recorded_at}})
-        return recorded_at
+        feedback = self._feedback_data(helpful, comment)
+        document.update({"feedback": feedback})
+        return feedback["recorded_at"]
+
+    @staticmethod
+    def _feedback_data(helpful: bool, comment: str | None) -> dict:
+        return {"helpful": helpful, "comment": comment.strip() if comment else None,
+                "recorded_at": datetime.now(timezone.utc)}
 
     def delete_child(self, uid: str, child_id: str) -> bool:
         # Query only this user's interactions; recursive deletion includes future subcollections.
         child = self._children(uid).document(child_id)
         if not child.get().exists:
             return False
+        child.update({"deleting": True})
         interactions = self._interactions(uid).where(filter=FieldFilter("child_id", "==", child_id))
         for interaction in interactions.stream():
             self.client.recursive_delete(interaction.reference)
