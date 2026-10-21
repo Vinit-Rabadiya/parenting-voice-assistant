@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
+from google.api_core.exceptions import FailedPrecondition
 
 import pytest
 
@@ -53,6 +54,14 @@ def test_missing_child_does_not_read_history(client, history_service):
     history_service.get_child.return_value = None
     assert client.get("/conversations?child_id=missing").status_code == 404
     history_service.list_conversations.assert_not_called()
+
+
+def test_missing_firestore_index_returns_setup_error(client, history_service):
+    history_service.list_conversations.side_effect = FailedPrecondition("PRIVATE_PROJECT_INDEX_LINK")
+    response = client.get("/conversations?child_id=child-1")
+    assert response.status_code == 503
+    assert "Firestore conversations index" in response.json()["detail"]
+    assert "PRIVATE_PROJECT_INDEX_LINK" not in response.text
 
 
 def test_get_conversation_returns_messages(client, history_service):

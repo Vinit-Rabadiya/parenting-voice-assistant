@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from google.api_core.exceptions import FailedPrecondition
 
 from backend.api.dependencies import get_caregiver_data_service
 from backend.core.security import require_authenticated_user
@@ -43,6 +44,11 @@ def list_conversations(
         raise HTTPException(status_code=404, detail="Child profile not found.")
     try:
         return service.list_conversations(user["uid"], child_id, limit, before)
+    except FailedPrecondition:
+        raise HTTPException(
+            status_code=503,
+            detail="Conversation history is unavailable. Check that the Firestore conversations index (child_id ascending, updated_at descending) is enabled.",
+        ) from None
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
