@@ -277,22 +277,42 @@ conversation pages, use the last returned conversation ID; for older message
 pages, use the first returned message ID. Message pages are returned in reading
 order. The interface can open saved conversations and display messages, sources,
 audio controls, and feedback. Its composer uses one editable field for typed text
-and speech transcription beneath the scrolling message thread. Saved messages do
-not yet become model context. Legacy interactions remain unchanged and are not
-yet included in the conversation list.
+and speech transcription beneath the scrolling message thread. For conversation
+requests, the backend loads at most six recent messages and selects up to three
+complete answered exchanges within a 3,000-character budget. History helps
+interpret follow-ups but is not reference evidence. Safety responses and
+unsuccessful answers form a boundary: earlier turns are not carried past them.
+Legacy interactions remain unchanged and are not yet included in the conversation
+list.
+
+Explicit short follow-ups such as "What else can I try?" include the recent
+caregiver topic in reference search. A new standalone question keeps its own
+search wording. No additional language-model rewrite call is used, and follow-ups
+without a usable topic do not generate arbitrary guidance. Context is limited to
+the selected conversation, not other chats or child profiles.
+For requests for more ideas, the generation instructions distinguish new actions
+from reworded or rearranged earlier advice. If the current references provide no
+additional supported actions, the answer should acknowledge that instead of
+filling another list. Requests for explanation may clarify a previous suggestion
+without presenting it as new advice. These are prompt-level controls and require
+live response evaluation; automated prompt tests do not establish semantic novelty.
 
 ## Data handling
 
 Firebase manages sign-in credentials. FastAPI verifies token validity and revocation,
 email verification, and TOTP status before serving protected requests.
 
-Profiles are stored under `users/{uid}/children/{id}`. Questions, answers, references,
-timestamps, and feedback are stored under `users/{uid}/interactions/{id}`.
+Profiles are stored under `users/{uid}/children/{id}`. New conversation messages,
+references, timestamps, and feedback are stored under
+`users/{uid}/conversations/{id}/messages/{id}`. Earlier standalone interactions
+remain under `users/{uid}/interactions/{id}`.
 Recorded audio is processed for transcription and is not deliberately persisted by
 the application. Edited text is submitted only when **Get guidance** is selected.
 
-Qdrant Cloud inference processes question text for retrieval. Gemini receives the
-question, calculated age, routine context, and retrieved reference passages.
+Qdrant Cloud inference processes question text for retrieval; explicit follow-ups
+can also include a recent caregiver message from the selected conversation.
+Gemini receives the question, current calculated age, routine, retrieved reference
+passages, and bounded recent conversation context when available.
 Optional milestones are currently stored and displayed without affecting answer
 generation. Consent, retention information, and account-data deletion controls
 remain outstanding; use fictitious profiles for evaluation.

@@ -178,7 +178,7 @@ class RetrievalService:
                 query_filter=age_filter,
             )
         except Exception as exc:
-            logger.error("error querying qdrant: %s", exc)
+            logger.error("error querying qdrant: %s", type(exc).__name__)
             raise
 
         filtered: list[RetrievedPassage] = []

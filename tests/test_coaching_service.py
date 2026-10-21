@@ -50,6 +50,48 @@ def test_coaching_service_returns_a_safe_message_when_no_passage_matches():
     assert "health worker" in result.answer
 
 
+def test_generation_includes_history_as_context_not_evidence():
+    client = FakeClient()
+    context = [{"role": "user", "text": "We are feeding."},
+               {"role": "assistant", "text": "HISTORICAL_CLAIM"}]
+    CoachingService(client=client).generate("What else can I try?", 6, "feeding", [fallback_reference()],
+                                             conversation_context=context)
+    request = client.models.request
+    assert "Recent conversation (context only, not evidence)" in request["contents"]
+    assert "HISTORICAL_CLAIM" in request["contents"]
+    assert "current evidence excerpts only" in request["config"].system_instruction
+    assert "current child age" in request["config"].system_instruction
+    assert request["contents"].count("Caregiver question: What else can I try?") == 1
+
+
+@pytest.mark.parametrize("question", ["What else can I try?", "Can you explain that?"])
+def test_contextual_prompt_distinguishes_additional_advice_from_explanation(question):
+    client = FakeClient()
+    client.models.generate_content = Mock(return_value=FakeResponse())
+    context = [{"role": "user", "text": "My baby is crying."},
+               {"role": "assistant", "text": "Hold your baby closely and sing softly."}]
+    CoachingService(client=client).generate(question, 0, None, [fallback_reference()],
+                                             conversation_context=context)
+    request = client.models.generate_content.call_args.kwargs
+    policy = request["config"].system_instruction
+    assert "Rewording" in policy
+    assert "one new action is enough" in policy
+    assert "do not provide further suggestions" in policy
+    assert "Do not repeat the list or invent actions" in policy
+    assert "clarification, not a new action" in policy
+    assert "a follow-up does not require another list of actions" in request["contents"]
+    assert "Give 2 to 4 short actions in plain language." not in request["contents"]
+    assert context[1]["text"] in request["contents"]
+    client.models.generate_content.assert_called_once()
+
+
+def test_standalone_prompt_keeps_initial_coaching_format():
+    client = FakeClient()
+    CoachingService(client=client).generate("How can I talk during feeding?", 6, "feeding", [fallback_reference()])
+    assert "Give 2 to 4 short actions in plain language." in client.models.request["contents"]
+    assert client.models.request["config"].system_instruction is None
+
+
 def quota_error():
     return errors.ClientError(429, {"error": {"message": "Quota exceeded"}})
 

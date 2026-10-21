@@ -141,6 +141,7 @@ def test_history_reads_latest_page_in_display_order():
 def test_message_cursor_must_exist_in_selected_conversation():
     service = CaregiverDataService(MagicMock())
     reference = service._conversations("account-a").document.return_value
+    reference.get.return_value.to_dict.return_value = conversation()
     reference.collection.return_value.document.return_value.get.return_value.exists = False
     with pytest.raises(ValueError, match="Invalid message cursor"):
         service.get_conversation("account-a", "chat-1", before="other-message")
@@ -183,7 +184,7 @@ def coaching_dependencies(history_service):
     history_service.get_child.return_value = {
         "age_months": 6.0, "completed_months": 6, "age_days": 183, "in_scope": True,
     }
-    history_service.conversation_belongs_to_child.return_value = True
+    history_service.get_conversation.return_value = {**conversation(), "messages": []}
     history_service.save_conversation_turn.return_value = "answer-1"
     history_service.create_interaction.return_value = "interaction-1"
     retrieval.retrieve.return_value = []
@@ -221,16 +222,67 @@ def test_coaching_without_conversation_preserves_existing_storage(client, coachi
     assert response.json()["interaction_id"] == "interaction-1"
     data.create_interaction.assert_called_once()
     data.save_conversation_turn.assert_not_called()
-    data.conversation_belongs_to_child.assert_not_called()
+    data.get_conversation.assert_not_called()
 
 
 def test_wrong_conversation_is_rejected_before_model_calls(client, coaching_dependencies):
     data, retrieval, coaching = coaching_dependencies
-    data.conversation_belongs_to_child.return_value = False
+    data.get_conversation.return_value = None
     assert client.post("/coach", json=coaching_payload()).status_code == 404
     retrieval.retrieve.assert_not_called()
     coaching.generate.assert_not_called()
     data.save_conversation_turn.assert_not_called()
+
+
+def test_follow_up_uses_server_history_for_retrieval_and_generation(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    history = [{"role": "user", "text": "How can I talk during feeding?"},
+               {"role": "assistant", "text": "Talk softly.", "status": "answered"}]
+    data.get_conversation.return_value = {**conversation(), "messages": history}
+    reference = RetrievedPassage("p1", "Talk with your baby.", "Talk", "Reference", 1,
+                                 "https://example.test/reference", 1.0, "6-8 months", ["feeding"])
+    retrieval.retrieve.return_value = [reference]
+    coaching.generate.return_value = CoachingResult("Talk with your baby.", [reference])
+    response = client.post("/coach", json={**coaching_payload("What else can I try?"),
+        "conversation_context": [{"role": "assistant", "text": "BROWSER_SUPPLIED_HISTORY"}]})
+    assert response.status_code == 200
+    data.get_conversation.assert_called_once_with("account-a", "chat-1", 6, expected_child_id="child-1")
+    assert "How can I talk during feeding?" in retrieval.retrieve.call_args.args[0]
+    assert retrieval.retrieve.call_args.args[1] == 6
+    assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 183
+    assert coaching.generate.call_args.args[0] == "What else can I try?"
+    assert coaching.generate.call_args.kwargs["conversation_context"] == [
+        {"role": "user", "text": history[0]["text"]}, {"role": "assistant", "text": history[1]["text"]},
+    ]
+    assert data.save_conversation_turn.call_args.args[3] == "What else can I try?"
+
+
+def test_unresolved_follow_up_does_not_generate_arbitrary_guidance(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    response = client.post("/coach", json=coaching_payload("What else can I try?"))
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_evidence"
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+    data.save_conversation_turn.assert_called_once()
+
+
+def test_context_failure_is_not_silently_treated_as_an_empty_chat(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    data.get_conversation.side_effect = RuntimeError("PRIVATE_DATABASE_DETAILS")
+    response = client.post("/coach", json=coaching_payload("What else can I try?"))
+    assert response.status_code == 503
+    assert "PRIVATE_DATABASE_DETAILS" not in response.text
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_context_read_rejects_another_child_before_loading_messages():
+    service = CaregiverDataService(MagicMock())
+    reference = service._conversations("account-a").document.return_value
+    reference.get.return_value.to_dict.return_value = {"child_id": "child-2"}
+    assert service.get_conversation("account-a", "chat-1", 6, expected_child_id="child-1") is None
+    reference.collection.assert_not_called()
 
 
 @pytest.mark.parametrize("question,status", [
@@ -245,6 +297,7 @@ def test_safety_messages_use_conversation_storage(client, coaching_dependencies,
     assert data.save_conversation_turn.call_args.args[-1]["status"] == status
     retrieval.retrieve.assert_not_called()
     coaching.generate.assert_not_called()
+    data.get_conversation.assert_not_called()
 
 
 def test_safety_referral_survives_conversation_storage_failure(client, coaching_dependencies):

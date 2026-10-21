@@ -84,10 +84,13 @@ class CaregiverDataService:
         return [self._conversation_response(document) for document in query.stream()]
 
     def get_conversation(self, uid: str, conversation_id: str, limit: int = 50,
-                         before: str | None = None) -> dict | None:
+                         before: str | None = None, *, expected_child_id: str | None = None) -> dict | None:
         document = self._conversations(uid).document(conversation_id)
         snapshot = document.get()
         if not snapshot.exists:
+            return None
+        data = snapshot.to_dict()
+        if data.get("deleting", False) or (expected_child_id is not None and data.get("child_id") != expected_child_id):
             return None
         messages_collection = document.collection("messages")
         query = messages_collection.order_by("sequence", direction=firestore.Query.DESCENDING)
@@ -99,11 +102,6 @@ class CaregiverDataService:
         query = query.limit(limit)
         messages = [{**message.to_dict(), "id": message.id} for message in query.stream()]
         return {**self._conversation_response(snapshot), "messages": list(reversed(messages))}
-
-    def conversation_belongs_to_child(self, uid: str, conversation_id: str, child_id: str) -> bool:
-        snapshot = self._conversations(uid).document(conversation_id).get()
-        return (snapshot.exists and snapshot.to_dict().get("child_id") == child_id
-                and not snapshot.to_dict().get("deleting", False))
 
     def save_conversation_turn(self, uid: str, conversation_id: str, child_id: str,
                                question: str, routine: str | None, response: dict) -> str:

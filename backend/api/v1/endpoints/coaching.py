@@ -20,6 +20,9 @@ from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
 from backend.services.response_safety import SAFE_RESPONSE, inspect_response
 from backend.services.input_safety import ESCALATION_MESSAGE, inspect_input
 from backend.services.crisis_safety import inspect_crisis
+from backend.services.conversation_context import (
+    MAX_CONTEXT_MESSAGES, contextual_retrieval_query, is_follow_up, select_conversation_context,
+)
 from backend.core.config import settings
 
 
@@ -123,18 +126,33 @@ async def coach(
         return response
     if child.get("in_scope") is not True:
         raise HTTPException(status_code=422, detail="Coaching supports children from birth through their second birthday. Select a profile within this age range.")
-    if payload.conversation_id is not None:
-        belongs = await run_in_threadpool(
-            data_service.conversation_belongs_to_child, user["uid"], payload.conversation_id, payload.child_id,
-        )
-        if not belongs:
-            raise HTTPException(status_code=404, detail="Conversation not found for the selected child.")
-
     started = time.perf_counter()
+    context = []
+    if payload.conversation_id is not None:
+        try:
+            with timed_stage(request_id, "conversation_context"):
+                conversation = await run_in_threadpool(
+                    data_service.get_conversation, user["uid"], payload.conversation_id,
+                    MAX_CONTEXT_MESSAGES, expected_child_id=payload.child_id,
+                )
+        except Exception:
+            raise HTTPException(status_code=503, detail="Conversation context could not be loaded. Please try again.") from None
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found for the selected child.")
+        context = select_conversation_context(conversation["messages"])
+    retrieval_query = contextual_retrieval_query(payload.question, context)
+    unresolved_follow_up = is_follow_up(payload.question) and retrieval_query == payload.question
     stage = "Qdrant retrieval"
     try:
         with timed_stage(request_id, "retrieval"):
-            passages = await run_in_threadpool(retrieval_service.retrieve, payload.question, child["completed_months"], payload.routine, 3, child_age_days=child["age_days"])
+            # Do not retrieve arbitrary advice for a follow-up with no safe topic.
+            if unresolved_follow_up:
+                passages = []
+            else:
+                passages = await run_in_threadpool(
+                    retrieval_service.retrieve, retrieval_query, child["completed_months"],
+                    payload.routine, 3, child_age_days=child["age_days"],
+                )
         stage = "Evidence selection"
         with timed_stage(request_id, "evidence_selection"):
             evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
@@ -146,7 +164,11 @@ async def coach(
         if evidence:
             stage = "Gemini generation"
             with timed_stage(request_id, "generation"):
-                result = await run_in_threadpool(coaching_service.generate, payload.question, child["age_months"], payload.routine, evidence)
+                context_options = {"conversation_context": context} if context else {}
+                result = await run_in_threadpool(
+                    coaching_service.generate, payload.question, child["age_months"],
+                    payload.routine, evidence, **context_options,
+                )
             stage = "Response safety"
             with timed_stage(request_id, "response_safety"):
                 decision = inspect_response(result.answer, result.passages, evidence, child["age_months"])
@@ -186,6 +208,8 @@ async def coach(
             # Provider descriptions explain errors such as unavailable model endpoints.
             # Redact credentials and user content before writing diagnostic output.
             description = str(getattr(exc, "message", "No provider description returned."))
+            if context:
+                description = "Provider description omitted for a contextual request."
             sensitive_values = [coaching_service.api_key, payload.question]
             sensitive_values.extend(passage.text for passage in passages)
             for value in sensitive_values:
