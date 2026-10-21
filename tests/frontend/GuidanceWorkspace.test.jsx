@@ -32,6 +32,49 @@ async function selectProfile() {
   await waitFor(() => expect(screen.queryByText("Loading conversations…")).toBeNull());
 }
 
+it("sends a message with Enter through the existing submission flow", async () => {
+  requestCoaching.mockResolvedValue({ conversation_id: "chat-1", message_id: "answer-1",
+    answer: "Talk softly.", status: "answered", citations: [], processing_seconds: 1 });
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  const input = screen.getByLabelText("Question");
+  fireEvent.change(input, { target: { value: "Feeding ideas" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByText("Talk softly.");
+  expect(requestCoaching).toHaveBeenCalledTimes(1);
+  expect(requestCoaching.mock.calls[0][0].question).toBe("Feeding ideas");
+  expect(input.value).toBe("");
+});
+
+it.each([
+  ["Shift+Enter", { shiftKey: true }],
+  ["composition", { isComposing: true }],
+  ["composition key code", { keyCode: 229 }],
+  ["held Enter", { repeat: true }],
+])("does not submit on %s", async (_name, modifiers) => {
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  const input = screen.getByLabelText("Question");
+  fireEvent.change(input, { target: { value: "Feeding ideas" } });
+  fireEvent.keyDown(input, { key: "Enter", ...modifiers });
+  expect(createConversation).not.toHaveBeenCalled();
+  expect(requestCoaching).not.toHaveBeenCalled();
+});
+
+it("does not submit blank messages or send again while preparing guidance", async () => {
+  requestCoaching.mockReturnValue(new Promise(() => {}));
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  const input = screen.getByLabelText("Question");
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(createConversation).not.toHaveBeenCalled();
+  fireEvent.change(input, { target: { value: "Feeding ideas" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(1));
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(requestCoaching).toHaveBeenCalledTimes(1);
+});
+
 it("shows a blocked outcome distinctly and reads only the returned replacement", async () => {
   const replacement = "For medical advice, contact a qualified health professional.";
   requestCoaching.mockResolvedValue({

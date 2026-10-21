@@ -84,7 +84,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
 
   async function submit(event) {
     event.preventDefault();
-    if (voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200) return;
+    if (chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200) return;
     window.speechSynthesis?.cancel();
     const draft = question;
     if (await chat.submit(question.trim(), routine, supportCountry)) {
@@ -134,6 +134,11 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
         <form onSubmit={submit}>
           <label className="visually-hidden" htmlFor="caregiver-question">Question</label>
           <textarea ref={composerRef} id="caregiver-question" rows="1" value={question} readOnly={voiceBusy} maxLength={1200}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || event.keyCode === 229) return;
+              event.preventDefault();
+              if (!event.repeat) event.currentTarget.form?.requestSubmit();
+            }}
             onChange={(event) => setQuestion(event.target.value)} placeholder="Type a message, or use the microphone…" />
           <details className="composer-options"><summary aria-label="Routine and support location">＋</summary>
             <div className="composer-option-fields">
