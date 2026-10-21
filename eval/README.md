@@ -2,14 +2,13 @@
 
 ## Scope
 
-The remaining safety work is grouped on `feat/safety-guardrails`: the shared
-child-danger dataset and CI report (#59), caregiver support routing (#57), and
-input/output check improvements (#58 and #42). Use separate commits within this
-workstream. Do not merge after each individual task. Professional review under
+The safety workstream covers the shared child-danger dataset and CI report (#59),
+caregiver support routing (#57), and input/output check improvements (#58 and #42).
+Professional review under
 #79 and final guidance-quality scoring under #78 remain distinct external/final
 validation activities, not implicit claims made by these checks.
 
-Completion checklist for the branch:
+Verification record:
 
 - [x] Review the shared 60-case data file and report calculations.
 - [x] Verify crisis/support routing, source information and explicit country selection.
@@ -18,8 +17,8 @@ Completion checklist for the branch:
   missed wording and source-card consistency; broader clinical validation remains separate.
 - [x] Run offline checks and capture an actual report; record the code/data versions.
 - [x] Run the full configured project checks locally.
-- [ ] Verify the backend CI evaluation step on GitHub.
-- [x] Record remaining limitations and update issue evidence before one workstream PR.
+- [x] Verify the backend CI evaluation step on GitHub.
+- [x] Record remaining limitations and issue evidence.
 
 ## Shared data and report
 
@@ -89,8 +88,9 @@ a prevention question, caregiver support, immediate-support messages, contact
 visibility with Kenya selected versus no location selected, and Listen/Stop audio.
 The full `npm.cmd run check` subsequently completed with all configured checks
 passed. Database-write failure behaviour was verified by automated tests, not by
-forcing a production database outage during browser checks. GitHub CI verification
-and professional clinical review remain outstanding. No real emergency response
+forcing a production database outage during browser checks. GitHub Actions run
+`39495077392` passed the backend safety evaluation and report-upload steps, alongside
+backend and frontend checks. Professional clinical review remains outstanding. No real emergency response
 or helpline connection was tested, and the baseline is not a claim of real-world
 clinical accuracy.
 
