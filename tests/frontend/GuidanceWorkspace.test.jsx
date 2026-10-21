@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import GuidanceWorkspace from "../../frontend/src/components/GuidanceWorkspace";
 import { createConversation, deleteConversation, getConversation, listConversations, requestCoaching } from "../../frontend/src/services/caregiving";
@@ -72,6 +72,47 @@ it("does not submit blank messages or send again while preparing guidance", asyn
   fireEvent.keyDown(input, { key: "Enter" });
   await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(1));
   fireEvent.keyDown(input, { key: "Enter" });
+  expect(requestCoaching).toHaveBeenCalledTimes(1);
+});
+
+it("moves the message into the thread immediately and replaces Send with Stop", async () => {
+  let finish;
+  requestCoaching.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  const input = screen.getByLabelText("Question");
+  fireEvent.change(input, { target: { value: "Feeding ideas" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(input.value).toBe("");
+  expect(screen.getByText("Feeding ideas").closest(".caregiver-message")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Stop waiting" }).querySelector("rect")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Get guidance" })).toBeNull();
+  await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(1));
+  fireEvent.change(input, { target: { value: "My next draft" } });
+  finish({ answer: "Talk softly.", status: "answered", citations: [], message_id: "a1" });
+  await screen.findByText("Talk softly.");
+  const thread = screen.getByRole("region", { name: "Test child" });
+  expect(within(thread).getAllByText("Feeding ideas")).toHaveLength(1);
+  expect(input.value).toBe("My next draft");
+  expect(screen.getByRole("button", { name: "Get guidance" })).toBeTruthy();
+});
+
+it("keeps the submitted message in the thread after stopping guidance", async () => {
+  requestCoaching.mockImplementation((_payload, { signal }) => new Promise((_resolve, reject) => {
+    signal.addEventListener("abort", () => reject(new Error("Stopped waiting for guidance.")), { once: true });
+  }));
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  const input = screen.getByLabelText("Question");
+  fireEvent.change(input, { target: { value: "Feeding ideas" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole("button", { name: "Stop waiting" }));
+  expect(screen.getByText("Request cancelled. Stopped waiting for guidance.")).toBeTruthy();
+  await screen.findByText(/Request cancelled in this browser/);
+  expect(input.value).toBe("");
+  expect(screen.getByText("Feeding ideas")).toBeTruthy();
+  expect(screen.queryByText(/Answer not confirmed/)).toBeNull();
   expect(requestCoaching).toHaveBeenCalledTimes(1);
 });
 

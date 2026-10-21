@@ -86,10 +86,9 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
     event.preventDefault();
     if (chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200) return;
     window.speechSynthesis?.cancel();
-    const draft = question;
-    if (await chat.submit(question.trim(), routine, supportCountry)) {
-      setQuestion((current) => current === draft ? "" : current);
-    }
+    const message = question.trim();
+    setQuestion("");
+    await chat.submit(message, routine, supportCountry);
   }
 
   return <div className={`chat-shell${sidebarOpen ? " chat-shell--history-open" : ""}`}>
@@ -122,7 +121,11 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
       <section className="conversation-thread" aria-labelledby="thread-title" ref={threadRef} tabIndex={0}>
         {chat.moreMessages && <button type="button" disabled={chat.busy} onClick={chat.loadOlderMessages}>Load earlier messages</button>}
         {chat.messages.map((message) => message.role === "user"
-          ? <article className="caregiver-message" key={message.id}><h3>You</h3><p>{message.text}</p></article>
+          ? <article className="caregiver-message" key={message.id}><h3>You</h3><p>{message.text}</p>
+              {message.delivery === "pending" && <small>Waiting for guidance…</small>}
+              {message.delivery === "cancelled" && <small role="status">Request cancelled. Stopped waiting for guidance.</small>}
+              {message.delivery === "unconfirmed" && <small>Answer not confirmed. This message is shown locally; reopen the conversation to check saved history.</small>}
+            </article>
           : <GuidanceAnswer key={message.id} message={message} childName={child.name}
               conversationId={message.conversation_id === null ? null : chat.conversationId} />)}
         {!chat.messages.length && <div className="chat-welcome"><h3>What are you doing with your baby today?</h3>
@@ -156,9 +159,11 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
           <div className="composer-actions">
             <MicrophoneControls key={chat.conversationId || "new-chat"} compact onTranscriptChange={setQuestion}
               onCaptureStateChange={setVoiceBusy} disabled={chat.busy} />
-            <button type="submit" className="send-message" aria-label="Get guidance" title="Send message" disabled={chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200}>
+            {chat.generating ? <button type="button" className="send-message" aria-label="Stop waiting" title="Stop waiting" onClick={chat.cancelGeneration}>
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1" /></svg>
+            </button> : <button type="submit" className="send-message" aria-label="Get guidance" title="Send message" disabled={chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5m-6 6 6-6 6 6" /></svg>
-            </button>
+            </button>}
           </div>
           <p className="composer-help" aria-live="polite">{voiceBusy
             ? "Voice input in progress. Your words will appear here for review."

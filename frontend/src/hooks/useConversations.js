@@ -13,6 +13,8 @@ export default function useConversations(childId, onBusyChange) {
   const [moreMessages, setMoreMessages] = useState(false);
   const mounted = useRef(false);
   const locked = useRef(false);
+  const coachingRequest = useRef(null);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     mounted.current = true;
@@ -23,7 +25,7 @@ export default function useConversations(childId, onBusyChange) {
       setMoreConversations(items.length === 30);
     }).catch((cause) => active && setHistoryError(cause.message))
       .finally(() => active && setLoading(false));
-    return () => { active = false; mounted.current = false; window.speechSynthesis?.cancel(); };
+    return () => { active = false; mounted.current = false; coachingRequest.current?.abort(); window.speechSynthesis?.cancel(); };
   }, [childId]);
 
   async function perform(action) {
@@ -54,27 +56,43 @@ export default function useConversations(childId, onBusyChange) {
   }
 
   function submit(question, routine, supportCountry) {
+    if (locked.current) return Promise.resolve(false);
     return perform(async () => {
-      let id = conversationId;
-      if (!id) {
-        const item = await createConversation(childId);
-        if (!mounted.current) return;
-        id = item.id; setConversationId(id); setConversations((items) => [item, ...items]);
-      }
-      const response = await requestCoaching({ child_id: childId, conversation_id: id,
-        question, routine: routine || null, support_country: supportCountry || null });
-      if (!mounted.current) return;
+      const controller = new AbortController();
+      coachingRequest.current = controller;
+      setGenerating(true);
       const localId = crypto.randomUUID();
-      setMessages((items) => [...items,
-        { id: `question-${localId}`, role: "user", text: question },
-        { ...response, id: response.message_id || localId, message_id: response.message_id ?? null,
-          role: "assistant", text: response.answer },
-      ]);
-      setConversations((items) => {
-        const current = items.find((item) => item.id === id);
-        return current ? [{ ...current, title: current.title === "New conversation" ? question.slice(0, 80) : current.title },
-          ...items.filter((item) => item.id !== id)] : items;
-      });
+      const questionId = `question-${localId}`;
+      setMessages((items) => [...items, { id: questionId, role: "user", text: question, delivery: "pending" }]);
+      try {
+        let id = conversationId;
+        if (!id) {
+          const item = await createConversation(childId, { signal: controller.signal });
+          if (!mounted.current) return;
+          id = item.id; setConversationId(id); setConversations((items) => [item, ...items]);
+        }
+        controller.signal.throwIfAborted();
+        const response = await requestCoaching({ child_id: childId, conversation_id: id,
+          question, routine: routine || null, support_country: supportCountry || null }, { signal: controller.signal });
+        if (!mounted.current) return;
+        setMessages((items) => [...items.map((item) => item.id === questionId ? { ...item, delivery: "sent" } : item),
+          { ...response, id: response.message_id || localId, message_id: response.message_id ?? null,
+            role: "assistant", text: response.answer },
+        ]);
+        setConversations((items) => {
+          const current = items.find((item) => item.id === id);
+          return current ? [{ ...current, title: current.title === "New conversation" ? question.slice(0, 80) : current.title },
+            ...items.filter((item) => item.id !== id)] : items;
+        });
+      } catch (cause) {
+        if (mounted.current) setMessages((items) => items.map((item) => item.id === questionId
+          ? { ...item, delivery: controller.signal.aborted ? "cancelled" : "unconfirmed" } : item));
+        if (controller.signal.aborted) throw new Error("Request cancelled in this browser. The server may still save an answer; reopen the conversation before sending again.", { cause });
+        throw cause;
+      } finally {
+        coachingRequest.current = null;
+        if (mounted.current) setGenerating(false);
+      }
     });
   }
 
@@ -112,6 +130,14 @@ export default function useConversations(childId, onBusyChange) {
     });
   }
 
-  return { conversations, conversationId, messages, busy, loading, error, historyError,
+  function cancelGeneration() {
+    if (!coachingRequest.current || coachingRequest.current.signal.aborted) return;
+    setMessages((items) => items.map((item) => item.delivery === "pending"
+      ? { ...item, delivery: "cancelled" } : item));
+    coachingRequest.current.abort();
+  }
+
+  return { conversations, conversationId, messages, busy, generating,
+    cancelGeneration, loading, error, historyError,
     moreConversations, moreMessages, newChat, open, submit, remove, loadOlderMessages, loadOlderConversations };
 }
