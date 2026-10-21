@@ -1,15 +1,18 @@
 // calls services/api.js so app.jsx can share backend-verified access status across screens.
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getCurrentAccount } from "../services/api";
 
 // only show verified after the backend accepts the current email and mfa session.
 export default function useAccountAccess(user) {
   const [result, setResult] = useState({ user: null, verified: false, error: "" });
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
 
   useEffect(() => {
     if (!user) return;
     let active = true;
     let controller;
+    let accessConfirmed = false;
 
     async function check() {
       controller?.abort();
@@ -18,21 +21,21 @@ export default function useAccountAccess(user) {
       const timer = setTimeout(() => {
         request.abort();
         if (active && controller === request) {
-          setResult({ user, verified: false, error: "Could not verify access right now. Return to this window to check again." });
+          setResult({ user, attempt, verified: false, status: "unavailable", error: "Unable to connect. Please retry." });
         }
-      }, 15000);
+      }, 5000);
       try {
         await getCurrentAccount(request.signal);
         if (active && controller === request && !request.signal.aborted) {
-          setResult({ user, verified: true, error: "" });
+          accessConfirmed = true;
+          setResult({ user, attempt, verified: true, status: "verified", error: "" });
         }
       } catch (cause) {
-        if (active && controller === request) {
+        if (active && controller === request && !request.signal.aborted) {
+          const status = cause.accessStatus === "verification_required" ? "verification_required" : "unavailable";
           setResult({
-            user, verified: false,
-            error: request.signal.aborted
-              ? "Could not verify access right now. Return to this window to check again."
-              : cause.message || "Could not verify account access.",
+            user, attempt, verified: false, status,
+            error: status === "verification_required" ? cause.message : "Unable to connect. Please retry.",
           });
         }
       } finally {
@@ -41,16 +44,17 @@ export default function useAccountAccess(user) {
     }
 
     void check();
-    // returning from email verification or account setup refreshes the badge.
-    window.addEventListener("focus", check);
+    // Retry unfinished setup on focus, but reuse confirmed access in this session.
+    const checkUnconfirmedAccess = () => { if (!accessConfirmed) void check(); };
+    window.addEventListener("focus", checkUnconfirmedAccess);
     return () => {
       active = false;
       controller?.abort();
-      window.removeEventListener("focus", check);
+      window.removeEventListener("focus", checkUnconfirmedAccess);
     };
-  }, [user]);
+  }, [user, attempt]);
 
   if (!user) return { verified: false, checking: false, error: "" };
-  if (result.user !== user) return { verified: false, checking: true, error: "" };
-  return { verified: result.verified, checking: false, error: result.error };
+  if (result.user !== user || result.attempt !== attempt) return { verified: false, checking: true, status: "checking", error: "", retry };
+  return { verified: result.verified, checking: false, status: result.status, error: result.error, retry };
 }

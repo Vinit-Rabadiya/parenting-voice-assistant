@@ -14,6 +14,7 @@ function MainContent() {
   const { user, checkingAuth, signupResult, setSignupResult } = useAuth();
   const [screen, setScreen] = useState("home");
   const [previousUserId, setPreviousUserId] = useState(user?.uid ?? null);
+  const [dataRevision, setDataRevision] = useState(0);
   const accountAccess = useAccountAccess(user);
 
   // wait for firebase to finish checking who is signed in.
@@ -44,6 +45,15 @@ function MainContent() {
     return null;
   }
 
+  if (user && (accountAccess.checking || accountAccess.status === "unavailable")) {
+    return <div className="access-loading-screen">
+      {accountAccess.checking ? <div role="status" aria-label="Loading">
+        <span className="access-spinner" aria-hidden="true" /><span className="visually-hidden">Loading…</span>
+      </div> : <><p role="status">Unable to connect.</p>
+        <button type="button" onClick={accountAccess.retry}>Retry connection</button></>}
+    </div>;
+  }
+
   return (
     <>
       <Navbar
@@ -53,20 +63,22 @@ function MainContent() {
         onHome={() => setScreen("home")}
         onLogin={() => setScreen("login")}
         onSignup={() => setScreen("signup")}
-        onAccount={() => setScreen("account")}
+        onAccount={() => { window.speechSynthesis?.cancel(); setScreen("account"); }}
       />
-      {screen === "home" ? (
-      <main className="landing-shell">
+      {(user || screen === "home") && (
+      <main className="landing-shell" hidden={screen !== "home"} key={`workspace-${userId}-${dataRevision}`}>
         <LandingPage
           isAuthenticated={Boolean(user)}
           userId={user?.uid}
           accountAccess={accountAccess}
+          isActive={screen === "home"}
           onLogin={() => setScreen("login")}
         />
       </main>
-      ) : (
-    <main>
-      <button type="button" onClick={() => setScreen("home")}>
+      )}
+      {screen !== "home" && (
+    <main className={user ? "account-shell" : undefined}>
+      <button className={user ? "account-back" : undefined} type="button" onClick={() => setScreen("home")}>
         Back to home
       </button>
       {/* show account page if signed in, otherwise show auth page. */}
@@ -76,6 +88,7 @@ function MainContent() {
           key={`account-${user.uid}`}
           email={user.email}
           accountAccess={accountAccess}
+          onDataDeleted={() => setDataRevision((value) => value + 1)}
           // pass email status only if it belongs to this user.
           verificationEmailRequested={
             signupResult?.user.uid === user.uid

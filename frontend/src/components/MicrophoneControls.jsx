@@ -19,6 +19,7 @@ export default function MicrophoneControls({ onTranscriptChange, compact = false
   useEffect(() => {
     onCaptureStateChange?.(capturing || transcribing);
   }, [capturing, transcribing, onCaptureStateChange]);
+  useEffect(() => () => onCaptureStateChange?.(false), [onCaptureStateChange]);
   const buttonBusy = (capturing && !recordingNow) || transcribing;
   const buttonLabel = status === "requesting" ? "Waiting for microphone…"
     : status === "stopping" ? "Stopping recording…"

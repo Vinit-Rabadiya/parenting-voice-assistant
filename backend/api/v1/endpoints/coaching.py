@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service
 from backend.core.security import require_authenticated_user
+from backend.api.consent import require_processing_consent
 from backend.schemas.coaching import CoachingRequest, CoachingResponse, CitationSchema, FeedbackRequest, FeedbackResponse
 from backend.services.caregiver_data import CaregiverDataService
 from backend.services.coaching import CoachingResult, CoachingService, generation_request_id
@@ -71,7 +72,7 @@ def timed_stage(request_id: str, stage: str):
         )
 
 
-@router.post("", response_model=CoachingResponse)
+@router.post("", response_model=CoachingResponse, dependencies=[Depends(require_processing_consent)])
 async def coach(
     payload: CoachingRequest,
     user: dict = Depends(require_authenticated_user),
@@ -244,7 +245,7 @@ async def coach(
     return response
 
 
-@router.post("/{interaction_id}/feedback", response_model=FeedbackResponse)
+@router.post("/{interaction_id}/feedback", response_model=FeedbackResponse, dependencies=[Depends(require_processing_consent)])
 async def feedback(
     interaction_id: Annotated[str, Path(min_length=1, max_length=128, pattern=r"^[^/]+$")],
     payload: FeedbackRequest,

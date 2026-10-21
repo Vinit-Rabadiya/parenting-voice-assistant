@@ -54,10 +54,10 @@ main.landing-shell {
 .feedback button { margin-right: 8px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 /* Signed-in coaching uses a sidebar and a single conversation surface. */
-#root:has(.landing-page--chat) { width: 100%; max-width: none; height: 100dvh; min-height: 0; margin: 0; border: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
-body:has(.landing-page--chat) { overflow: hidden; }
-#root:has(.landing-page--chat) .site-navbar { padding: 10px 20px; }
-main.landing-shell:has(.landing-page--chat) { width: 100%; max-width: none; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+#root:has(main.landing-shell:not([hidden]) .landing-page--chat) { width: 100%; max-width: none; height: 100dvh; min-height: 0; margin: 0; border: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+body:has(main.landing-shell:not([hidden]) .landing-page--chat) { overflow: hidden; }
+#root:has(main.landing-shell:not([hidden]) .landing-page--chat) .site-navbar { padding: 10px 20px; }
+main.landing-shell:not([hidden]):has(.landing-page--chat) { width: 100%; max-width: none; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
 .landing-page--chat { display: flex; flex: 1; flex-direction: column; min-height: 0; gap: 0; }
 .landing-page--chat .landing-intro { display: none; }
 .landing-page--chat .landing-voice { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0; border: 0; border-radius: 0; background: var(--bg); }
@@ -139,7 +139,7 @@ main.landing-shell:has(.landing-page--chat) { width: 100%; max-width: none; min-
   .chat-main--empty .chat-stage { padding-bottom: 5dvh; }
   .chat-composer form { grid-template-columns: 36px minmax(0, 1fr) auto; gap: 0 4px; padding: 6px; }
   .composer-help { text-align: left; padding: 4px 8px; }
-  #root:has(.landing-page--chat) .site-navbar { padding: 8px 12px; }
+  #root:has(main.landing-shell:not([hidden]) .landing-page--chat) .site-navbar { padding: 8px 12px; }
 }
 .optional-milestones { display: grid; gap: 12px; min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--accent-border); border-radius: 10px; background: var(--accent-bg); }
 .optional-milestones legend { padding: 0 6px; color: var(--text-h); font-size: 14px; font-weight: 600; }

@@ -327,8 +327,41 @@ generation. The conversation privacy disclosure explains that application histor
 is retained until the conversation, child profile, or account is deleted.
 This is not a claim about third-party
 provider or backup retention. Account deletion is available in account settings.
-Consent tracking and broader privacy requirements remain outstanding; use
-fictitious profiles for evaluation.
+Before new processing, the interface displays a versioned notice and requires
+explicit acceptance and confirmation of caregiver authority. The backend records
+`consent_version`, server-generated `consent_at`, and `caregiver_authority` on
+`users/{uid}`. Existing accounts without a current record must also accept; no
+consent is inferred from previously stored profiles.
+
+Authenticated `GET /privacy/consent` returns the current notice and acceptance
+status. `POST /privacy/consent` accepts only the current version with both explicit
+confirmations. The backend checks consent before profile creation/updates, new
+conversations, coaching, feedback, and transcription. A missing or outdated record
+does not block existing-data reads, deletion, or account settings. The notice
+offers a read-only history view without acceptance.
+
+Child names and dates of birth are retained for profile identification and
+age-aware guidance; profile photos are not collected. Consent withdrawal controls
+and broader privacy requirements still need separate work;
+this flow alone does not establish legal compliance. Use fictitious profiles for
+evaluation. Change the notice version when its processing terms change so an old
+acceptance cannot silently authorise new terms.
+
+Within the same open signed-in session, account navigation preserves the chat
+workspace, selected conversation, draft, and loaded consent state in memory.
+Recording and spoken playback stop when leaving chat. Confirmed account access
+is not rechecked merely on window focus. Reloading the app or changing accounts
+revalidates access; backend authentication and consent checks still apply to each
+protected request. Data deletion resets the retained workspace and consent state.
+
+Account settings offer separate **Delete my data** and **Delete my account**
+actions. Authenticated `DELETE /me/data` removes application data, including child
+profiles, conversations, feedback, legacy interactions, and the consent record,
+while retaining the login account. Consent must be accepted again before new
+processing. `DELETE /me` also deletes the login account. Both actions require a
+sign-in completed within the last five minutes and remain available without
+consent. Deletion affects application storage, not third-party provider records
+or backup copies.
 
 Coaching requests have a 60-second browser wait limit and a **Stop waiting**
 control in place of the Send arrow. Submitted messages appear immediately in the

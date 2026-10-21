@@ -9,8 +9,8 @@ import {
   getAccountSecurityStatus,
 } from "../services/auth";
 import QRCode from "qrcode";
-import { deleteAccount } from "../services/caregiving";
-function AccountPage({ verificationEmailRequested, email, accountAccess }) {
+import { deleteAccount, deleteMyData } from "../services/caregiving";
+function AccountPage({ verificationEmailRequested, email, accountAccess, onDataDeleted }) {
   const { logout } = useAuth();
   // remember this screen's progress, messages, and account setup details.
   const [busy, setBusy] = useState(false);
@@ -23,6 +23,23 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
   const [enrollmentCode, setEnrollmentCode] = useState("");
   // null means authenticator enrollment has not been checked yet.
   const [enrollmentComplete, setEnrollmentComplete] = useState(null);
+  const [dataDeleted, setDataDeleted] = useState(false);
+
+  async function handleDeleteData() {
+    if (busy || dataDeleted) return;
+    if (!window.confirm("Permanently delete all saved child profiles, chats, feedback, and privacy consent? Your login account will remain. This cannot be undone.")) return;
+    setBusy(true); setMessage("");
+    try {
+      await deleteMyData();
+      window.speechSynthesis?.cancel();
+      setDataDeleted(true);
+      onDataDeleted?.();
+      setMessage("Your saved app data was deleted. Your account is still active. Review the privacy notice again before adding profiles or requesting guidance.");
+    } catch (error) {
+      onDataDeleted?.();
+      setMessage(error.message || "Data deletion could not finish. Please try again.");
+    } finally { setBusy(false); }
+  }
 
   async function handleDeleteAccount() {
     if (busy) return;
@@ -219,18 +236,28 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
 
   // wait for the first account check before showing setup buttons.
   if (checkingStatus) {
-    return <p role="status">Checking email verification…</p>;
+    return <p className="account-initial-loading" role="status">Loading account…</p>;
   }
 
   return (
-    <section>
-      <h1>{emailVerified ? "Your account" : "Verify your email"}</h1>
-      <p>Account Email: {email}</p>
-      {accountAccess && <p role="status">
+    <section className="account-page" aria-labelledby="account-page-title">
+      <header className="account-page-heading">
+        <p className="account-eyebrow">ACCOUNT SETTINGS</p>
+        <h1 id="account-page-title">{emailVerified ? "Your account" : "Verify your email"}</h1>
+        <p>Manage your sign-in security and saved information.</p>
+      </header>
+      <div className="account-identity-card">
+        <span className="account-avatar" aria-hidden="true">{email?.charAt(0).toUpperCase() || "A"}</span>
+        <div className="account-identity-details"><span className="account-field-label">Email address</span><p>{email}</p></div>
+      {accountAccess && <p className={`account-status${accountAccess.verified ? " account-status--verified" : ""}`} role="status">
         {accountAccess.checking ? "Checking verification…" : accountAccess.verified ? "Verified" : accountAccess.error}
       </p>}
+      </div>
+      <section className="account-card" aria-labelledby="account-security-title">
+        <div className="account-card-heading"><h2 id="account-security-title">Sign-in security</h2>
+          <p>Keep your account protected with email verification and an authenticator.</p></div>
       {emailVerified ? (
-        <div>
+        <div className="account-security-content">
           {!accountAccess?.verified && <p>Email verified.</p>}
 
           {/* show the saved authenticator status, the setup form, or the setup button. */}
@@ -239,7 +266,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
                {accountAccess?.verified ? "Authenticator enabled." : "Authenticator enrolled. Log out and sign in with your authenticator code to complete verification."}
             </p>
           ) : pendingEnrollment ? (
-            <form onSubmit={handleConfirmEnrollment}>
+            <form className="account-enrollment" onSubmit={handleConfirmEnrollment}>
               <p>
                 Scan this QR code with your authenticator app, then enter its
                 six-digit code below. If you cannot scan it, use the setup key
@@ -302,7 +329,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
           )}
         </div>
       ) : (
-        <div>
+        <div className="account-security-content">
           {/* After a reload, the previous email-request status may be unknown. */}
           {verificationEmailRequested === true ? (
             <p>Check your inbox and spam folder for the verification link.</p>
@@ -335,16 +362,26 @@ function AccountPage({ verificationEmailRequested, email, accountAccess }) {
           ) : null}
         </div>
       )}
-      <p role="status">{message}</p>
-      {/* allow logout whether or not the email is verified. */}
-      <button type="button" disabled={busy} onClick={handleLogOut}>
-        Log Out
-      </button>
-      {accountAccess?.verified && <div className="account-deletion">
-        <h2>Delete account</h2>
+      </section>
+      <p className="account-feedback" role="status">{message}</p>
+      <section className="account-card account-session" aria-labelledby="account-session-title">
+        <div><h2 id="account-session-title">Current session</h2><p>Sign out on shared devices to keep your information private.</p></div>
+        <button type="button" disabled={busy} onClick={handleLogOut}>Log Out</button>
+      </section>
+      {accountAccess?.verified && <section className="account-card account-data" aria-labelledby="account-data-title">
+        <div className="account-card-heading"><h2 id="account-data-title">Data and account</h2>
+          <p>These actions permanently remove information and cannot be undone.</p></div>
+        <div className="account-data-row"><div><h3>Delete saved data</h3>
+        <p>Remove all saved child profiles, chats, feedback, and privacy consent. Keep your login account.</p>
+        </div>
+        <button className="delete-action" type="button" disabled={busy || dataDeleted} onClick={handleDeleteData}>Delete my data</button>
+        </div>
+        <div className="account-data-row"><div><h3>Delete account</h3>
         <p>Permanently remove your account, child profiles, saved questions, answers, and feedback.</p>
+        </div>
         <button className="delete-action" type="button" disabled={busy} onClick={handleDeleteAccount}>Delete my account</button>
-      </div>}
+        </div>
+      </section>}
     </section>
   );
 }

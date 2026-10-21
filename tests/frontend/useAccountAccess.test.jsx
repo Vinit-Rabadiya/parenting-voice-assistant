@@ -20,7 +20,7 @@ it("checks automatically and marks verified only after server approval", async (
 });
 
 it("reports rejected access and retries automatically when returning to the window", async () => {
-  getCurrentAccount.mockRejectedValueOnce(new Error("Complete authenticator login first."))
+  getCurrentAccount.mockRejectedValueOnce(Object.assign(new Error("Complete authenticator login first."), { accessStatus: "verification_required" }))
     .mockResolvedValueOnce({ uid: "one" });
   const user = { uid: "one" };
   const { result } = renderHook(() => useAccountAccess(user));
@@ -48,15 +48,39 @@ it("does not check signed-out visitors", () => {
   expect(getCurrentAccount).not.toHaveBeenCalled();
 });
 
+it("does not repeat confirmed access checks when the window regains focus", async () => {
+  getCurrentAccount.mockResolvedValue({ uid: "one" });
+  const user = { uid: "one" };
+  const { result } = renderHook(() => useAccountAccess(user));
+  await waitFor(() => expect(result.current.verified).toBe(true));
+  await act(async () => {
+    window.dispatchEvent(new Event("focus"));
+    window.dispatchEvent(new Event("focus"));
+  });
+  expect(getCurrentAccount).toHaveBeenCalledTimes(1);
+});
+
 it("times out even if the pending operation ignores cancellation", async () => {
   vi.useFakeTimers();
   let approve;
   getCurrentAccount.mockReturnValue(new Promise((resolve) => { approve = resolve; }));
   const user = { uid: "one" };
   const { result } = renderHook(() => useAccountAccess(user));
-  await act(async () => { vi.advanceTimersByTime(15000); });
+  await act(async () => { vi.advanceTimersByTime(5000); });
   expect(result.current.checking).toBe(false);
-  expect(result.current.error).toContain("Could not verify");
+  expect(result.current.error).toBe("Unable to connect. Please retry.");
+  expect(result.current.status).toBe("unavailable");
   await act(async () => { approve({ uid: "one" }); });
   expect(result.current.verified).toBe(false);
+});
+
+it("distinguishes a connection failure from account verification and supports retry", async () => {
+  getCurrentAccount.mockRejectedValueOnce(new TypeError("Failed to fetch"))
+    .mockResolvedValueOnce({ uid: "one" });
+  const user = { uid: "one" };
+  const { result } = renderHook(() => useAccountAccess(user));
+  await waitFor(() => expect(result.current.status).toBe("unavailable"));
+  expect(result.current.error).not.toContain("Failed to fetch");
+  await act(async () => { result.current.retry(); });
+  await waitFor(() => expect(result.current.verified).toBe(true));
 });

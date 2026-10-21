@@ -17,6 +17,15 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); });
 
+it("clears the capture-busy state when controls leave the active chat", () => {
+  microphone.status = "recording";
+  const onCaptureStateChange = vi.fn();
+  const view = render(<MicrophoneControls compact onCaptureStateChange={onCaptureStateChange} />);
+  expect(onCaptureStateChange).toHaveBeenLastCalledWith(true);
+  view.unmount();
+  expect(onCaptureStateChange).toHaveBeenLastCalledWith(false);
+});
+
 it("passes compact-mode transcription to the message field without a second textarea", async () => {
   const onTranscriptChange = vi.fn();
   transcribeAudio.mockResolvedValue({ text: "I am feeding my baby.", audio_seconds: 1, processing_seconds: 0.2 });

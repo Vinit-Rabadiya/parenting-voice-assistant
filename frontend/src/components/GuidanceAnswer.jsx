@@ -1,13 +1,13 @@
 import { useId, useState } from "react";
 import { sendFeedback } from "../services/caregiving";
 
-export default function GuidanceAnswer({ message, childName, conversationId }) {
+export default function GuidanceAnswer({ message, childName, conversationId, allowFeedback = true }) {
   const headingId = useId();
   const commentId = useId();
   const result = { ...message, answer: message.text,
     processing_seconds: message.processing_seconds ?? 0, citations: message.citations || [] };
   const messageId = message.message_id === null ? null : message.message_id || message.id;
-  const targetId = message.interaction_id || (conversationId && messageId);
+  const targetId = allowFeedback && (message.interaction_id || (conversationId && messageId));
   const [feedbackStatus, setFeedbackStatus] = useState(message.feedback ? "Feedback saved." : "");
   const [feedbackComment, setFeedbackComment] = useState(message.feedback?.comment || "");
   const [saving, setSaving] = useState(false);

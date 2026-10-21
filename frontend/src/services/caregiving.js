@@ -16,13 +16,24 @@ async function request(path, options = {}) {
   const body = await response.json().catch(() => ({}));
   options.signal?.throwIfAborted();
   if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
-  if (!response.ok) throw new Error(body.detail || "The request could not be completed.");
+  if (!response.ok) {
+    if (response.headers?.get("X-Consent-Required") === "true") {
+      window.dispatchEvent(new Event("privacy-consent-required"));
+    }
+    throw new Error(body.detail || "The request could not be completed.");
+  }
   return body;
 }
 
 export const listChildren = () => request("/children");
+export const getPrivacyConsent = (signal) => request("/privacy/consent", { signal });
+export const acceptPrivacyConsent = (version, signal) => request("/privacy/consent", {
+  method: "POST", signal,
+  body: JSON.stringify({ version, accepted: true, caregiver_authority: true }),
+});
 export const deleteChild = (id) => request(`/children/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const deleteAccount = () => request("/me", { method: "DELETE" });
+export const deleteMyData = () => request("/me/data", { method: "DELETE" });
 export const createChild = (child) => request("/children", { method: "POST", body: JSON.stringify(child) });
 export const updateChild = (id, child) => request(`/children/${id}`, { method: "PATCH", body: JSON.stringify(child) });
 export async function requestCoaching(payload, { signal, timeoutMs = 60000 } = {}) {

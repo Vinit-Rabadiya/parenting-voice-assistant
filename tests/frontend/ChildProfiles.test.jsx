@@ -40,6 +40,22 @@ async function openPicker() {
   return trigger;
 }
 
+it("allows viewing and deleting a profile while changes require consent", async () => {
+  const onSelect = vi.fn();
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  deleteChild.mockResolvedValue(undefined);
+  render(<ChildProfiles selectedChild={child} onSelect={onSelect} allowChanges={false} />);
+  await openPicker();
+  expect(screen.queryByRole("button", { name: /Add child/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Edit child profile" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "View child details" }));
+  expect(screen.queryByRole("button", { name: "Edit child profile" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Delete child profile" }));
+  await waitFor(() => expect(deleteChild).toHaveBeenCalledWith(child.id));
+  expect(createChild).not.toHaveBeenCalled();
+  expect(updateChild).not.toHaveBeenCalled();
+});
+
 it("switches children from a floating picker without opening a form", async () => {
   const onSelect = vi.fn();
   render(<ChildProfiles selectedChild={child} onSelect={onSelect} />);

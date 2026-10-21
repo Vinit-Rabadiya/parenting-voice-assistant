@@ -48,8 +48,16 @@ def mock_firebase_app():
 def client(mock_firebase_app):
     """Provides a FastAPI TestClient fixture configured with mocked application lifespan."""
     from backend.main import app
+    from backend.api.consent import require_processing_consent
 
-    # replace speech initialization before the test client starts the app.
-    with patch("backend.main.SpeechService"):
-        with TestClient(app) as test_client:
-            yield test_client
+    # Existing feature tests assume consent is already granted. Consent tests
+    # explicitly remove this override to exercise the actual access policy.
+    overrides = app.dependency_overrides.copy()
+    app.dependency_overrides[require_processing_consent] = lambda: None
+    try:
+        with patch("backend.main.SpeechService"):
+            with TestClient(app) as test_client:
+                yield test_client
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(overrides)

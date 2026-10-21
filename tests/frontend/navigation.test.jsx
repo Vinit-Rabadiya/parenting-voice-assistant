@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import App from "../../frontend/src/App";
 
 const { state, microphoneMounted, microphoneReleased } = vi.hoisted(() => ({
-  state: { user: null, checkingAuth: false, signupResult: null, setSignupResult: vi.fn() },
+  state: { user: null, checkingAuth: false, signupResult: null, setSignupResult: vi.fn(), accessOverride: null },
   microphoneMounted: vi.fn(), microphoneReleased: vi.fn(),
 }));
 
@@ -12,14 +12,16 @@ const { state, microphoneMounted, microphoneReleased } = vi.hoisted(() => ({
 vi.mock("../../frontend/src/context/AuthProvider", () => ({ AuthProvider: ({ children }) => children }));
 vi.mock("../../frontend/src/hooks/useAuth", () => ({ useAuth: () => state }));
 vi.mock("../../frontend/src/hooks/useAccountAccess", () => ({
-  default: () => ({ verified: Boolean(state.user?.emailVerified), checking: false, error: "" }),
+  default: () => state.accessOverride || ({ verified: Boolean(state.user?.emailVerified), checking: false, error: "" }),
 }));
 vi.mock("../../frontend/src/services/auth", () => ({ completeTotpSignIn: vi.fn() }));
 vi.mock("../../frontend/src/components/LoginForm", () => ({ default: () => <div>Login form</div> }));
 vi.mock("../../frontend/src/components/SignUpForm", () => ({ default: () => <div>Signup form</div> }));
 vi.mock("../../frontend/src/components/GoogleSignInButton", () => ({ default: () => <button>Google sign in</button> }));
-vi.mock("../../frontend/src/pages/AccountPage", () => ({ default: ({ email, verificationEmailRequested }) => (
-  <div>Account: {email}. Verification requested: {String(verificationEmailRequested)}</div>
+vi.mock("../../frontend/src/pages/AccountPage", () => ({ default: ({ email, verificationEmailRequested, onDataDeleted }) => (
+  <div>Account: {email}. Verification requested: {String(verificationEmailRequested)}
+    <button onClick={onDataDeleted}>Simulate saved data deletion</button>
+  </div>
 ) }));
 vi.mock("../../frontend/src/components/MicrophoneControls", () => ({ default: function FakeMicrophone() {
   useEffect(() => {
@@ -29,19 +31,44 @@ vi.mock("../../frontend/src/components/MicrophoneControls", () => ({ default: fu
   return <button>Start recording</button>;
 } }));
 vi.mock("../../frontend/src/components/GuidanceWorkspace", () => ({ default: function FakeGuidanceWorkspace() {
+  const [draft, setDraft] = useState("");
   useEffect(() => {
     microphoneMounted();
     return () => microphoneReleased();
   }, []);
-  return <button>Start recording</button>;
+  return <><button>Start recording</button><input aria-label="Test chat draft" value={draft} onChange={(event) => setDraft(event.target.value)} /></>;
 } }));
 
 beforeEach(() => {
   state.user = null;
   state.checkingAuth = false;
   state.signupResult = null;
+  state.accessOverride = null;
 });
 afterEach(() => cleanup());
+
+it("shows only loading while backend access is being checked", () => {
+  state.user = { uid: "one", emailVerified: true };
+  state.accessOverride = { verified: false, checking: true, status: "checking" };
+  render(<App />);
+  expect(screen.getByRole("status", { name: "Loading" })).toBeTruthy();
+  expect(screen.queryByRole("banner")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Start recording" })).toBeNull();
+  expect(microphoneMounted).not.toHaveBeenCalled();
+});
+
+it("keeps the workspace hidden after a failed connection and offers retry", () => {
+  const retry = vi.fn();
+  state.user = { uid: "one", emailVerified: true };
+  state.accessOverride = { verified: false, checking: false, status: "unavailable", retry };
+  render(<App />);
+  expect(screen.getByText("Unable to connect.")).toBeTruthy();
+  expect(screen.queryByText("Verification required")).toBeNull();
+  expect(screen.queryByRole("banner")).toBeNull();
+  expect(microphoneMounted).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
+  expect(retry).toHaveBeenCalledTimes(1);
+});
 
 // visitors see the voice entry point without mounting microphone resources.
 it("opens login from the guest microphone action and returns home", () => {
@@ -67,30 +94,44 @@ it("opens signup and login with fresh form selection", () => {
   expect(screen.getByText("Login form")).toBeTruthy();
 });
 
-// leaving the signed-in voice view unmounts recording and triggers its cleanup.
-it("navigates to account and back without duplicate microphone instances", () => {
-  state.user = { uid: "caregiver", email: "caregiver@example.test" };
+// Account navigation keeps the workspace mounted; capture cleanup is tested separately.
+it("preserves the workspace and draft across account navigation", () => {
+  state.user = { uid: "caregiver", email: "caregiver@example.test", emailVerified: true };
   render(<App />);
   expect(screen.getAllByRole("button", { name: "Start recording" })).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText("Test chat draft"), { target: { value: "Unsent message" } });
   fireEvent.click(screen.getByRole("button", { name: "My Account" }));
   expect(screen.getByText(/Account: caregiver@example.test/)).toBeTruthy();
-  expect(microphoneReleased).toHaveBeenCalledTimes(1);
+  expect(microphoneReleased).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Start recording" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Back to home" }));
   expect(screen.getByRole("button", { name: "Start recording" })).toBeTruthy();
-  expect(microphoneMounted).toHaveBeenCalledTimes(2);
+  expect(microphoneMounted).toHaveBeenCalledTimes(1);
+  expect(screen.getByLabelText("Test chat draft").value).toBe("Unsent message");
 });
 
 // account changes replace the recording owner and logout restores the guest view.
 it("cleans up on account replacement and logout", () => {
-  state.user = { uid: "first", email: "first@example.test" };
+  state.user = { uid: "first", email: "first@example.test", emailVerified: true };
   const { rerender } = render(<App />);
-  state.user = { uid: "second", email: "second@example.test" };
+  state.user = { uid: "second", email: "second@example.test", emailVerified: true };
   rerender(<App />);
   expect(microphoneReleased).toHaveBeenCalledTimes(1);
   state.user = null;
   rerender(<App />);
   expect(microphoneReleased).toHaveBeenCalledTimes(2);
   expect(screen.getByRole("button", { name: "Log in to use microphone" })).toBeTruthy();
+});
+
+it("clears the retained workspace after saved-data deletion", () => {
+  state.user = { uid: "caregiver", emailVerified: true };
+  render(<App />);
+  fireEvent.change(screen.getByLabelText("Test chat draft"), { target: { value: "Private draft" } });
+  fireEvent.click(screen.getByRole("button", { name: "My Account" }));
+  fireEvent.click(screen.getByRole("button", { name: "Simulate saved data deletion" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back to home" }));
+  expect(screen.getByLabelText("Test chat draft").value).toBe("");
+  expect(microphoneReleased).toHaveBeenCalledTimes(1);
 });
 
 // registration still reaches account onboarding rather than bypassing verification.

@@ -7,6 +7,7 @@ from google.api_core.exceptions import FailedPrecondition
 
 from backend.api.dependencies import get_caregiver_data_service
 from backend.core.security import require_authenticated_user
+from backend.api.consent import require_processing_consent
 from backend.schemas.conversations import (
     ConversationCreateRequest,
     ConversationDetailResponse,
@@ -20,7 +21,7 @@ DocumentId = Annotated[str, Path(min_length=1, max_length=128, pattern=r"^[^/]+$
 CursorId = Annotated[str | None, Query(min_length=1, max_length=128, pattern=r"^[^/]+$")]
 
 
-@router.post("", response_model=ConversationResponse, status_code=201)
+@router.post("", response_model=ConversationResponse, status_code=201, dependencies=[Depends(require_processing_consent)])
 def create_conversation(
     payload: ConversationCreateRequest,
     user: dict = Depends(require_authenticated_user),
