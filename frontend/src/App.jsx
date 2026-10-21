@@ -44,6 +44,15 @@ function MainContent() {
     return null;
   }
 
+  if (user && (accountAccess.checking || accountAccess.status === "unavailable")) {
+    return <div className="access-loading-screen">
+      {accountAccess.checking ? <div role="status" aria-label="Loading">
+        <span className="access-spinner" aria-hidden="true" /><span className="visually-hidden">Loading…</span>
+      </div> : <><p role="status">Unable to connect.</p>
+        <button type="button" onClick={accountAccess.retry}>Retry connection</button></>}
+    </div>;
+  }
+
   return (
     <>
       <Navbar

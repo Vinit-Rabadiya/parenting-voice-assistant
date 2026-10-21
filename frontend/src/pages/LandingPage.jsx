@@ -20,7 +20,7 @@ export default function LandingPage({ isAuthenticated, userId, accountAccess, on
             </p>
           )}
           {/* a changed user key clears private child and question state from the prior account. */}
-          <GuidanceWorkspace key={`guidance-${userId}`} />
+          {accountAccess?.verified && <GuidanceWorkspace key={`guidance-${userId}`} />}
         </div>
       ) : (
         <section className="landing-voice landing-sign-in" aria-labelledby="voice-entry-title">

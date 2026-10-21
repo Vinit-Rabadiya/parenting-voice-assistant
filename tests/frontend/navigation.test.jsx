@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import App from "../../frontend/src/App";
 
 const { state, microphoneMounted, microphoneReleased } = vi.hoisted(() => ({
-  state: { user: null, checkingAuth: false, signupResult: null, setSignupResult: vi.fn() },
+  state: { user: null, checkingAuth: false, signupResult: null, setSignupResult: vi.fn(), accessOverride: null },
   microphoneMounted: vi.fn(), microphoneReleased: vi.fn(),
 }));
 
@@ -12,7 +12,7 @@ const { state, microphoneMounted, microphoneReleased } = vi.hoisted(() => ({
 vi.mock("../../frontend/src/context/AuthProvider", () => ({ AuthProvider: ({ children }) => children }));
 vi.mock("../../frontend/src/hooks/useAuth", () => ({ useAuth: () => state }));
 vi.mock("../../frontend/src/hooks/useAccountAccess", () => ({
-  default: () => ({ verified: Boolean(state.user?.emailVerified), checking: false, error: "" }),
+  default: () => state.accessOverride || ({ verified: Boolean(state.user?.emailVerified), checking: false, error: "" }),
 }));
 vi.mock("../../frontend/src/services/auth", () => ({ completeTotpSignIn: vi.fn() }));
 vi.mock("../../frontend/src/components/LoginForm", () => ({ default: () => <div>Login form</div> }));
@@ -40,8 +40,32 @@ beforeEach(() => {
   state.user = null;
   state.checkingAuth = false;
   state.signupResult = null;
+  state.accessOverride = null;
 });
 afterEach(() => cleanup());
+
+it("shows only loading while backend access is being checked", () => {
+  state.user = { uid: "one", emailVerified: true };
+  state.accessOverride = { verified: false, checking: true, status: "checking" };
+  render(<App />);
+  expect(screen.getByRole("status", { name: "Loading" })).toBeTruthy();
+  expect(screen.queryByRole("banner")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Start recording" })).toBeNull();
+  expect(microphoneMounted).not.toHaveBeenCalled();
+});
+
+it("keeps the workspace hidden after a failed connection and offers retry", () => {
+  const retry = vi.fn();
+  state.user = { uid: "one", emailVerified: true };
+  state.accessOverride = { verified: false, checking: false, status: "unavailable", retry };
+  render(<App />);
+  expect(screen.getByText("Unable to connect.")).toBeTruthy();
+  expect(screen.queryByText("Verification required")).toBeNull();
+  expect(screen.queryByRole("banner")).toBeNull();
+  expect(microphoneMounted).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
+  expect(retry).toHaveBeenCalledTimes(1);
+});
 
 // visitors see the voice entry point without mounting microphone resources.
 it("opens login from the guest microphone action and returns home", () => {

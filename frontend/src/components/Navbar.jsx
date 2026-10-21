@@ -11,7 +11,8 @@ export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, o
             <div className="navbar-identity">
               <span className="navbar-name">{displayName || "Your account"}</span>
               <span className={`navbar-verification${accountAccess?.verified ? " is-verified" : ""}`}>
-                {accountAccess?.checking ? "Checking verification…" : accountAccess?.verified ? "Verified" : "Verification required"}
+                {accountAccess?.checking ? "Loading…" : accountAccess?.verified ? "Verified"
+                  : accountAccess?.status === "unavailable" ? "Service unavailable" : "Verification required"}
               </span>
             </div>
             <button type="button" onClick={onAccount}>My Account</button>
