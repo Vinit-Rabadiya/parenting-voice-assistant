@@ -34,6 +34,12 @@ AGE_CLAIM = re.compile(
 )
 NUMBERED_CITATION = re.compile(r"\[(\d+)\]")
 WEB_LINK = re.compile(r"https?://|www\.", re.I)
+CHILD_VIOLENCE = re.compile(r"\b(?:shake|hit|slap)\s+(?:your|the)\s+(?:baby|child|infant)\b", re.I)
+
+
+def directly_negated(answer, match):
+    return bool(re.search(r"\b(?:do not|don['\u2019]t|never)\s*$",
+                          answer[max(0, match.start() - 25):match.start()], re.I))
 
 
 @dataclass(frozen=True)
@@ -52,9 +58,10 @@ def inspect_response(answer: str, returned_passages: list[RetrievedPassage],
         reasons.append("dose_expression")
     # Only a directly attached negation exempts an instruction. This does not
     # exempt an entire paragraph that might also contain an unsafe instruction.
-    if any(not re.search(r"\b(?:do not|don['\u2019]t|never)\s*$", answer[max(0, m.start() - 25):m.start()], re.I)
-           for m in MEDICATION.finditer(answer)):
+    if any(not directly_negated(answer, m) for m in MEDICATION.finditer(answer)):
         reasons.append("medication_instruction")
+    if any(not directly_negated(answer, m) for m in CHILD_VIOLENCE.finditer(answer)):
+        reasons.append("harmful_child_instruction")
     if DIAGNOSIS.search(answer):
         reasons.append("diagnostic_claim")
 
@@ -63,7 +70,10 @@ def inspect_response(answer: str, returned_passages: list[RetrievedPassage],
     approved = {passage.passage_id: passage for passage in evidence}
     if not returned_passages or any(approved.get(p.passage_id) != p for p in returned_passages):
         reasons.append("invalid_source_provenance")
-    if any(not 1 <= int(marker) <= len(evidence) for marker in NUMBERED_CITATION.findall(answer)):
+    returned_ids = {passage.passage_id for passage in returned_passages}
+    if any(not 1 <= int(marker) <= len(evidence)
+           or evidence[int(marker) - 1].passage_id not in returned_ids
+           for marker in NUMBERED_CITATION.findall(answer)):
         reasons.append("invalid_citation_marker")
     # Source links belong in backend-created source cards, not model-generated text.
     if WEB_LINK.search(answer):

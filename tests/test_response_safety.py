@@ -25,6 +25,8 @@ def reference():
     ("Do not give medicine, give antibiotics instead.", "medication_instruction"),
     ("Don't give a toy, use antibiotics instead.", "medication_instruction"),
     ("Give medicine, never use antibiotics.", "medication_instruction"),
+    ("Shake your baby to stop the crying.", "harmful_child_instruction"),
+    ("Hit the child.", "harmful_child_instruction"),
 ])
 def test_known_prohibited_output_is_blocked(answer, reason):
     passage = reference()
@@ -42,6 +44,8 @@ def test_known_prohibited_output_is_blocked(answer, reason):
     "Never use antibiotics without professional advice.",
     "Don\u2019t give medicine without professional advice.",
     "Talk softly [1].",
+    "Never shake your baby.",
+    "Shake a rattle for your baby.",
 ])
 def test_benign_wording_and_direct_medication_refusals_are_not_blocked(answer):
     passage = reference()
@@ -78,3 +82,10 @@ def test_age_claim_in_years_is_compared_in_months():
     passage = reference()
     assert not inspect_response("Your child is 2 years old.", [passage], [passage], 24).blocked
     assert "conflicting_age_claim" in inspect_response("Your child is 2 years old.", [passage], [passage], 6).reasons
+
+
+def test_numbered_reference_must_also_have_a_returned_source_card():
+    first = reference()
+    second = replace(first, passage_id="p2")
+    decision = inspect_response("Talk softly [1].", [second], [first, second], 6)
+    assert "invalid_citation_marker" in decision.reasons

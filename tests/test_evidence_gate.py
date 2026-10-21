@@ -170,6 +170,59 @@ def test_referral_is_returned_even_when_interaction_storage_fails(client, servic
     coaching.generate.assert_not_called()
 
 
+@pytest.mark.parametrize("question,status,safety", [
+    ("I want to die.", "crisis_support", "escalate"),
+    ("I am thinking about ending my life.", "crisis_support", "escalate"),
+    ("I might hurt my baby.", "crisis_support", "escalate"),
+    ("My partner shakes our child.", "crisis_support", "escalate"),
+    ("I feel hopeless.", "caregiver_support", "not_flagged"),
+    ("I feel depressed since giving birth.", "caregiver_support", "not_flagged"),
+])
+def test_caregiver_support_bypasses_generation_and_retrieval(client, services, caplog, question, status, safety):
+    import logging
+
+    data, retrieval, coaching = services
+    with caplog.at_level(logging.INFO, logger="uvicorn.error.coaching_timing"):
+        response = client.post("/coach", json={"child_id": "child-1", "question": question,
+                                               "support_country": "KE"})
+    assert response.status_code == 200
+    assert response.json()["status"] == status
+    assert response.json()["safety"] == safety
+    assert response.json()["support_resources"]
+    assert data.create_interaction.call_args.args[-1] == status
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+    assert question not in caplog.text
+    assert "coaching_caregiver_safety" in caplog.text
+
+
+def test_unknown_location_has_general_support_without_assumed_contacts(client, services):
+    response = client.post("/coach", json={"child_id": "child-1", "question": "I want to die."})
+    assert response.json()["status"] == "crisis_support"
+    assert response.json()["support_resources"] == []
+
+
+def test_combined_child_danger_and_caregiver_crisis_preserves_both_paths(client, services):
+    response = client.post("/coach", json={"child_id": "child-1",
+        "question": "My baby cannot breathe and I want to die.", "support_country": "KE"})
+    assert response.json()["status"] == "escalated"
+    assert response.json()["support_resources"]
+    assert response.json()["citations"]
+
+
+def test_caregiver_support_survives_storage_failure(client, services):
+    data, retrieval, coaching = services
+    data.create_interaction.side_effect = RuntimeError("Unavailable")
+    response = client.post("/coach", json={"child_id": "child-1", "question": "I want to die.",
+                                           "support_country": "KE"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "crisis_support"
+    assert response.json()["interaction_id"] is None
+    assert response.json()["support_resources"]
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
 def test_timing_logs_show_stages_without_request_content(client, services, caplog):
     import logging
 

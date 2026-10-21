@@ -67,3 +67,23 @@ it("does not offer feedback when an escalation could not be saved", async () => 
   expect(screen.queryByRole("button", { name: "Helpful" })).toBeNull();
   expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
 });
+
+it("shows location-labelled support contacts only from the returned resources", async () => {
+  requestCoaching.mockResolvedValue({
+    status: "crisis_support", safety: "escalate", answer: "Please seek immediate support.",
+    citations: [], processing_seconds: 0.2, interaction_id: null,
+    support_resources: [{ service: "Example verified service", label: "Service website",
+      url: "https://example.test/support", availability: "Example service hours",
+      source_url: "https://example.test/about", verified_on: "2026-10-20", country: "KE" }],
+  });
+  render(<GuidanceWorkspace />);
+  fireEvent.click(screen.getByRole("button", { name: "Select test profile" }));
+  fireEvent.change(screen.getByLabelText("Support resources location (optional)"), { target: { value: "KE" } });
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "I need immediate support." } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  expect(await screen.findByRole("heading", { name: "Immediate support" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Kenya support contacts" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Service website" }).getAttribute("href")).toBe("https://example.test/support");
+  expect(requestCoaching.mock.calls.at(-1)[0].support_country).toBe("KE");
+  expect(screen.queryByText(/using age-aware reference material/)).toBeNull();
+});

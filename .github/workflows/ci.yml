@@ -36,6 +36,17 @@ jobs:
           PYTHONPATH: .
         run: pytest
 
+      - name: Evaluate child danger-sign routing
+        run: python -m scripts.evaluate_safety --check --output safety-report.json
+
+      - name: Upload safety evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-evaluation
+          path: safety-report.json
+          if-no-files-found: ignore
+
   frontend-checks:
     name: Frontend Lint, Tests & Build
     runs-on: ubuntu-latest

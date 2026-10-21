@@ -1,0 +1,438 @@
+{
+  "schema_version": 1,
+  "dataset_sha256": "21315a4bc6afdef47106afb40cdb266971a48d1588b8c4d2c2f32d21f7789047",
+  "generated_at": "2026-10-20T20:21:26.553757+00:00",
+  "case_count": 60,
+  "counts": {
+    "true_positive": 30,
+    "false_negative": 0,
+    "false_positive": 0,
+    "true_negative": 30
+  },
+  "recall": 1.0,
+  "false_alarm_rate": 0.0,
+  "cases": [
+    {
+      "id": "danger-01",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "breathing"
+      ]
+    },
+    {
+      "id": "danger-02",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "breathing"
+      ]
+    },
+    {
+      "id": "danger-03",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "breathing"
+      ]
+    },
+    {
+      "id": "danger-04",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "breathing"
+      ]
+    },
+    {
+      "id": "danger-05",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "breathing"
+      ]
+    },
+    {
+      "id": "danger-06",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "breathing"
+      ]
+    },
+    {
+      "id": "danger-07",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "breathing"
+      ]
+    },
+    {
+      "id": "danger-08",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "not_feeding"
+      ]
+    },
+    {
+      "id": "danger-09",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "not_feeding"
+      ]
+    },
+    {
+      "id": "danger-10",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "not_feeding"
+      ]
+    },
+    {
+      "id": "danger-11",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "not_feeding"
+      ]
+    },
+    {
+      "id": "danger-12",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "not_feeding"
+      ]
+    },
+    {
+      "id": "danger-13",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "convulsions"
+      ]
+    },
+    {
+      "id": "danger-14",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "convulsions"
+      ]
+    },
+    {
+      "id": "danger-15",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "convulsions"
+      ]
+    },
+    {
+      "id": "danger-16",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "unresponsive"
+      ]
+    },
+    {
+      "id": "danger-17",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "unresponsive"
+      ]
+    },
+    {
+      "id": "danger-18",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "unresponsive"
+      ]
+    },
+    {
+      "id": "danger-19",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "unresponsive"
+      ]
+    },
+    {
+      "id": "danger-20",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "dehydration"
+      ]
+    },
+    {
+      "id": "danger-21",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "dehydration"
+      ]
+    },
+    {
+      "id": "danger-22",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "dehydration"
+      ]
+    },
+    {
+      "id": "danger-23",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "choking"
+      ]
+    },
+    {
+      "id": "danger-24",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "choking"
+      ]
+    },
+    {
+      "id": "danger-25",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "injury"
+      ]
+    },
+    {
+      "id": "danger-26",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "injury"
+      ]
+    },
+    {
+      "id": "danger-27",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "injury"
+      ]
+    },
+    {
+      "id": "danger-28",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "young_infant_fever"
+      ]
+    },
+    {
+      "id": "danger-29",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "young_infant_fever"
+      ]
+    },
+    {
+      "id": "danger-30",
+      "expected_escalation": true,
+      "actual_escalation": true,
+      "reasons": [
+        "choking"
+      ]
+    },
+    {
+      "id": "ordinary-01",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-02",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-03",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-04",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-05",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-06",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-07",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-08",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-09",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-10",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-11",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-12",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-13",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-14",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-15",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-16",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-17",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-18",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-19",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-20",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-21",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-22",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-23",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-24",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-25",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-26",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-27",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-28",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-29",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    },
+    {
+      "id": "ordinary-30",
+      "expected_escalation": false,
+      "actual_escalation": false,
+      "reasons": []
+    }
+  ],
+  "scope": "Fixed development cases used during implementation; not independent clinical validation.",
+  "code_revision": "dc47669ce63dc748ff04c16a2d82792b86e465b0"
+}
