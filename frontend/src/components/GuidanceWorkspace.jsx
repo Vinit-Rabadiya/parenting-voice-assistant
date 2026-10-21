@@ -1,8 +1,65 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import ChildProfiles from "./ChildProfiles";
 import GuidanceAnswer from "./GuidanceAnswer";
 import MicrophoneControls from "./MicrophoneControls";
 import useConversations from "../hooks/useConversations";
+
+function ConversationListItem({ conversation, active, disabled, onOpen, onDelete }) {
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [optionsPosition, setOptionsPosition] = useState({ top: 0, left: 0 });
+  const optionsId = useId();
+  const rowRef = useRef(null);
+  const triggerRef = useRef(null);
+  const deleteRef = useRef(null);
+  const optionsRef = useRef(null);
+
+  useEffect(() => {
+    if (!optionsOpen) return;
+    deleteRef.current?.focus();
+    function outside(event) {
+      if (!rowRef.current?.contains(event.target) && !optionsRef.current?.contains(event.target)) setOptionsOpen(false);
+    }
+    function escape(event) {
+      if (event.key !== "Escape") return;
+      setOptionsOpen(false);
+      triggerRef.current?.focus();
+    }
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    function closeOnViewportChange(event) {
+      if (!optionsRef.current?.contains(event.target)) setOptionsOpen(false);
+    }
+    window.addEventListener("scroll", closeOnViewportChange, true);
+    window.addEventListener("resize", closeOnViewportChange);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+      window.removeEventListener("scroll", closeOnViewportChange, true);
+      window.removeEventListener("resize", closeOnViewportChange);
+    };
+  }, [optionsOpen]);
+
+  return <li ref={rowRef} className="conversation-row">
+    <button type="button" disabled={disabled} aria-pressed={active}
+      onClick={() => { setOptionsOpen(false); onOpen(conversation.id); }}>{conversation.title}</button>
+    <button type="button" className="conversation-more" ref={triggerRef}
+      disabled={disabled} aria-label={`More options for ${conversation.title}`}
+      aria-expanded={optionsOpen} aria-controls={optionsId}
+      onClick={() => {
+        const bounds = triggerRef.current.getBoundingClientRect();
+        const width = Math.min(200, window.innerWidth - 16);
+        setOptionsPosition({ top: Math.max(8, Math.min(bounds.top, window.innerHeight - 64)),
+          left: bounds.right + width + 8 <= window.innerWidth ? bounds.right + 6
+            : Math.max(8, bounds.right - width), width });
+        setOptionsOpen((value) => !value);
+      }}><span aria-hidden="true">⋯</span></button>
+    {optionsOpen && createPortal(<div ref={optionsRef} className="conversation-options" id={optionsId} style={optionsPosition}>
+      <button type="button" className="delete-action" ref={deleteRef} disabled={disabled}
+        onClick={() => { setOptionsOpen(false); triggerRef.current?.focus(); onDelete(conversation.id); }}>Delete conversation</button>
+    </div>, document.body)}
+  </li>;
+}
 
 function ConversationWorkspace({ child, onBusyChange, profileControls }) {
   const chat = useConversations(child.id, onBusyChange);
@@ -48,12 +105,11 @@ function ConversationWorkspace({ child, onBusyChange, profileControls }) {
         {chat.historyError && <><p role="alert">History could not be loaded: {chat.historyError}</p>
           <button type="button" disabled={chat.busy || voiceBusy} onClick={chat.loadOlderConversations}>Retry history</button></>}
         {!chat.loading && !chat.historyError && !chat.conversations.length && <p>No saved conversations for this child yet.</p>}
-        <ul className="conversation-list">{chat.conversations.map((item) => <li key={item.id}>
-          <button type="button" disabled={chat.busy || voiceBusy || chat.loading} aria-pressed={chat.conversationId === item.id}
-            onClick={async () => { if (await chat.open(item.id)) { setQuestion(""); setSidebarOpen(false); } }}>{item.title}</button>
-        </li>)}</ul>
+        <ul className="conversation-list">{chat.conversations.map((item) => <ConversationListItem
+          key={item.id} conversation={item} active={chat.conversationId === item.id}
+          disabled={chat.busy || voiceBusy || chat.loading} onDelete={chat.remove}
+          onOpen={async (id) => { if (await chat.open(id)) { setQuestion(""); setSidebarOpen(false); } }} />)}</ul>
         {chat.moreConversations && <button type="button" disabled={chat.busy || voiceBusy} onClick={chat.loadOlderConversations}>Load older conversations</button>}
-        {chat.conversationId && <button type="button" className="delete-action" disabled={chat.busy || voiceBusy} onClick={chat.remove}>Delete conversation</button>}
       </section>
       <div className="sidebar-profile">{profileControls}</div>
     </aside>

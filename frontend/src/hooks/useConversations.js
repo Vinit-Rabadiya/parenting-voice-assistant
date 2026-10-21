@@ -78,14 +78,16 @@ export default function useConversations(childId, onBusyChange) {
     });
   }
 
-  function remove() {
-    if (!conversationId || locked.current || !window.confirm("Delete this conversation and its messages and feedback? This cannot be undone.")) return;
-    window.speechSynthesis?.cancel();
+  function remove(id) {
+    if (!id || locked.current || !window.confirm("Delete this conversation and its messages and feedback? This cannot be undone.")) return;
+    if (id === conversationId) window.speechSynthesis?.cancel();
     return perform(async () => {
-      await deleteConversation(conversationId);
+      await deleteConversation(id);
       if (!mounted.current) return;
-      setConversations((items) => items.filter((item) => item.id !== conversationId));
-      setConversationId(null); setMessages([]); setMoreMessages(false);
+      setConversations((items) => items.filter((item) => item.id !== id));
+      if (id === conversationId) {
+        setConversationId(null); setMessages([]); setMoreMessages(false);
+      }
     });
   }
 
