@@ -20,12 +20,26 @@ async function request(path, options = {}) {
     if (response.headers?.get("X-Consent-Required") === "true") {
       window.dispatchEvent(new Event("privacy-consent-required"));
     }
-    throw new Error(body.detail || "The request could not be completed.");
+    const detail = typeof body.detail === "string" ? body.detail : "The request could not be completed.";
+    const retryHeader = response.headers?.get("Retry-After");
+    const seconds = /^\d+$/.test(retryHeader || "") ? Number(retryHeader) : NaN;
+    const retryAfter = response.status === 429 && Number.isSafeInteger(seconds) && seconds > 0 ? seconds : null;
+    let message = detail;
+    if (retryAfter) {
+      const unit = retryAfter >= 3600 ? "hour" : retryAfter >= 60 ? "minute" : "second";
+      const amount = Math.ceil(retryAfter / (unit === "hour" ? 3600 : unit === "minute" ? 60 : 1));
+      message += ` Please try again in ${amount} ${unit}${amount === 1 ? "" : "s"}.`;
+    }
+    const error = new Error(message);
+    error.status = response.status;
+    error.retryAfterSeconds = retryAfter;
+    throw error;
   }
   return body;
 }
 
 export const listChildren = () => request("/children");
+export const getAccountUsage = (signal) => request("/me/usage", { signal, cache: "no-store" });
 export const getPrivacyConsent = (signal) => request("/privacy/consent", { signal });
 export const acceptPrivacyConsent = (version, signal) => request("/privacy/consent", {
   method: "POST", signal,
