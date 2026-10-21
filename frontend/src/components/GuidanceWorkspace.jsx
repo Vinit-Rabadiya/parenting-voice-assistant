@@ -172,10 +172,7 @@ export default function GuidanceWorkspace() {
   const selectChild = useCallback((nextChild) => {
     window.speechSynthesis?.cancel(); setBusy(false); setChild(nextChild);
   }, []);
-  const profileControls = <details className="profile-settings" open={!child}>
-      <summary>{child ? `Child profile: ${child.name}` : "Choose or add a child profile"}</summary>
-      <ChildProfiles selectedChild={child} onSelect={selectChild} guidanceBusy={busy} />
-    </details>;
+  const profileControls = <ChildProfiles selectedChild={child} onSelect={selectChild} guidanceBusy={busy} />;
   return <div className="guidance-workspace">
     {child ? <ConversationWorkspace key={child.id} child={child} onBusyChange={setBusy} profileControls={profileControls} />
       : <div className="profile-onboarding">{profileControls}<p>Select or add a child profile first.</p></div>}

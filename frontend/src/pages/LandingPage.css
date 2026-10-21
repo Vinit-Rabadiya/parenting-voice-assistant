@@ -78,8 +78,6 @@ main.landing-shell:has(.landing-page--chat) { width: 100%; max-width: none; min-
 .conversation-options { position: fixed; z-index: 1000; box-sizing: border-box; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); box-shadow: var(--shadow); }
 .conversation-options button { width: 100%; min-height: 40px; justify-content: flex-start; font-size: 13px; }
 .sidebar-profile { flex-shrink: 0; border-top: 1px solid var(--border); padding: 10px 12px; }
-.profile-settings > summary { padding: 10px 6px; cursor: pointer; font-size: 14px; text-align: left; }
-.sidebar-profile .profile-settings[open] .child-profiles { position: absolute; z-index: 30; left: 12px; bottom: 56px; width: min(440px, calc(100vw - 24px)); max-height: 65dvh; overflow-y: auto; box-shadow: var(--shadow); }
 .profile-onboarding { width: min(560px, calc(100% - 32px)); margin: 32px auto; text-align: left; }
 .chat-main { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; }
 .chat-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 24px; text-align: left; }
