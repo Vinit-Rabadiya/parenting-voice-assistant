@@ -51,6 +51,62 @@ class CaregiverDataService:
     def _interactions(self, uid: str):
         return self.client.collection("users").document(uid).collection("interactions")
 
+    def _conversations(self, uid: str):
+        return self.client.collection("users").document(uid).collection("conversations")
+
+    @staticmethod
+    def _conversation_response(document) -> dict:
+        data = document.to_dict()
+        return {"id": document.id, "child_id": data["child_id"],
+                "title": data["title"], "created_at": data["created_at"],
+                "updated_at": data["updated_at"]}
+
+    def create_conversation(self, uid: str, child_id: str) -> dict | None:
+        if self.get_child(uid, child_id) is None:
+            return None
+        document = self._conversations(uid).document()
+        document.set({"child_id": child_id, "title": "New conversation",
+                      "created_at": firestore.SERVER_TIMESTAMP,
+                      "updated_at": firestore.SERVER_TIMESTAMP})
+        return self._conversation_response(document.get())
+
+    def list_conversations(self, uid: str, child_id: str, limit: int = 30,
+                           before: str | None = None) -> list[dict]:
+        query = self._conversations(uid).where(filter=FieldFilter("child_id", "==", child_id))
+        query = query.order_by("updated_at", direction=firestore.Query.DESCENDING)
+        if before is not None:
+            cursor = self._conversations(uid).document(before).get()
+            if not cursor.exists or cursor.to_dict().get("child_id") != child_id:
+                raise ValueError("Invalid conversation cursor.")
+            query = query.start_after(cursor)
+        # Bound database reads instead of loading an account's entire history.
+        query = query.limit(limit)
+        return [self._conversation_response(document) for document in query.stream()]
+
+    def get_conversation(self, uid: str, conversation_id: str, limit: int = 50,
+                         before: str | None = None) -> dict | None:
+        document = self._conversations(uid).document(conversation_id)
+        snapshot = document.get()
+        if not snapshot.exists:
+            return None
+        messages_collection = document.collection("messages")
+        query = messages_collection.order_by("created_at", direction=firestore.Query.DESCENDING)
+        if before is not None:
+            cursor = messages_collection.document(before).get()
+            if not cursor.exists:
+                raise ValueError("Invalid message cursor.")
+            query = query.start_after(cursor)
+        query = query.limit(limit)
+        messages = [{**message.to_dict(), "id": message.id} for message in query.stream()]
+        return {**self._conversation_response(snapshot), "messages": list(reversed(messages))}
+
+    def delete_conversation(self, uid: str, conversation_id: str) -> bool:
+        document = self._conversations(uid).document(conversation_id)
+        if not document.get().exists:
+            return False
+        self.client.recursive_delete(document)
+        return True
+
     @staticmethod
     def _child_response(document) -> dict:
         data = document.to_dict() or {}
@@ -130,6 +186,9 @@ class CaregiverDataService:
         interactions = self._interactions(uid).where(filter=FieldFilter("child_id", "==", child_id))
         for interaction in interactions.stream():
             self.client.recursive_delete(interaction.reference)
+        conversations = self._conversations(uid).where(filter=FieldFilter("child_id", "==", child_id))
+        for conversation in conversations.stream():
+            self.client.recursive_delete(conversation.reference)
         self.client.recursive_delete(child)
         return True
 

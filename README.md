@@ -165,6 +165,12 @@ Enable the Cloud Firestore API and create the default Firestore database in
 production mode. Backend Admin SDK operations use service-account authorization;
 the frontend does not write profiles or feedback directly.
 
+Conversation listing requires the composite index recorded in
+`firestore.indexes.json`: collection `conversations`, collection scope,
+`child_id` ascending and `updated_at` descending. Create this index in the
+Firestore console before using conversation history. The file records the index
+definition; starting the backend does not create or deploy it.
+
 Enable TOTP using the included administration script:
 
 ```powershell
