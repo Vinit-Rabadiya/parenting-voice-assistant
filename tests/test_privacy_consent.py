@@ -7,7 +7,7 @@ from fastapi import Request
 
 from backend.api.consent import require_processing_consent
 from backend.api.dependencies import get_caregiver_data_service
-from backend.core.privacy import CONSENT_VERSION
+from backend.core.privacy import CONSENT_VERSION, PRIVACY_NOTICE
 from backend.core.security import require_authenticated_user
 from backend.main import app
 from backend.services.caregiver_data import CaregiverDataService
@@ -26,6 +26,15 @@ def consent_api(client):
     finally:
         app.dependency_overrides.clear()
         app.dependency_overrides.update(overrides)
+
+
+def test_notice_identifies_information_shared_outside_the_app():
+    search_notice = next(item for item in PRIVACY_NOTICE if "Qdrant Cloud" in item)
+    generation_notice = next(item for item in PRIVACY_NOTICE if "Gemini" in item)
+    assert "question" in search_notice and "earlier message" in search_notice
+    assert all(field in generation_notice for field in (
+        "question", "child's age", "activity", "reference information", "recent chat messages",
+    ))
 
 
 def test_notice_does_not_assume_existing_accounts_accepted(client, consent_api):

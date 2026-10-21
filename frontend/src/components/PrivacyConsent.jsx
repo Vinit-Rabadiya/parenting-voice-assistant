@@ -63,6 +63,7 @@ export default function PrivacyConsent({ children }) {
       <h2 id="privacy-title">Privacy and consent</h2>
       {!notice && !error && <p role="status">Loading privacy notice…</p>}
       {notice && <><p>Please read how we use your information before you continue.</p>
+        <h3>How your information is used and shared</h3>
         <ul>{notice.notice.map((item) => <li key={item}>{item}</li>)}</ul>
         <p>Notice version: {notice.version}</p>
         <form onSubmit={accept}>
