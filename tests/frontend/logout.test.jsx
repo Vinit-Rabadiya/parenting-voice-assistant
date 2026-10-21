@@ -56,6 +56,9 @@ it("deletes saved data after confirmation without logging out", async () => {
   expect(deleteMyData).toHaveBeenCalledTimes(1);
   expect(logOut).not.toHaveBeenCalled();
   expect(screen.getByTestId("account-state").textContent).toBe("caregiver");
+  expect(screen.getByRole("region", { name: "Sign-in security" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Current session" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Data and account" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Delete my data" }).disabled).toBe(true);
 });
 

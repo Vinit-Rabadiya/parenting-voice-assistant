@@ -48,7 +48,7 @@ function MainContent() {
   if (user && (accountAccess.checking || accountAccess.status === "unavailable")) {
     return <div className="access-loading-screen">
       {accountAccess.checking ? <div role="status" aria-label="Loading">
-        <span className="access-spinner" aria-hidden="true" /><span className="visually-hidden">Loadingâ€¦</span>
+        <span className="access-spinner" aria-hidden="true" /><span className="visually-hidden">Loading…</span>
       </div> : <><p role="status">Unable to connect.</p>
         <button type="button" onClick={accountAccess.retry}>Retry connection</button></>}
     </div>;
@@ -77,8 +77,8 @@ function MainContent() {
       </main>
       )}
       {screen !== "home" && (
-    <main>
-      <button type="button" onClick={() => setScreen("home")}>
+    <main className={user ? "account-shell" : undefined}>
+      <button className={user ? "account-back" : undefined} type="button" onClick={() => setScreen("home")}>
         Back to home
       </button>
       {/* show account page if signed in, otherwise show auth page. */}
