@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 async function openPicker() {
-  const trigger = screen.getByRole("button", { name: /Example/ });
+  const trigger = await screen.findByRole("button", { name: /Example/ });
   await waitFor(() => expect(trigger.disabled).toBe(false));
   fireEvent.click(trigger);
   return trigger;

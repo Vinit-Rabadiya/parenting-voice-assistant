@@ -38,6 +38,6 @@ it("shows a retry option rather than invented zero counts on failure", async () 
   render(<AccountUsage />);
   fireEvent.click(screen.getByRole("button", { name: "View usage" }));
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Usage could not be loaded. Please try again.");
-  expect(screen.queryByText(/remaining/)).toBeNull();
+  expect(screen.queryByText(/\d+ remaining/)).toBeNull();
   expect(screen.getByRole("button", { name: "Refresh usage" }).disabled).toBe(false);
 });

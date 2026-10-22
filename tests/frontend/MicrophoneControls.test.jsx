@@ -11,6 +11,7 @@ vi.mock("../../frontend/src/hooks/useMicrophone", () => ({ default: () => microp
 vi.mock("../../frontend/src/services/transcription", () => ({ transcribeAudio: vi.fn() }));
 
 beforeEach(() => {
+  vi.clearAllMocks();
   microphone.status = "idle";
   microphone.error = "";
   microphone.recording = null;
@@ -29,6 +30,8 @@ it("offers pause, resume, and discard controls without submitting audio", () => 
   expect(microphone.resume).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Cancel recording" }));
   expect(microphone.cancel).toHaveBeenCalled();
+  microphone.status = "idle";
+  view.rerender(<MicrophoneControls compact />);
   expect(screen.getByText("Recording cancelled. Audio discarded.")).toBeTruthy();
   expect(transcribeAudio).not.toHaveBeenCalled();
 });
@@ -92,12 +95,10 @@ it.each([
   expect(button.disabled).toBe(true);
   fireEvent.click(button);
   expect(microphone.start).not.toHaveBeenCalled();
-  if (status !== "stopping") {
-    fireEvent.click(screen.getByRole("button", { name: "Cancel recording" }));
-    expect(microphone.stop).toHaveBeenCalledOnce();
-  } else {
-    expect(screen.queryByRole("button", { name: "Cancel recording" })).toBeNull();
-  }
+  fireEvent.click(screen.getByRole("button", { name: "Cancel recording" }));
+  expect(microphone.cancel).toHaveBeenCalledOnce();
+  expect(microphone.stop).not.toHaveBeenCalled();
+  expect(transcribeAudio).not.toHaveBeenCalled();
 });
 
 // a pending request shows a disabled microphone and a separate cancellation action.
