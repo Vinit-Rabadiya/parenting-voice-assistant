@@ -5,6 +5,7 @@ import { transcribeAudio } from "../../frontend/src/services/transcription";
 
 const { microphone } = vi.hoisted(() => ({ microphone: {
   status: "idle", error: "", recording: null, start: vi.fn(), stop: vi.fn(),
+  pause: vi.fn(), resume: vi.fn(), cancel: vi.fn(),
 } }));
 vi.mock("../../frontend/src/hooks/useMicrophone", () => ({ default: () => microphone }));
 vi.mock("../../frontend/src/services/transcription", () => ({ transcribeAudio: vi.fn() }));
@@ -16,6 +17,21 @@ beforeEach(() => {
   transcribeAudio.mockReset();
 });
 afterEach(() => { cleanup(); });
+
+it("offers pause, resume, and discard controls without submitting audio", () => {
+  microphone.status = "recording";
+  const view = render(<MicrophoneControls compact />);
+  fireEvent.click(screen.getByRole("button", { name: "Pause recording" }));
+  expect(microphone.pause).toHaveBeenCalled();
+  microphone.status = "paused";
+  view.rerender(<MicrophoneControls compact />);
+  fireEvent.click(screen.getByRole("button", { name: "Resume recording" }));
+  expect(microphone.resume).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel recording" }));
+  expect(microphone.cancel).toHaveBeenCalled();
+  expect(screen.getByText("Recording cancelled. Audio discarded.")).toBeTruthy();
+  expect(transcribeAudio).not.toHaveBeenCalled();
+});
 
 it("clears the capture-busy state when controls leave the active chat", () => {
   microphone.status = "recording";

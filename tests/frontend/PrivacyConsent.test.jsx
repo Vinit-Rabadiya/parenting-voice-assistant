@@ -33,10 +33,23 @@ it("requires both unchecked confirmations before recording consent", async () =>
 
 it("opens existing data read-only without accepting", async () => {
   render(<PrivacyConsent>{workspace}</PrivacyConsent>);
+  await screen.findByText("Information about processing.");
   fireEvent.click(screen.getByRole("button", { name: "View or delete existing data without accepting" }));
   await screen.findByText("Read-only history");
   expect(screen.queryByText("Coaching workspace")).toBeNull();
   expect(acceptPrivacyConsent).not.toHaveBeenCalled();
+});
+
+it("shows only a loading screen until accepted consent is confirmed", async () => {
+  let finish;
+  getPrivacyConsent.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  render(<PrivacyConsent>{workspace}</PrivacyConsent>);
+  expect(screen.getByRole("status", { name: "Loading chat" })).toBeTruthy();
+  expect(screen.queryByText("Privacy and consent")).toBeNull();
+  finish({ ...notice, accepted: true });
+  await screen.findByText("Coaching workspace");
+  expect(screen.queryByRole("status", { name: "Loading chat" })).toBeNull();
+  expect(getPrivacyConsent).toHaveBeenCalledTimes(1);
 });
 
 it("loads the workspace directly only for current accepted consent", async () => {

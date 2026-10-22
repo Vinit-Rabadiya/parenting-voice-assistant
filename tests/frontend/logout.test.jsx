@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AuthProvider } from "../../frontend/src/context/AuthProvider";
 import { useAuth } from "../../frontend/src/hooks/useAuth";
 import AccountPage from "../../frontend/src/pages/AccountPage";
+import { Navbar } from "../../frontend/src/components/Navbar";
 import { deleteMyData } from "../../frontend/src/services/caregiving";
 
 const { user, logOut, unsubscribe } = vi.hoisted(() => ({
@@ -34,7 +35,8 @@ function AccountHarness() {
       </button>
       <p data-testid="account-state">{account.user?.uid ?? "signed out"}</p>
       <p data-testid="signup-state">{account.signupResult ? "present" : "cleared"}</p>
-      {account.user && <AccountPage email={account.user.email} accountAccess={{ verified: true, checking: false, error: "" }} />}
+      {account.user && <><Navbar isAuthenticated onAccount={() => {}} />
+        <AccountPage email={account.user.email} accountAccess={{ verified: true, checking: false, error: "" }} /></>}
     </>
   );
 }
@@ -56,8 +58,7 @@ it("deletes saved data after confirmation without logging out", async () => {
   expect(deleteMyData).toHaveBeenCalledTimes(1);
   expect(logOut).not.toHaveBeenCalled();
   expect(screen.getByTestId("account-state").textContent).toBe("caregiver");
-  expect(screen.getByRole("region", { name: "Sign-in security" })).toBeTruthy();
-  expect(screen.getByRole("region", { name: "Current session" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "MFA enabled" })).toBeTruthy();
   expect(screen.getByRole("region", { name: "Data and account" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Delete my data" }).disabled).toBe(true);
 });
@@ -84,6 +85,7 @@ it("clears account state and onboarding data after successful logout", async () 
   const { unmount } = render(<AuthProvider><AccountHarness /></AuthProvider>);
   fireEvent.click(screen.getByRole("button", { name: "Set signup result" }));
   expect(screen.getByTestId("signup-state").textContent).toBe("present");
+  fireEvent.click(screen.getByRole("button", { name: "My Account" }));
   const logoutButton = await screen.findByRole("button", { name: "Log Out" });
   expect(screen.getByText("Verified")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Check backend access" })).toBeNull();
@@ -101,8 +103,9 @@ it("preserves state on logout failure and clears it after retry", async () => {
   logOut.mockRejectedValueOnce(new Error("sign out failed"));
   render(<AuthProvider><AccountHarness /></AuthProvider>);
   fireEvent.click(screen.getByRole("button", { name: "Set signup result" }));
+  fireEvent.click(screen.getByRole("button", { name: "My Account" }));
   fireEvent.click(await screen.findByRole("button", { name: "Log Out" }));
-  await screen.findByText("Couldn't log out. Please try again");
+  await screen.findByText("Could not log out. Please try again.");
   expect(screen.getByTestId("account-state").textContent).toBe("caregiver");
   expect(screen.getByTestId("signup-state").textContent).toBe("present");
   fireEvent.click(screen.getByRole("button", { name: "Log Out" }));
