@@ -63,7 +63,7 @@
     {"page": 22, "age": [24, 27],"start": "5 Make a puzzle",             "end": null,                          "topic": "play", "routines": []}
   ],
   "reach_up": [
-    {"page": 37, "age": [0, 6], "start": "Chat with baby", "end": "Loving and hugging baby", "topic": "communication", "routines": ["feeding", "bathing", "changing"]},
+    {"page": 37, "age": [0, 6], "start": "Chat with baby", "end": "Loving and hugging baby", "topic": "communication", "routines": ["feeding", "bathing", "changing", "dressing"]},
     {"page": 38, "age": [0, 6], "start": "Have a conversation with baby", "end": "Encourage baby to hold", "topic": "communication", "routines": ["play"]},
     {"page": 39, "age": [0, 6], "start": "Look at a book with baby", "end": null, "topic": "communication", "routines": ["reading"]},
     {"page": 40, "age": [6, 9], "start": "Repeat sounds baby makes", "end": "Play with Ball", "topic": "communication", "routines": ["play"]},
