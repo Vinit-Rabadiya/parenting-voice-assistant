@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { acceptPrivacyConsent, getPrivacyConsent } from "../services/caregiving";
 import "./PrivacyConsent.css";
+import ChatLoading from "./ChatLoading";
 
 function validNotice(value) {
   return typeof value?.version === "string" && value.version.length > 0
@@ -32,12 +33,17 @@ export default function PrivacyConsent({ children }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort();
+      setError("Unable to load your privacy settings. Please retry.");
+    }, 8000);
     getPrivacyConsent(controller.signal).then((value) => {
       if (controller.signal.aborted) return;
       if (!validNotice(value)) throw new Error("The privacy notice could not be read. Please retry.");
       setNotice(value);
-    }).catch((cause) => { if (!controller.signal.aborted) setError(cause.message); });
-    return () => controller.abort();
+    }).catch((cause) => { if (!controller.signal.aborted) setError(cause.message); })
+      .finally(() => clearTimeout(timer));
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [attempt]);
 
   async function accept(event) {
@@ -58,6 +64,7 @@ export default function PrivacyConsent({ children }) {
   }
 
   if (notice?.accepted) return children(true);
+  if (!notice && !error) return <ChatLoading />;
   return <div className={`privacy-boundary${readOnly ? " privacy-boundary--history" : ""}`}>
     <section className="privacy-notice" aria-labelledby="privacy-title">
       <h2 id="privacy-title">Privacy and consent</h2>

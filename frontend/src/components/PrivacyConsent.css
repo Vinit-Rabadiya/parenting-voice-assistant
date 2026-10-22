@@ -6,3 +6,4 @@
 .privacy-notice .consent-choice { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 400; }
 .privacy-notice .consent-choice input { flex: 0 0 20px; width: 20px; height: 20px; min-height: 0; padding: 0; }
 .privacy-boundary--history > .guidance-workspace { height: 75dvh; min-height: 420px; }
+.chat-startup-loading { position: fixed; inset: 0; z-index: 1000; background: var(--bg); }

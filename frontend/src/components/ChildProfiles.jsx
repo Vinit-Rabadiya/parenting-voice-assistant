@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createChild, listChildren, updateChild, deleteChild } from "../services/caregiving";
 import "./ChildProfiles.css";
+import ChatLoading from "./ChatLoading";
 
 export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = false, allowChanges = true, isActive = true }) {
   const [children, setChildren] = useState([]);
@@ -12,6 +13,7 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
   const [pickerPosition, setPickerPosition] = useState(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [initialLoading, setInitialLoading] = useState(true);
   const triggerRef = useRef(null);
   const pickerRef = useRef(null);
   const dialogRef = useRef(null);
@@ -22,12 +24,15 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
 
   useEffect(() => {
     let active = true;
-    listChildren().then((items) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    listChildren(controller.signal).then((items) => {
       if (!active) return;
       setChildren(items);
       if (!initialSelection.current && items[0]) onSelect(items[0]);
-    }).catch((cause) => active && setError(cause.message)).finally(() => active && setBusy(false));
-    return () => { active = false; };
+    }).catch((cause) => active && setError(controller.signal.aborted ? "Profiles could not be loaded. Please reload to retry." : cause.message))
+      .finally(() => { clearTimeout(timer); if (active) { setBusy(false); setInitialLoading(false); } });
+    return () => { active = false; clearTimeout(timer); controller.abort(); };
   }, [onSelect]);
 
   useEffect(() => {
@@ -119,6 +124,7 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
     finally { setBusy(false); }
   }
 
+  if (initialLoading) return <ChatLoading />;
   return <div className="child-profile-control">
     <button type="button" className="child-profile-trigger" ref={triggerRef} disabled={busy || guidanceBusy}
       aria-expanded={pickerOpen} aria-controls={pickerId} aria-haspopup="dialog" onClick={togglePicker}>

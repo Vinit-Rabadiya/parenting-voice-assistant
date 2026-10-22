@@ -19,13 +19,15 @@ export default function useConversations(childId, onBusyChange) {
   useEffect(() => {
     mounted.current = true;
     let active = true;
-    listConversations(childId).then((items) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    listConversations(childId, null, controller.signal).then((items) => {
       if (!active) return;
       setConversations(items);
       setMoreConversations(items.length === 30);
-    }).catch((cause) => active && setHistoryError(cause.message))
-      .finally(() => active && setLoading(false));
-    return () => { active = false; mounted.current = false; coachingRequest.current?.abort(); window.speechSynthesis?.cancel(); };
+    }).catch((cause) => active && setHistoryError(controller.signal.aborted ? "History took too long to load. Please retry." : cause.message))
+      .finally(() => { clearTimeout(timer); if (active) setLoading(false); });
+    return () => { active = false; clearTimeout(timer); controller.abort(); mounted.current = false; coachingRequest.current?.abort(); window.speechSynthesis?.cancel(); };
   }, [childId]);
 
   async function perform(action) {

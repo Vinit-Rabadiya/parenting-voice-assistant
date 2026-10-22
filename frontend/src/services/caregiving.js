@@ -38,7 +38,7 @@ async function request(path, options = {}) {
   return body;
 }
 
-export const listChildren = () => request("/children");
+export const listChildren = (signal) => request("/children", { signal });
 export const getAccountUsage = (signal) => request("/me/usage", { signal, cache: "no-store" });
 export const getPrivacyConsent = (signal) => request("/privacy/consent", { signal });
 export const acceptPrivacyConsent = (version, signal) => request("/privacy/consent", {
@@ -75,10 +75,10 @@ export const createConversation = (childId, { signal } = {}) => request("/conver
   method: "POST", body: JSON.stringify({ child_id: childId }), signal,
 });
 export const deleteConversation = (id) => request(`/conversations/${encodeURIComponent(id)}`, { method: "DELETE" });
-export const listConversations = (childId, before = null) => {
+export const listConversations = (childId, before = null, signal) => {
   const query = new URLSearchParams({ child_id: childId, limit: "30" });
   if (before) query.set("before", before);
-  return request(`/conversations?${query}`);
+  return request(`/conversations?${query}`, { signal });
 };
 export const getConversation = (id, before = null) => {
   const query = new URLSearchParams({ limit: "50" });
