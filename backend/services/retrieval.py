@@ -156,6 +156,7 @@ class RetrievalService:
         limit: int = 3,
         *,
         child_age_days: int | None = None,
+        candidate_limit: int | None = None,
     ) -> list[RetrievedPassage]:
         if not query.strip():
             return []
@@ -165,7 +166,10 @@ class RetrievalService:
             age_filter = build_age_filter(child_age_months, child_age_days=child_age_days)
 
         # Age filtering happens before ranking; retain extra candidates for routines.
-        candidate_limit = max(limit * 5, 15)
+        if candidate_limit is None:
+            candidate_limit = max(limit * 5, 15)
+        elif type(candidate_limit) is not int or candidate_limit < limit or candidate_limit < 1:
+            raise ValueError("candidate_limit must be a positive integer at least as large as limit.")
 
         try:
             results = self.client.query_points(

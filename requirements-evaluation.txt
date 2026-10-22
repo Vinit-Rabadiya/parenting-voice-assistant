@@ -1,0 +1,8 @@
+# Install in a separate virtual environment, not the application venv.
+# Direct ML versions record the initial development experiment's resolved stack.
+-r requirements-data.txt
+python-dotenv>=1.0.1
+sentence-transformers==6.2.0
+transformers==5.20.2
+huggingface-hub==1.33.0
+torch==2.14.1
