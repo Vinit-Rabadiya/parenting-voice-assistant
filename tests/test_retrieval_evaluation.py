@@ -1,11 +1,12 @@
 import json
+from types import SimpleNamespace
 from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
 
 from backend.core.config import PROJECT_ROOT
-from scripts.evaluate_retrieval import build_report, evaluate_query, load_queries, query_age_context
+from scripts.evaluate_retrieval import build_report, evaluate_query, load_queries, query_age_context, result_status
 
 
 @pytest.fixture
@@ -104,3 +105,40 @@ def test_report_identifies_exact_age_schema(evaluation_case):
     assert report["schema_version"] == 2
     assert "fixed case dates" in report["configuration"]["age_policy"]
     assert report["queries"][0]["child_age_days"] == 183
+
+
+def test_reciprocal_rank_uses_first_relevant_result(evaluation_case):
+    evaluation_case["expected_passage_ids"] = ["relevant"]
+    service = MagicMock()
+    service.retrieve.return_value = [SimpleNamespace(
+        passage_id=pid, text="Play together.", title="Title", score=0.7, source_age_label="6-9 months",
+        source_title="Source", routines=["play"]) for pid in ("other", "relevant")]
+    result = evaluate_query(service, evaluation_case)
+    assert result["reciprocal_rank"] == 0.5
+    assert result["recall_at_k"] == 1.0
+    assert build_report([evaluation_case], [result])["metrics"]["mrr"] == 0.5
+
+
+def test_status_distinguishes_relevance_miss_from_age_isolation():
+    result = {"age_leakage_count": 0, "hit_at_k": 0.0, "recall_at_k": 0.0}
+    assert result_status(result) == "AGE_OK MISS recall=0.00"
+    assert "PASS" not in result_status(result)
+
+
+@pytest.mark.parametrize("score,rejected", [(0.2, True), (0.8, False)])
+def test_no_evidence_cases_measure_gate_not_raw_candidate_count(evaluation_case, monkeypatch, score, rejected):
+    from backend.core.config import settings
+    monkeypatch.setattr(settings, "RETRIEVAL_MIN_SCORE", 0.5)
+    evaluation_case["expected_outcome"] = "no_evidence"
+    service = MagicMock()
+    service.retrieve.return_value = [SimpleNamespace(
+        passage_id="p1", text="Candidate text", title="Title", score=score,
+        source_age_label="6-9 months", source_title="Source", routines=[])]
+    result = evaluate_query(service, evaluation_case)
+    assert result["evidence_gate"]["expected_rejection_met"] is rejected
+    metrics = build_report([evaluation_case], [result])["metrics"]
+    assert metrics["missing_topic_queries"] == 1
+    assert metrics["missing_topic_returned_results"] == 1
+    assert metrics["expected_no_evidence_rejected"] == int(rejected)
+    assert metrics["expected_no_evidence_accepted"] == int(not rejected)
+    assert ("GATE_REJECTED" in result_status(result)) is rejected
