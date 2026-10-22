@@ -1,7 +1,34 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getAccountUsage } from "../services/caregiving";
 
 export default function AccountUsage({ revision = false }) {
+  const [open, setOpen] = useState(false);
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog.showModal();
+    return () => {
+      if (dialog.open) dialog.close();
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+  return <section className="account-card" aria-labelledby="account-usage-title">
+    <div className="account-card-heading"><h2 id="account-usage-title">Usage</h2>
+      <p>Check your request counts and remaining allowances.</p></div>
+    <button type="button" aria-haspopup="dialog" onClick={() => setOpen(true)}>View usage</button>
+    {open && <dialog ref={dialogRef} className="account-consent-dialog" aria-labelledby="usage-dialog-title"
+      onCancel={() => setOpen(false)} onClose={() => setOpen(false)}>
+      <header className="account-consent-dialog-heading"><h2 id="usage-dialog-title">Your usage</h2>
+        <button type="button" autoFocus onClick={() => setOpen(false)}>Close</button></header>
+      <UsageDetails revision={revision} />
+    </dialog>}
+  </section>;
+}
+
+function UsageDetails({ revision }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,9 +54,8 @@ export default function AccountUsage({ revision = false }) {
   }, [refresh, revision]);
 
   const date = (value) => new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-  return <section className="account-card" aria-labelledby="account-usage-title" aria-busy={loading}>
-    <div className="account-card-heading"><h2 id="account-usage-title">Usage</h2>
-      <p>Your current request allowances. Reset times are shown in your local time.</p></div>
+  return <div aria-busy={loading}>
+    <p>Your current request allowances. Reset times are shown in your local time.</p>
     {loading && <p role="status">Loading usage…</p>}
     {error && <p role="alert">{error}</p>}
     {result?.items.map((item) => <div className="account-data-row" key={item.action}>
@@ -41,5 +67,5 @@ export default function AccountUsage({ revision = false }) {
       </div></div>)}
     {result && <p><small>Updated {date(result.as_of)}. Accepted attempts count even if no guidance is generated.</small></p>}
     <button type="button" disabled={loading} onClick={() => setRefresh((value) => value + 1)}>Refresh usage</button>
-  </section>;
+  </div>;
 }

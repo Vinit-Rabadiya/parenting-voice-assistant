@@ -10,6 +10,7 @@ import {
 } from "../services/auth";
 import QRCode from "qrcode";
 import AccountUsage from "../components/AccountUsage";
+import AccountConsent from "../components/AccountConsent";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
 function AccountPage({ verificationEmailRequested, email, accountAccess, onDataDeleted }) {
   const { logout } = useAuth();
@@ -160,21 +161,6 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     }
   }
 
-  // logging out tells the app to show the login screen again.
-  async function handleLogOut() {
-    if (busy) return;
-    setBusy(true);
-    setMessage("");
-
-    try {
-      await logout();
-    } catch {
-      setMessage("Couldn't log out. Please try again");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   // start setup; the authenticator is added only after a correct code is confirmed.
   async function handleBeginEnrollment() {
     if (busy) return;
@@ -255,18 +241,23 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
       </p>}
       </div>
       <section className="account-card" aria-labelledby="account-security-title">
-        <div className="account-card-heading"><h2 id="account-security-title">Sign-in security</h2>
-          <p>Keep your account protected with email verification and an authenticator.</p></div>
+        <div className="account-card-heading"><h2 id="account-security-title" className={enrollmentComplete === true ? "account-mfa-enabled" : undefined}>
+          {enrollmentComplete === true && <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="11" fill="currentColor" />
+            <path d="m7 12 3 3 7-7" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>}
+          {enrollmentComplete === true ? "MFA enabled" : enrollmentComplete === false ? "Set up MFA" : "MFA status unavailable"}
+        </h2></div>
       {emailVerified ? (
         <div className="account-security-content">
-          {!accountAccess?.verified && <p>Email verified.</p>}
+          {!accountAccess?.verified && <p className="email-verified">Email verified.</p>}
 
           {/* show the saved authenticator status, the setup form, or the setup button. */}
-          {enrollmentComplete ? (
+          {enrollmentComplete ? (!accountAccess?.verified && (
             <p>
-               {accountAccess?.verified ? "Authenticator enabled." : "Authenticator enrolled. Log out and sign in with your authenticator code to complete verification."}
+               Authenticator enrolled. Log out and sign in with your authenticator code to complete verification.
             </p>
-          ) : pendingEnrollment ? (
+          )) : pendingEnrollment ? (
             <form className="account-enrollment" onSubmit={handleConfirmEnrollment}>
               <p>
                 Scan this QR code with your authenticator app, then enter its
@@ -366,10 +357,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
       </section>
       <p className="account-feedback" role="status">{message}</p>
       {accountAccess?.verified && <AccountUsage revision={dataDeleted} />}
-      <section className="account-card account-session" aria-labelledby="account-session-title">
-        <div><h2 id="account-session-title">Current session</h2><p>Sign out on shared devices to keep your information private.</p></div>
-        <button type="button" disabled={busy} onClick={handleLogOut}>Log Out</button>
-      </section>
+      {accountAccess?.verified && <AccountConsent key={String(dataDeleted)} />}
       {accountAccess?.verified && <section className="account-card account-data" aria-labelledby="account-data-title">
         <div className="account-card-heading"><h2 id="account-data-title">Data and account</h2>
           <p>These actions permanently remove information and cannot be undone.</p></div>
