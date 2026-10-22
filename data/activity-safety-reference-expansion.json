@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-22",
+  "status": "candidate_not_expert_validated",
+  "notes": "Source-backed prevention summaries for developmental activities, not emergency treatment instructions. Age eligibility is limited to the project's birth-to-24-month scope. Review retrieval alongside the corresponding activity before enabling this pack.",
+  "sources": [
+    {
+      "source_id": "unicef-activity-environment-safety",
+      "title": "UNICEF: How to babyproof your home",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/safety/how-to-babyproof-your-home",
+      "age": [0, 25],
+      "passages": [
+        {"section": "Choking, strangulation and suffocation: exploration and toys", "domain": "safety", "routines": ["play"], "text": "When babies explore objects during play and learning, keep small toys, coins and batteries out of reach because they may put objects in their mouths. Keep blind cords and drawstrings out of reach too. Make the surroundings safer rather than relying on watching alone."},
+        {"section": "Falls: moving and exploring", "domain": "safety", "routines": ["play", "dressing"], "text": "As babies roll and toddlers move around, check the surroundings for fall hazards. Never leave a baby alone on a bed, sofa or changing table. Clear floor clutter and protect access to stairs and windows so children can explore more safely."},
+        {"section": "Drowning: water activities", "domain": "safety", "routines": ["play", "bathing"], "text": "During water play or bathing, stay within arm's reach and never leave a young child unattended, even briefly. Empty tubs, buckets and basins after use. Water activities need continuous attention; a small amount of water can still be dangerous."}
+      ]
+    },
+    {
+      "source_id": "nhs-feeding-and-toy-safety",
+      "title": "NHS: Baby and toddler safety",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/first-aid-and-safety/safety/baby-and-toddler-safety/",
+      "age": [0, 25],
+      "passages": [
+        {"section": "Choking: choosing toys for learning", "domain": "safety", "routines": ["play"], "text": "For grasping, sorting or other play, keep buttons, coins, small toy parts, button batteries and small magnets away from babies and toddlers. Toys intended for older children may have small parts and should be kept away from younger children."},
+        {"section": "Choking: eating safely", "domain": "safety", "routines": ["feeding"], "age": [6, 25], "text": "When a baby has started solid foods, consider food size, shape and texture. Stay with the child during eating and encourage sitting still rather than running around with food. Do not offer whole nuts or hard sweets to young children."}
+      ]
+    }
+  ]
+}

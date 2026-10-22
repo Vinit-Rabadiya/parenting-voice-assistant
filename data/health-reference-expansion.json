@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-22",
+  "status": "candidate_not_expert_validated",
+  "clinical_review_required": true,
+  "notes": "Educational summaries for source and clinical review only. Not a complete Kenya vaccination schedule, diagnosis, or personalized treatment protocol. Source-country emergency contact numbers are intentionally not copied into general guidance. Preserve existing urgent referral routing; complete symptom-routing and jurisdiction checks before enabling answers.",
+  "sources": [
+    {
+      "source_id": "who-vaccination-explained",
+      "title": "WHO: What is vaccination?",
+      "publisher": "WHO",
+      "source_url": "https://www.who.int/news-room/questions-and-answers/item/vaccines-and-immunization-what-is-vaccination",
+      "country": null,
+      "age": [0, 25],
+      "passages": [
+        {"section": "What is vaccination and how does it work?", "domain": "immunisation", "routines": [], "text": "Vaccination prepares the immune system to recognize particular infections and respond to them. Vaccines are preventive protection rather than treatment for an illness a child already has. Routes vary: many vaccines are injections, while some are given by mouth or through the nose."},
+        {"section": "Missed vaccines and country differences", "domain": "immunisation", "routines": [], "text": "If a child has missed recommended vaccinations, ask a health worker about catching up. Which vaccines are needed varies with country and individual circumstances. A general explanation cannot determine an individual child's catch-up doses or suitability."}
+      ]
+    },
+    {
+      "source_id": "unicef-vaccine-questions",
+      "title": "UNICEF: Vaccines for children, your questions answered",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/health/parents-frequently-asked-questions-vaccines",
+      "country": null,
+      "age": [0, 25],
+      "passages": [
+        {"section": "What are vaccines and why vaccinate?", "domain": "immunisation", "routines": [], "text": "Vaccines help protect children from serious infections by preparing their immune response. Examples of vaccine-preventable diseases include polio, measles, and tetanus. The purpose is to protect before exposure, not to diagnose a current illness."},
+        {"section": "Recommended vaccine schedule", "domain": "immunisation", "routines": [], "text": "Vaccination schedules differ between countries. Confirm the applicable schedule and upcoming appointments with the local health centre or national Ministry of Health, using the child's vaccination record. Do not use another country's schedule as a substitute."},
+        {"section": "Can a vaccine cause my baby to get sick?", "domain": "immunisation", "routines": [], "text": "Some children have temporary soreness where an injection was given or a mild fever after vaccination. Concerns should be discussed with a healthcare professional. Do not assume that every illness after vaccination was caused by the vaccine."}
+      ]
+    },
+    {
+      "source_id": "who-vaccine-safety",
+      "title": "WHO: Vaccine safety",
+      "publisher": "WHO",
+      "source_url": "https://www.who.int/news-room/questions-and-answers/item/vaccines-and-immunization-vaccine-safety",
+      "country": null,
+      "age": [0, 25],
+      "passages": [
+        {"section": "Are there side effects from vaccines?", "domain": "immunisation", "routines": [], "text": "Vaccine side effects are generally mild and short-lived, such as a sore arm or mild fever; serious side effects are possible but very rare. An unexpected reaction should be discussed with a healthcare professional, not diagnosed through chat."},
+        {"section": "Adverse events following immunisation", "domain": "immunisation", "routines": [], "text": "An adverse event following immunisation is a medical problem occurring after vaccination. Timing alone does not establish that the vaccine caused it. Health professionals assess the event and possible causes; caregivers should report unexpected reactions."}
+      ]
+    },
+    {
+      "source_id": "kenya-moh-tcv-2025",
+      "title": "Kenya Ministry of Health: July 2025 vaccine programme update",
+      "publisher": "Kenya Ministry of Health",
+      "source_url": "https://www.health.go.ke/node/1955",
+      "country": "KE",
+      "age": [0, 25],
+      "passages": [
+        {"section": "Routine typhoid vaccine introduction", "domain": "immunisation", "routines": [], "text": "A July 2025 Kenya Ministry of Health announcement records introduction of typhoid conjugate vaccine into routine immunisation at nine months. This historical programme update is not a complete current schedule or proof of what a particular child is due to receive. Confirm current appointments with the vaccination clinic and the child's record."}
+      ]
+    },
+    {
+      "source_id": "nhs-baby-temperature",
+      "title": "NHS: How to take your baby's temperature",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/health/how-to-take-your-babys-temperature/",
+      "country": null,
+      "age": [0, 25],
+      "passages": [
+        {"section": "Taking a temperature", "domain": "common_concerns", "routines": [], "text": "If a baby feels unusually hot, check with a digital thermometer rather than judging only by touch. Place it in the armpit and follow its instructions. Record the reading and tell a health professional about accompanying symptoms."},
+        {"section": "When to seek medical advice", "domain": "common_concerns", "routines": [], "age": [0, 3], "text": "A baby younger than three months with a temperature of 38 degrees Celsius or above needs urgent medical assessment. Do not dismiss a young baby's fever as teething or a routine vaccine effect, or delay assessment while waiting for chat guidance."}
+      ]
+    },
+    {
+      "source_id": "nhs-baby-diarrhoea-vomiting",
+      "title": "NHS: Diarrhoea and vomiting",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/symptoms/diarrhoea-and-vomiting/",
+      "country": null,
+      "age": [0, 25],
+      "passages": [
+        {"section": "Feeding and hygiene", "domain": "common_concerns", "routines": ["feeding"], "text": "During diarrhoea or vomiting, continue breast or usual-strength formula feeds if the baby can feed, using smaller feeds more often if needed. Do not dilute formula. Wash hands with soap to reduce spread. Seek professional advice if worried, particularly for a baby under one year."},
+        {"section": "When to get help", "domain": "common_concerns", "routines": [], "text": "Get prompt medical help if an ill child stops feeding, has fewer wet nappies, cannot keep fluids down, or has blood in stool. Green vomit or blood in vomit needs urgent medical attention. General feeding suggestions must not replace assessment when warning signs are present."}
+      ]
+    },
+    {
+      "source_id": "nhs-baby-reflux",
+      "title": "NHS: Reflux in babies",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/conditions/reflux-in-babies/",
+      "country": null,
+      "age": [0, 12],
+      "passages": [
+        {"section": "Feeding support and safe sleep", "domain": "common_concerns", "routines": ["feeding"], "text": "For a baby bringing up small amounts of milk, ask a health professional about feeding position and burping. Hold the baby upright during and after feeding while awake. For sleep, keep them flat on their back; do not raise the head of the cot. These suggestions do not diagnose the cause."},
+        {"section": "When to seek medical help", "domain": "common_concerns", "routines": [], "text": "Seek professional assessment for persistent symptoms or poor weight gain. Forceful vomiting, green or bloody vomit, a swollen tender tummy, inability to keep fluids down, or refusal to feed needs urgent medical advice rather than reassurance that it is ordinary reflux."}
+      ]
+    },
+    {
+      "source_id": "nhs-nappy-rash-care",
+      "title": "NHS: Nappy rash",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/caring-for-a-newborn/nappy-rash/",
+      "country": null,
+      "age": [0, 25],
+      "passages": [
+        {"section": "Gentle nappy-area care", "domain": "common_concerns", "routines": ["dressing", "bathing"], "text": "For irritated nappy-area skin, change wet or dirty nappies promptly. Clean gently with water or fragrance-free, alcohol-free wipes and dry carefully. Let the area have time without a nappy when practical and avoid tight nappies or irritating soaps."},
+        {"section": "When to get medical help", "domain": "common_concerns", "routines": [], "text": "Have a health professional assess a nappy-area rash that persists, worsens, spreads, or leaves the baby very uncomfortable. A rash with fever also needs assessment. Do not diagnose an infection or select prescription creams through chat."}
+      ]
+    },
+    {
+      "source_id": "nhs-baby-cough-cold",
+      "title": "NHS: Colds, coughs and ear infections in children",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/health/colds-coughs-and-ear-infections-in-children/",
+      "country": null,
+      "age": [0, 25],
+      "passages": [
+        {"section": "Support and warning signs", "domain": "common_concerns", "routines": [], "text": "For cough or cold concerns, watch feeding, breathing, and general wellbeing and ask a health professional if worried. Handwashing helps limit spread. Breathing difficulty or inability to swallow fluids needs urgent medical attention, not routine home-care reassurance. Do not give over-the-counter cough or cold remedies to a baby without professional advice."}
+      ]
+    },
+    {
+      "source_id": "nhs-urgent-baby-help",
+      "title": "NHS: When to get urgent medical help for babies and children under five",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/",
+      "country": null,
+      "age": [0, 25],
+      "passages": [
+        {"section": "Warning signs", "domain": "common_concerns", "routines": [], "text": "Get urgent medical help for breathing difficulty, blue or grey lips, unresponsiveness, seizures, or swelling of the mouth or throat with difficulty swallowing. A child can be seriously ill without having every warning sign. If you think something is seriously wrong, do not wait for coaching."}
+      ]
+    }
+  ],
+  "pending_sources": [
+    {"title": "Complete current Kenya routine immunisation schedule", "reason": "Reconcile the handbook with later official updates; do not infer a full schedule from a campaign announcement."},
+    {"title": "Teething and excessive crying guidance", "reason": "Select current dedicated sources, preserve warning signs, and avoid diagnosing colic or attributing fever/diarrhoea to teething."},
+    {"title": "Health-topic routing and review", "reason": "Require explicit country for schedules, retain rapid danger-sign referral, test missing/contradictory details, and obtain qualified review before enabling these candidate passages."}
+  ]
+}

@@ -1,4 +1,5 @@
 # Creates the collection used to store caregiver passage vectors.
+import argparse
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PayloadSchemaType, VectorParams
 
@@ -17,10 +18,13 @@ def ensure_age_indexes(client: QdrantClient, collection_name: str) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Create or preserve an age-indexed Qdrant collection.")
+    parser.add_argument("--collection", default=settings.QDRANT_COLLECTION)
+    args = parser.parse_args()
     if not settings.QDRANT_URL or not settings.QDRANT_API_KEY:
         raise SystemExit("Set the Qdrant connection values in the root .env.")
 
-    collection_name = settings.QDRANT_COLLECTION
+    collection_name = args.collection
 
     client = QdrantClient(
         url=settings.QDRANT_URL,

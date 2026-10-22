@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-22",
+  "status": "candidate_not_expert_validated",
+  "notes": "Short editorial summaries, not verbatim page snapshots. Fingerprints identify these summaries, not the publisher's HTML. Age-point articles are restricted to that completed month; broader eligibility requires review. No immunisation passage is enabled here.",
+  "sources": [
+    {
+      "source_id": "unicef-development-2-months",
+      "title": "UNICEF: Developmental milestones at 2 months",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/child-development/your-babys-developmental-milestones-2-months",
+      "age": [2, 3],
+      "passages": [
+        {"section": "Social and emotional development", "domain": "social_emotional", "routines": ["play", "soothing"], "text": "At two months, hold your baby near your face and make eye contact. Gentle skin-to-skin contact can be soothing. Watch for attempts to look at you or smile, and respond warmly."},
+        {"section": "Language and communication", "domain": "language", "routines": ["play"], "text": "At two months, respond to your baby's cooing with your voice. Treat their sounds as a conversational turn and speak back, giving them a chance to respond."},
+        {"section": "Brain development", "domain": "cognitive", "routines": ["play"], "text": "At two months, notice which faces or objects attract your baby's attention. Name the person or object they are looking at while sharing their interest."},
+        {"section": "Movement and physical development", "domain": "gross_motor", "routines": ["play"], "text": "During awake, supervised tummy-time play, face your two-month-old and talk with them. Move a safe toy for them to follow with their head and eyes. This is play while awake, not a sleeping position."}
+      ]
+    },
+    {
+      "source_id": "unicef-development-4-months",
+      "title": "UNICEF: Developmental milestones at 4 months",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/child-development/your-babys-developmental-milestones-4-months",
+      "age": [4, 5],
+      "passages": [
+        {"section": "Social and emotional development", "domain": "social_emotional", "routines": ["play"], "text": "At four months, share your baby's interest by looking and pointing with them. Smile and speak kindly. They may enjoy copying facial expressions and playing with familiar people."},
+        {"section": "Language and communication", "domain": "language", "routines": ["play", "soothing"], "text": "Repeat your four-month-old's sounds back to them. Respond to crying and watch their signals instead of assuming every cry means the same thing."},
+        {"section": "Brain development", "domain": "cognitive", "routines": ["feeding", "bathing", "dressing"], "text": "At four months, talk during everyday care about what you and your baby notice. Offer safe nearby toys to support reaching and hand-eye coordination."},
+        {"section": "Movement and physical development", "domain": "fine_motor", "routines": ["play"], "text": "At four months, offer a safe rattle within reach so your baby can try grasping and shaking it. Watch their movements and keep play responsive to their interest."}
+      ]
+    },
+    {
+      "source_id": "unicef-development-6-months",
+      "title": "UNICEF: Developmental milestones at 6 months",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/child-development/your-babys-developmental-milestones-6-months",
+      "age": [6, 7],
+      "passages": [
+        {"section": "Social and emotional development", "domain": "social_emotional", "routines": ["play"], "text": "At six months, try peek-a-boo and talk gently about nearby activity. A child-safe mirror gives your baby an opportunity to watch their reflection and movements."},
+        {"section": "Language and communication", "domain": "language", "routines": ["play"], "text": "Use your six-month-old's name during friendly conversation. Repeat the sounds they make and take turns, responding to their attempts to communicate."},
+        {"section": "Brain development", "domain": "cognitive", "routines": ["play"], "text": "Offer your six-month-old safe toys that are easy to grasp with one hand. Talk about the objects they explore. Keep objects suitable for a baby who may bring them to their mouth."},
+        {"section": "Movement and physical development", "domain": "gross_motor", "routines": ["play"], "text": "For supervised floor play at six months, put a favourite safe toy nearby to encourage reaching or rolling toward it. Let your baby's movements and interest guide the activity."}
+      ]
+    },
+    {
+      "source_id": "unicef-development-9-months",
+      "title": "UNICEF: Developmental milestones at 9 months",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/child-development/your-babys-developmental-milestones-9-months",
+      "age": [9, 10],
+      "passages": [
+        {"section": "Social and emotional development", "domain": "social_emotional", "routines": ["play"], "text": "At nine months, follow your baby's signals during play and let them lead. Familiar people and favourite toys may be especially reassuring when they are uncertain around strangers."},
+        {"section": "Language and communication", "domain": "language", "routines": ["reading"], "text": "Share a sturdy picture book with your nine-month-old. Notice what they point toward, name it, and talk about the pictures. You can also make a simple story from pictures."},
+        {"section": "Brain development", "domain": "cognitive", "routines": ["play"], "text": "At nine months, try peek-a-boo or a simple game of looking for a hidden toy. Encourage your baby's attempts and follow their interest rather than turning the activity into a test."},
+        {"section": "Movement and physical development", "domain": "gross_motor", "routines": ["play"], "text": "At nine months, the source describes getting into sitting, crawling, and pulling up using furniture. Discuss movement concerns with a health professional rather than using these examples to diagnose your child."}
+      ]
+    },
+    {
+      "source_id": "unicef-development-12-months",
+      "title": "UNICEF: Developmental milestones at 1 year",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/child-development/your-toddlers-developmental-milestones-1-year",
+      "age": [12, 13],
+      "passages": [
+        {"section": "Social and emotional development", "domain": "social_emotional", "routines": ["dressing", "play"], "text": "Around the first birthday, invite your child to help with dressing by offering an arm or leg. Simple hiding games and shared play are opportunities for connection."},
+        {"section": "Language and communication", "domain": "language", "routines": ["reading", "play"], "text": "At one year, encourage waving hello and goodbye, respond positively to attempts at words, and invite your child to point to objects or characters in a book."},
+        {"section": "Brain development", "domain": "cognitive", "routines": ["play"], "text": "At one year, try putting suitable objects into a container and taking them out, copying gestures, or looking for hidden objects. Offer help, then gradually reduce it as your child manages more."},
+        {"section": "Movement and physical development", "domain": "gross_motor", "routines": ["play"], "text": "At one year, allow supervised movement on a flat surface. Children vary in their development; loss of previously acquired skills or concerns about progress should be discussed with a paediatrician."}
+      ]
+    },
+    {
+      "source_id": "unicef-development-18-months",
+      "title": "UNICEF: Developmental milestones at 18 months",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/child-development/your-toddlers-developmental-milestones-18-months",
+      "age": [18, 19],
+      "passages": [
+        {"section": "Social and emotional development", "domain": "social_emotional", "routines": ["play"], "text": "At eighteen months, play together and acknowledge caring gestures such as sharing a toy or looking after a toy animal. These are opportunities for practising social connection."},
+        {"section": "Language and communication", "domain": "language", "routines": ["play", "reading"], "text": "Notice what your eighteen-month-old points toward and name it. Their pointing can become an opportunity for shared attention and conversation about something they already find interesting."},
+        {"section": "Brain development", "domain": "cognitive", "routines": ["play"], "text": "At eighteen months, provide suitable toys for simple pretend play, such as pretending to feed a favourite stuffed animal. Talk about the familiar objects used in the game."},
+        {"section": "Movement and physical development", "domain": "gross_motor", "routines": ["dressing"], "text": "At eighteen months, encourage participation in everyday routines such as getting dressed. Give time for your child to help rather than doing every part of the routine for them."}
+      ]
+    },
+    {
+      "source_id": "unicef-development-24-months",
+      "title": "UNICEF: Developmental milestones at 2 years",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/child-development/your-toddlers-developmental-milestones-2-years",
+      "age": [24, 25],
+      "passages": [
+        {"section": "Social and emotional development", "domain": "social_emotional", "routines": ["play", "dressing"], "text": "At the second birthday, try rolling a ball to one another, taking turns handing over toys, or helping with a safe supervised activity such as folding clothes. Shared activities offer practice in cooperation."},
+        {"section": "Language and communication", "domain": "language", "routines": ["walking"], "text": "At the second birthday, name the things you see together while walking. Familiar surroundings provide opportunities to hear words and connect them with objects and people."},
+        {"section": "Brain development", "domain": "cognitive", "routines": ["play"], "text": "At the second birthday, hide suitable objects around the room and give your child hints to find them. This is a playful shared search, not a diagnostic assessment."},
+        {"section": "Movement and physical development", "domain": "fine_motor", "routines": ["reading"], "text": "At the second birthday, invite your child to turn a page while you share a book. This is a small fine-motor challenge that can be part of an enjoyable familiar routine."}
+      ]
+    },
+    {
+      "source_id": "unicef-feeding-6-12-months",
+      "title": "UNICEF: Feeding your baby, 6–12 months",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-6-12-months",
+      "age": [6, 12],
+      "passages": [
+        {"section": "First foods", "domain": "nutrition", "routines": ["feeding"], "text": "From six months, introduce soft foods alongside continued breastfeeding. Examples include mashed vegetables, fruit, legumes, and suitably thick porridge. Start patiently as your baby learns new textures."},
+        {"section": "Responsive feeding", "domain": "responsive_caregiving", "routines": ["feeding"], "text": "Watch your baby's hunger and fullness signals. Give time to become familiar with a new flavour, avoid forcing food, and stop when they show they are full. If they reject a new food, offer it again another day."},
+        {"section": "Food hygiene", "domain": "safety", "routines": ["feeding"], "text": "Wash your hands and your baby's hands with soap before preparing food and feeding. Offer a variety of nutritious foods prepared in a form your baby can manage."},
+        {"section": "Feeding at 9–11 months", "domain": "nutrition", "routines": ["feeding"], "age": [9, 12], "text": "Between nine and eleven months, soft foods can be finely chopped rather than only mashed, and babies may begin feeding themselves with their fingers. Continue to offer nutritious variety and respond to hunger."}
+      ]
+    },
+    {
+      "source_id": "unicef-feeding-12-24-months",
+      "title": "UNICEF: Feeding your baby, 1–2 years",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-1-2-years",
+      "age": [12, 24],
+      "passages": [
+        {"section": "Mealtime tips", "domain": "responsive_caregiving", "routines": ["feeding"], "text": "Between one and two years, give your child their own bowl and time to practise feeding themselves. Expect some mess and offer warm encouragement. Sit facing them, smile, and talk together."},
+        {"section": "Food refusal", "domain": "responsive_caregiving", "routines": ["feeding"], "text": "When a one- to two-year-old refuses food, stay calm and avoid pressure. Try different suitable textures or combine a familiar food with a new one. Cover refused food and offer it again later rather than making mealtimes a conflict."},
+        {"section": "What to feed your child", "domain": "nutrition", "routines": ["feeding"], "text": "Offer varied nutritious family foods in forms your one- to two-year-old can manage. Cook animal foods thoroughly and chop or mash them appropriately. Nuts need to be ground, crushed, or offered as smooth nut butter, not whole."}
+      ]
+    },
+    {
+      "source_id": "unicef-everyday-development",
+      "title": "UNICEF: Parenting tips for the first two years",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/child-development/baby-tips",
+      "age": [0, 24],
+      "passages": [
+        {"section": "Newborn baby tips", "domain": "social_emotional", "routines": ["soothing", "play"], "age": [0, 1], "text": "For newborn connection, hold your baby gently, smile toward them, and speak softly. Notice their face and body responses rather than expecting words. Familiar touch and skin-to-skin contact can be comforting."},
+        {"section": "1–6 month baby tips", "domain": "fine_motor", "routines": ["play"], "age": [1, 6], "text": "During the first six months, slowly move a colourful safe object for your baby to follow. Offer a suitable object within reach and let them try touching or grasping it."},
+        {"section": "6–9 month baby tips", "domain": "language", "routines": ["play"], "age": [6, 9], "text": "Between six and nine months, use your baby's name, speak gently, and leave time for a response. Offer clean, safe objects to explore while you share their attention."},
+        {"section": "9–12 month baby tips", "domain": "cognitive", "routines": ["play"], "age": [9, 12], "text": "Between nine and twelve months, hide a suitable toy under a cloth and invite your baby to find it. Name familiar people and objects, and model a goodbye wave."},
+        {"section": "1–2 year toddler tips", "domain": "language", "routines": ["feeding", "bathing", "play"], "age": [12, 24], "text": "Between one and two years, use feeding, bathing, and play for conversation. Ask simple questions, respond to attempts to speak, and name what your toddler is doing."}
+      ]
+    },
+    {
+      "source_id": "nhs-helping-baby-sleep",
+      "title": "NHS: Helping your baby to sleep",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/",
+      "age": [0, 24],
+      "passages": [
+        {"section": "Night and day", "domain": "responsive_caregiving", "routines": ["sleep"], "text": "Help distinguish day from night: during daytime, allow normal household activity and play. At night, keep lights low and your voice quiet, attend to feeding and changing needs, and avoid stimulating play."},
+        {"section": "Establishing a bedtime routine", "domain": "responsive_caregiving", "routines": ["sleep", "reading"], "text": "A simple calming bedtime routine may include clean night clothes, a story, a cuddle, and a lullaby. Reduce excitement before bed and keep a familiar sequence as your child grows. Sleep patterns vary; a routine does not guarantee uninterrupted sleep."},
+        {"section": "Where should my baby sleep?", "domain": "safety", "routines": ["sleep"], "age": [0, 6], "text": "For at least the first six months, keep your baby's sleeping space in the same room as you for daytime and night-time sleep. If you need help with sleep concerns or routines, speak to a health professional."}
+      ]
+    },
+    {
+      "source_id": "nhs-bathing-baby",
+      "title": "NHS: Bathing your baby",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/best-start-in-life/baby/baby-basics/caring-for-your-baby/bathing-your-baby/",
+      "age": [0, 12],
+      "passages": [
+        {"section": "Baby's first bath and temperature", "domain": "safety", "routines": ["bathing"], "text": "Prepare towels, clean clothes, and a nappy before bathing. Keep the room warm, mix the water well, and check it is not hot or cold before putting your baby in. Stay with your baby throughout."},
+        {"section": "How to bathe your baby", "domain": "safety", "routines": ["bathing"], "text": "Support your baby's head and shoulders, keep their head above water, and wash gently without splashing. Never leave a baby alone in a bath, even briefly. Lift them out carefully and pat the skin folds dry."},
+        {"section": "Top and tailing", "domain": "responsive_caregiving", "routines": ["bathing"], "text": "Talk gently while washing your baby so they hear your familiar voice. In the first weeks, washing the face, neck, hands, and bottom with warm water can be an alternative to a full bath."},
+        {"section": "Baby's first bath", "domain": "safety", "routines": ["bathing"], "age": [0, 1], "text": "During the first month, plain water is best for bathing your baby's skin. Choose a time when they are not hungry or tired and not straight after a feed."}
+      ]
+    }
+  ],
+  "pending_sources": [
+    {"title": "Kenya Ministry of Health: July 2025 immunisation update", "url": "https://www.health.go.ke/node/1955", "reason": "Country-specific current schedule reconciliation and qualified health review required; not indexed."},
+    {"title": "WHO vaccine safety questions and answers", "url": "https://www.who.int/news-room/questions-and-answers/item/vaccines-and-immunization-vaccine-safety", "reason": "General safety source; not a Kenya vaccine schedule or individual treatment protocol. Review under #100 before indexing."}
+  ]
+}

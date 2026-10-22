@@ -19,7 +19,7 @@ class RetrievedPassage:
     text: str
     title: str
     source_title: str
-    pdf_page: int
+    pdf_page: int | None
     source_url: str
     score: float
     source_age_label: str
