@@ -1,0 +1,126 @@
+# Initial development retrieval review
+
+Corpus: 187 candidate passages in `caregiver_guidance_review_v1`.
+Evidence: `eval/coverage-v1/development-results.json`, 36 development cases.
+The held-out split has not been used for this review.
+
+## Baseline
+
+- Hit@4: 0.9412 across 34 positively labelled cases (32 hits, two misses).
+- Mean recall against the initial labelled positive pool: 0.7108.
+- MRR: 0.7574.
+- Known age-ineligible passages returned: zero.
+- Mean retrieval latency: 358.7 ms; generation and audio are excluded.
+
+These are development results against first-pass editorial labels, not independent
+or clinical validation. Preserve the baseline and labels rather than changing them
+to make retrieval scores look better.
+
+## Miss review
+
+| Case | Observation | Next action |
+| --- | --- | --- |
+| cv21: caring behaviour | Returned time-to-play, conversation, caregiver stress and toy-availability passages instead of the labelled caring-gestures passage. The highest score was 0.6124, so a 0.50 threshold alone cannot establish semantic relevance. | Inspect where the caring-gestures passage ranks and assess a general retrieval improvement on the development set; do not add a question-specific rule. |
+| cv35: changing clothes | Returned grasping, everyday-care conversation, a combined face-play/chat passage and fall precautions. The combined passage includes talking during changing and may be relevant despite not being in the positive pool. The highest returned score was 0.4658. | Record a possible incomplete label pool; review routine tags and combined/standalone passage duplication before changing ranking. Keep original labels and baseline intact. |
+
+## Reporting corrections
+
+The original console `PASS` meant only that no forbidden age ID was returned.
+It did not mean the correct references were retrieved. The evaluator now reports
+`AGE_OK` separately from `HIT`/`MISS` and adds the existing evidence-gate outcome.
+
+The no-evidence examples cv51 (first foods before six completed months) and cv54
+(car repair) both returned raw candidates. Vector search returning neighbours is
+not itself an answer-generation failure. The original report did not record the
+gate outcome, and `0/0` missing-topic results were not rejection evidence.
+Re-run development evaluation into a new output file to record the actual gate
+decision using the current threshold. This does not call the generation model.
+
+Broad first/second-birthday cases cv44 and cv47 each retrieved one of four labelled
+domain passages. Investigate cross-domain coverage before claiming balanced age
+overviews. Do not merely increase the live prompt size or weaken age filtering.
+
+## Read-only ranking diagnosis
+
+Two additional queries inspected up to 100 age-filtered candidates in the same
+review collection, using only development cases. No collection or label changes
+were made, and no held-out results were examined.
+
+- **cv21:** the labelled caring-gestures passage ranks eighth with score 0.5117.
+  It is within the normal candidate pool of 20, but outside the final four.
+  Fetching more candidates alone will not correct this final ordering. The
+  higher-ranked results concern caregiver availability and stress rather than
+  the child's caring behaviour.
+- **cv35:** `7726540107e02bed6b14` (Chat with baby) ranks ninth at 0.4235,
+  but has routine tags `feeding`, `bathing`, `changing`. The request routine is
+  `dressing`, so the current exact-match routine filter excludes it. The other
+  labelled dressing activity `c5820d9bfa874c8662a6` ranks nineteenth at 0.3489.
+  Both labelled scores are below the existing 0.50 evidence threshold; fixing
+  the routine-name mismatch alone will not establish an answerable result.
+- The returned combined passage `f78a77c6f0225e3e5692` includes chat during
+  changing, but is untagged and absent from this case's initial positive pool.
+  Preserve this as a label-pool limitation rather than silently revising the
+  baseline to improve the reported score.
+
+### Implementation order
+
+1. Define and test canonical routine aliases consistently during preparation and
+   retrieval. Review whether `changing` means clothes/dressing or nappy care in
+   each source; do not blindly rewrite every occurrence into `dressing`.
+2. Compare a general ranking/indexing improvement on the development set in a
+   separate collection. Do not hard-code boosts for these question IDs or lower
+   the evidence threshold to make the two examples pass.
+3. Recheck development relevance, no-evidence rejection, age isolation and
+   latency before enabling any retrieval change in the application.
+
+## Index comparison decision
+
+All three development runs use the same 36 questions, source text, initial labels,
+age eligibility, top-four limit and 0.50 threshold. No held-out results were used.
+
+| Variant | Hit@4 | Recall@4 | MRR | Mean retrieval latency |
+| --- | --- | --- | --- | --- |
+| Original text and tags | 0.9412 | 0.7108 | 0.7574 | 359.0 ms |
+| Original text, reviewed routine correction | 0.9706 | 0.7255 | 0.7647 | 355.5 ms |
+| Context-enriched vectors, reviewed routine correction | 0.8235 | 0.7279 | 0.6838 | 354.4 ms |
+| Local TinyBERT reranker, reviewed routine correction | 0.9412 | 0.6667 | 0.7255 | 449.7 ms |
+
+Each variant returned zero known age-ineligible IDs and rejected both labelled
+no-evidence examples. These are two rejection examples, not comprehensive safety
+validation. Small timing differences across single runs do not establish a speed gain.
+
+**Decision:** retain the reviewed routine correction as the preferred candidate.
+Do not promote context-enriched embeddings: compared with the routine-only variant,
+they introduce misses on cv01, cv03, cv14, cv32 and cv47. The small recall increase
+does not outweigh the drop in hit rate and reciprocal rank. The experimental option
+remains explicit and staging-only for reproducibility, not part of the default path.
+
+### Remaining findings
+
+The local CPU TinyBERT reranker is also not selected for activation. Its measured
+mean reranking portion was 37.7 ms, with initialization recorded separately.
+It retained the caring-behaviour miss and introduced a feeding-hygiene miss
+(cv39), while reducing labelled recall and MRR compared with routine-only.
+The total latency difference is not attributable entirely to reranking: network
+and first-query overhead also vary across these single development runs.
+
+- **Changing clothes:** cv35 now retrieves the labelled Chat with baby passage,
+  but the evidence gate accepts none of the returned passages. The correction
+  fixes a retrieval exclusion, not end-to-end answer availability. Do not claim
+  that this input now receives an answer or lower the threshold just for this case.
+- **Caring behaviour:** cv21 remains a miss and its returned caregiver-support
+  passages pass the score threshold. Similarity is not proof that they answer
+  the requested child-behaviour topic. Semantic ranking still needs improvement.
+- **First birthday:** cv44 returns communication, everyday interaction and a
+  first-birthday movement passage; only the last is in the initial positive pool.
+  A labelled recall of 0.25 alone does not establish that the answer lacks all
+  other developmental domains. Review actual source support and generated output.
+- **Second birthday:** cv47 returns general play guidance, turn-taking,
+  construction play and caregiver-child conversation. Several useful passages
+  are outside the initial four positive labels. Preserve this label-pool limitation.
+
+The canonical page-37 selection now includes the reviewed dressing tag for future
+builds. Existing corpus files, labels and evaluation splits are not regenerated:
+doing so would invalidate the pinned baseline fingerprint. The application collection
+remains unchanged. A final label pool needs independent review; do not rewrite this
+one after seeing results and then report the revised scores as an unbiased improvement.
