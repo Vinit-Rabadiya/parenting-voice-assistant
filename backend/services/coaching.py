@@ -97,6 +97,8 @@ Evidence excerpts:
 {evidence}
 
 Write one warm, practical answer of at most 90 words. Use only the evidence excerpts.
+For an activity, include a brief relevant precaution when the excerpts support one.
+Keep precautions within the same word limit; do not invent safety advice.
 {answer_format} Do not diagnose, prescribe medicine,
 give a dose, invent a milestone, or make a claim not supported by the excerpts.
 If the excerpts do not answer the question, say so and suggest contacting a health worker.
