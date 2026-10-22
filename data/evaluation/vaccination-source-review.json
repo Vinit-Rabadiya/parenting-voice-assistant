@@ -1,0 +1,37 @@
+{
+  "checked_on": "2026-10-22",
+  "country": "KE",
+  "status": "schedule_not_reconciled_not_approved",
+  "sources": [
+    {
+      "title": "Kenya Ministry of Health: Clinical Guidelines for Level 1 Community Health Services",
+      "url": "https://www.health.go.ke/sites/default/files/2025-04/Clinical%20Guidelines%20for%20Level%201%20Community%20Health%20Services.pdf",
+      "publication_year": 2024,
+      "finding": "Older immunisation table; not a complete reconciled schedule for the current release. Original PDF is retained and selected pages are traceable in the candidate pack."
+    },
+    {
+      "title": "Kenya Ministry of Health: Nationwide Measles-Rubella and Typhoid Vaccine Campaign",
+      "url": "https://www.health.go.ke/node/1955",
+      "published_on": "2025-07-07",
+      "event_on": "2025-07-05",
+      "finding": "Later programme announcement; confirms a change after the older guideline. A campaign announcement cannot establish the complete current routine schedule."
+    },
+    {
+      "title": "WHO: Vaccines and immunization: What is vaccination?",
+      "url": "https://www.who.int/news-room/questions-and-answers/item/vaccines-and-immunization-what-is-vaccination",
+      "published_on": "2025-10-22",
+      "finding": "General education, vaccination records and professional advice; not a Kenya-specific schedule."
+    }
+  ],
+  "remaining": [
+    "Obtain and reconcile a current complete official Kenya schedule and later updates, including applicable regional eligibility.",
+    "Review vaccine purposes, expected side effects, age restrictions and professional-referral language with a qualified health reviewer.",
+    "Record approval and effective/review dates before permitting educational answers or schedule retrieval."
+  ],
+  "refresh_policy": {
+    "proposed_owner": "designated content maintainer; assignment pending",
+    "proposed_interval_days": 90,
+    "additional_trigger": "official programme change, safety notice or identified source conflict",
+    "status": "proposed_not_implemented"
+  }
+}

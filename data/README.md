@@ -324,6 +324,141 @@ not copies of the source corpus. Do not describe extracted content as original p
 
 ## Activity precautions
 
+### Vaccination routing boundaries
+
+Vaccination handling is Kenya-only. The backend defaults `vaccination_country`
+to `KE`; there is no country selector and clients do not need to send the field.
+Explicit non-Kenya or null values are rejected rather than silently reassigned.
+This scope is not inferred from the separate crisis-support location.
+Kenya context is retained with vaccination notices in conversation history and
+legacy interactions. Existing history metadata is preserved rather than rewritten.
+
+`backend/services/vaccination.py` currently routes recognised English vaccine
+questions to a fixed `vaccination_notice`: individual clinical assessment or
+Kenya references awaiting review. These notices
+do not call Qdrant or Gemini and do not supply vaccine schedules, catch-up doses
+or individual reaction assessments. Existing recognised danger/crisis routing
+runs first. The notice is stored through the same response path as other chat
+messages; normal coaching is unchanged. Keyword routing is not comprehensive
+medical triage, and Kenya-only scope does not approve or enable health content.
+
+`data/evaluation/vaccination-source-review.json` records the current source
+reconciliation gap. The older guideline and later programme announcements do
+not establish a complete current schedule. The proposed refresh policy is not
+yet an implemented approval system. Qualified review and educational-generation
+integration remain outstanding under #100; common concerns remain under #102.
+
+### Optional local reranking comparison
+
+`scripts/rerank_retrieval.py` wraps the existing retriever for evaluation only.
+It uses `cross-encoder/ms-marco-TinyBERT-L2-v2` on CPU to score question/passage
+pairs, with one model instance loaded per evaluation process. The first model
+load can download weights and take longer; initialization time is recorded
+separately. This experiment adds local compute and optional dependencies, not
+another Gemini request. It is not enabled in the application.
+
+For a top-four comparison, both baseline and reranked runs query the same raw
+20-candidate budget with existing age/routine filtering. The reranker changes
+ordering only. Original cosine scores remain unchanged for the evidence gate;
+cross-encoder scores are neither confidence probabilities nor substitutes for
+the current threshold. Record relevance, gate outcomes, initialization and warm
+reranking latency before deciding whether to adopt it.
+
+```powershell
+.\venv\Scripts\python.exe -m venv eval/.venv
+.\eval\.venv\Scripts\python.exe -m pip install -r requirements-evaluation.txt
+.\eval\.venv\Scripts\python.exe -m pip check
+.\eval\.venv\Scripts\python.exe -m scripts.evaluate_retrieval --queries eval/coverage-v1/questions.jsonl --split development --collection caregiver_guidance_routines_v1 --corpus data/processed/activity-safety-candidates/passages.jsonl --output eval/coverage-v1/development-rerank-results.json --rerank
+```
+
+Use a clean environment without `--system-site-packages`; this prevents optional
+ML dependency updates from changing the application environment. Direct model-runtime
+versions are recorded in `requirements-evaluation.txt`; this is not a complete
+transitive lockfile. Check dependency consistency before running the model.
+
+The optional evaluation dependencies include a local ML runtime and may require
+substantial downloads. They are separate from application requirements. No model
+is installed or downloaded by ordinary unit tests; tests inject a fake scorer.
+Held-out execution is explicitly refused for this experimental option.
+
+### Development index comparison
+
+Keep the source corpus and editorial label fingerprint fixed during this comparison.
+Index-time variants preserve source text, citation metadata, passage IDs and age
+eligibility. `data/routine-corrections.json` adds `dressing` to the individually
+reviewed Chat with baby passage without globally rewriting `changing`.
+
+| Collection | Search input | Routine metadata |
+| --- | --- | --- |
+| `caregiver_guidance_review_v1` | Original passage text | Original tags |
+| `caregiver_guidance_routines_v1` | Original passage text | Reviewed correction |
+| `caregiver_guidance_context_v1` | Title, domain, routine labels, original text | Reviewed correction |
+
+The optional `--embedding-context` and `--routine-corrections` indexing flags
+cannot upload into the configured application collection. They do not overwrite
+the original preparation report. Context fields affect search vectors only;
+the answer model still receives original source text. They are experiments,
+not demonstrated improvements until development results are compared.
+
+The completed development comparison favours the routine-only correction
+(Hit@4 0.9706, MRR 0.7647). Context-enriched vectors reduced Hit@4 to 0.8235
+and are not selected for activation. See
+`data/evaluation/coverage-development-review.md` for results and remaining gaps.
+The dressing metadata correction is also retained in the canonical page-37
+selection for future builds. Do not rebuild pinned evaluation corpora in place.
+The changing-clothes case still has no accepted evidence at the current threshold;
+an improved retrieval hit is not proof of a successful generated answer.
+
+After the two variant collections have been prepared, run:
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.evaluate_retrieval --queries eval/coverage-v1/questions.jsonl --split development --collection caregiver_guidance_routines_v1 --corpus data/processed/activity-safety-candidates/passages.jsonl --output eval/coverage-v1/development-routines-results.json
+.\venv\Scripts\python.exe -m scripts.evaluate_retrieval --queries eval/coverage-v1/questions.jsonl --split development --collection caregiver_guidance_context_v1 --corpus data/processed/activity-safety-candidates/passages.jsonl --output eval/coverage-v1/development-context-results.json
+```
+
+Compare the same questions, positive labels, threshold and top-four limit across
+all three collections. Check regressions as well as improvements, including
+no-evidence rejection and latency. Do not tune on the held-out split.
+
+### Coverage review
+
+Run `python -m scripts.prepare_coverage_review` after building the complete candidate
+corpus. It writes `eval/review/caregiver-coverage/coverage.md` and
+`question-review.json`. Existing output is never overwritten; use `--output-dir`
+for a new review revision. The report identifies missing routine/age combinations.
+The review sheet records age-eligible IDs, not relevance labels or retrieval results.
+Expected passages and outcomes must be reviewed before splitting or scoring.
+
+The 187-passage candidate audit identifies no sleep-tagged references eligible at
+exactly 24 months. The original 106 passages have no developmental-domain metadata;
+their domains need editorial classification rather than inference from routine tags.
+Parent/colleague wording, independent relevance review and live retrieval
+evaluation remain outstanding under #74. Qualified health review and current Kenya
+schedule reconciliation remain outstanding under #100; no clinical approval is implied.
+
+First-pass passage labels are now recorded in `data/evaluation/coverage-labels.json`.
+They include reasons based on passage text and are not an exhaustive gold standard.
+Run `python -m scripts.prepare_retrieval_cases` to validate them against the pinned
+corpus and create `eval/coverage-v1/questions.jsonl`, a separate workflow-case file,
+and a fingerprint manifest. The export contains 52 retrieval cases and 12 workflow
+cases (conversation context, scope, referral or blocked health education).
+The reproducible 70/30 split is assigned across all 64 cases before retrieval.
+Existing output cannot be overwritten. This first-pass baseline still needs
+independent relevance review and real parent/colleague wording for final claims.
+
+After the labelled 187-passage candidate corpus is uploaded to a separate staging
+collection, evaluate only the development split first:
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.evaluate_retrieval --queries eval/coverage-v1/questions.jsonl --split development --collection caregiver_guidance_review_v1 --corpus data/processed/activity-safety-candidates/passages.jsonl --output eval/coverage-v1/development-results.json
+```
+
+This command requires that exact candidate collection to exist; the older
+153-passage collection is not the labelled corpus. It measures Recall@4 against
+the labelled positive pool, MRR and known age-ineligible IDs, not generated-answer
+quality. Do not run or inspect held-out results during tuning. Keep the original
+12-case evaluation unchanged for historical comparisons.
+
 `activity-safety-reference-expansion.json` contains five candidate prevention passages
 from UNICEF and NHS covering play objects, falls, water activities and eating.
 Original URLs and section labels are retained; no HTML copies are stored.
