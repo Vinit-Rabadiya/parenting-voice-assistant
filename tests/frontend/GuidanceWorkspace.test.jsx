@@ -37,6 +37,21 @@ async function selectProfile() {
   await waitFor(() => expect(screen.queryByText("Loading conversations…")).toBeNull());
 }
 
+it("uses server-defined Kenya vaccination scope without a country selector", async () => {
+  requestCoaching.mockResolvedValue({ status: "vaccination_notice", answer: "Check with the vaccination clinic.",
+    vaccination_country: "KE", citations: [], processing_seconds: 0.1, interaction_id: null });
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  expect(screen.queryByLabelText("Vaccination country (optional)")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Which vaccines are due?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await screen.findByRole("heading", { name: "Vaccination information" });
+  expect(requestCoaching.mock.calls.at(-1)[0]).not.toHaveProperty("vaccination_country");
+  expect(requestCoaching.mock.calls.at(-1)[0].support_country).toBeNull();
+  expect(screen.getByText("Vaccination country: Kenya")).toBeTruthy();
+  expect(screen.getByText("No AI-generated vaccination advice was provided.")).toBeTruthy();
+});
+
 it("allows history review and deletion without mounting input or feedback before consent", async () => {
   consentState.allowed = false;
   listConversations.mockResolvedValue([{ id: "saved-chat", title: "Feeding conversation" }]);
