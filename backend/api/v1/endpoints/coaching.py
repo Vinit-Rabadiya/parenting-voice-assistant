@@ -23,6 +23,7 @@ from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
 from backend.services.response_safety import SAFE_RESPONSE, inspect_response
 from backend.services.input_safety import ESCALATION_MESSAGE, inspect_input
 from backend.services.crisis_safety import inspect_crisis
+from backend.services.vaccination import inspect_vaccination
 from backend.services.conversation_context import (
     MAX_CONTEXT_MESSAGES, contextual_retrieval_query, is_follow_up, select_conversation_context,
 )
@@ -43,6 +44,8 @@ async def save_coaching_response(data_service: CaregiverDataService, uid: str,
             "citations", "support_resources", "status", "safety",
             "child_age_months", "processing_seconds",
         })
+        if response.vaccination_country is not None:
+            stored["vaccination_country"] = response.vaccination_country
         stored["text"] = response.answer
         response.message_id = await run_in_threadpool(
             data_service.save_conversation_turn, uid, payload.conversation_id,
@@ -54,6 +57,7 @@ async def save_coaching_response(data_service: CaregiverDataService, uid: str,
             data_service.create_interaction, uid, payload.child_id, payload.question,
             payload.routine, response.answer,
             [citation.model_dump() for citation in response.citations], response.status,
+            **({"vaccination_country": response.vaccination_country} if response.vaccination_country else {}),
         )
 
 
@@ -146,12 +150,13 @@ async def coach(
         context = select_conversation_context(conversation["messages"])
     await run_in_threadpool(enforce_usage_limit, usage, user["uid"], "coaching")
     retrieval_query = contextual_retrieval_query(payload.question, context)
+    vaccination = inspect_vaccination(retrieval_query)
     unresolved_follow_up = is_follow_up(payload.question) and retrieval_query == payload.question
     stage = "Qdrant retrieval"
     try:
         with timed_stage(request_id, "retrieval"):
             # Do not retrieve arbitrary advice for a follow-up with no safe topic.
-            if unresolved_follow_up:
+            if unresolved_follow_up or vaccination is not None:
                 passages = []
             else:
                 passages = await run_in_threadpool(
@@ -166,7 +171,10 @@ async def coach(
             request_id, len(passages), len(evidence), sum(len(item.text) for item in evidence),
         )
         status = "answered" if evidence else "no_evidence"
-        if evidence:
+        if vaccination is not None:
+            status = "vaccination_notice"
+            result = CoachingResult(answer=vaccination.answer, passages=[])
+        elif evidence:
             stage = "Gemini generation"
             with timed_stage(request_id, "generation"):
                 context_options = {"conversation_context": context} if context else {}
@@ -233,6 +241,7 @@ async def coach(
         citations=[CitationSchema(**citation) for citation in citations],
         child_age_months=child["age_months"],
         processing_seconds=round(time.perf_counter() - started, 3), status=status,
+        vaccination_country=payload.vaccination_country if vaccination is not None else None,
     )
     try:
         with timed_stage(request_id, "interaction_save"):

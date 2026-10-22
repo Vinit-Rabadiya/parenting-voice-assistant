@@ -20,6 +20,7 @@ class CoachingRequest(BaseModel):
     question: str = Field(min_length=2, max_length=1200)
     routine: str | None = Field(default=None, max_length=40)
     support_country: Literal["KE"] | None = None
+    vaccination_country: Literal["KE"] = "KE"
 
 
 class SupportResource(BaseModel):
@@ -40,7 +41,8 @@ class CoachingResponse(BaseModel):
     citations: list[CitationSchema]
     child_age_months: float
     processing_seconds: float
-    status: Literal["answered", "no_evidence", "safety_blocked", "escalated", "crisis_support", "caregiver_support"] = "answered"
+    status: Literal["answered", "no_evidence", "safety_blocked", "escalated", "crisis_support", "caregiver_support", "vaccination_notice"] = "answered"
+    vaccination_country: Literal["KE"] | None = None
     safety: Literal["not_flagged", "escalate"] = "not_flagged"
     support_resources: list[SupportResource] = Field(default_factory=list)
 

@@ -35,6 +35,7 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         : result.status === "caregiver_support" ? "Support for you"
         : result.status === "escalated" ? "Seek urgent medical care"
         : result.status === "safety_blocked" ? "Guidance could not be provided"
+        : result.status === "vaccination_notice" ? "Vaccination information"
         : result.status === "no_evidence" ? "No suitable guidance found" : `Guidance for ${childName}`}</h2>
       <p className="guidance-text">{result.answer}</p>
       <p className="guidance-meta">{["crisis_support", "caregiver_support"].includes(result.status)
@@ -43,10 +44,15 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         ? "Coaching was skipped because your message may describe a danger sign."
         : result.status === "safety_blocked"
         ? "The generated response was withheld by the coaching safety checks."
+        : result.status === "vaccination_notice"
+        ? "No AI-generated vaccination advice was provided."
         : result.status === "no_evidence"
         ? `References checked in ${result.processing_seconds.toFixed(2)} seconds. No coaching answer was generated.`
         : `Prepared in ${result.processing_seconds.toFixed(2)} seconds using age-aware reference material.`}</p>
       <div className="answer-actions"><button type="button" onClick={() => speak(result.answer)}>Listen</button><button type="button" onClick={() => window.speechSynthesis.cancel()}>Stop audio</button></div>
+      {result.status === "vaccination_notice" && result.vaccination_country && <p className="guidance-meta">
+        Vaccination country: {result.vaccination_country === "KE" ? "Kenya" : "Another country"}
+      </p>}
       {result.support_resources?.length > 0 && <section aria-label="Support contacts">
         <h3>Kenya support contacts</h3><p>These contacts apply to Kenya. No call or report is made automatically.</p>
         <ul>{result.support_resources.map((resource) => <li key={resource.service}>

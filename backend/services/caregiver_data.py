@@ -240,10 +240,12 @@ class CaregiverDataService:
             document.update(update)
         return self.get_child(uid, child_id)
 
-    def create_interaction(self, uid: str, child_id: str, question: str, routine: str | None, answer: str, citations: list[dict], status: str = "answered") -> str:
+    def create_interaction(self, uid: str, child_id: str, question: str, routine: str | None, answer: str, citations: list[dict], status: str = "answered", *, vaccination_country: str | None = None) -> str:
         document = self._interactions(uid).document()
         document.set({"child_id": child_id, "question": question, "routine": routine,
-                      "answer": answer, "citations": citations, "status": status, "created_at": firestore.SERVER_TIMESTAMP})
+                      "answer": answer, "citations": citations, "status": status,
+                      **({"vaccination_country": vaccination_country} if vaccination_country else {}),
+                      "created_at": firestore.SERVER_TIMESTAMP})
         return document.id
 
     def save_feedback(self, uid: str, interaction_id: str, helpful: bool, comment: str | None) -> datetime | None:
