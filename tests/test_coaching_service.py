@@ -41,6 +41,9 @@ def test_coaching_service_includes_only_retrieved_passages_in_prompt():
     assert result.passages == [passage]
     assert "Talk with your baby during feeding" in client.models.request["contents"]
     assert "Do not diagnose" in client.models.request["contents"]
+    assert "precaution when the excerpts support one" in client.models.request["contents"]
+    assert "do not invent safety advice" in client.models.request["contents"]
+    assert "at most 90 words" in client.models.request["contents"]
 
 
 def test_coaching_service_returns_a_safe_message_when_no_passage_matches():
