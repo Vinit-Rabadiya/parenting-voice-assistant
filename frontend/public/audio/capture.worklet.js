@@ -10,9 +10,20 @@ class MicrophoneCaptureProcessor extends AudioWorkletProcessor {
     this.buffer = new Float32Array(2048);
     this.offset = 0;
     this.stopped = false;
+    this.paused = false;
 
     // finish the recording when the hook requests a stop.
     this.port.onmessage = (event) => {
+      if (this.stopped) return;
+      if (event.data?.type === "pause") {
+        this.flush();
+        this.paused = true;
+        return;
+      }
+      if (event.data?.type === "resume") {
+        this.paused = false;
+        return;
+      }
       if (event.data?.type !== "stop" || this.stopped) return;
 
       this.stopped = true;
@@ -33,6 +44,7 @@ class MicrophoneCaptureProcessor extends AudioWorkletProcessor {
   process(inputs) {
     // stop collecting samples after a stop request.
     if (this.stopped) return false;
+    if (this.paused) return true;
 
     const channels = inputs[0];
     if (!channels || channels.length === 0) return true;

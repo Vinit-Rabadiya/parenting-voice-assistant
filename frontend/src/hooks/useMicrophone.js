@@ -43,6 +43,11 @@ function useMicrophone() {
     disposeSession(session);
   }, []);
 
+  const cancel = useCallback(() => {
+    releaseMicrophone();
+    setRecording(null); setError(""); setStatus("idle");
+  }, [releaseMicrophone]);
+
   // stop gracefully so the processor can send its last partial buffer.
   const stop = useCallback(() => {
     const session = sessionRef.current;
@@ -76,6 +81,32 @@ function useMicrophone() {
     }
   }, [releaseMicrophone]);
 
+  function pause() {
+    const session = sessionRef.current;
+    if (!session?.started || session.stopping || session.preparing || session.paused) return;
+    try {
+      session.node.port.postMessage({ type: "pause" });
+      session.paused = true;
+      session.remainingMs = Math.max(0, session.remainingMs - (performance.now() - session.activeSince));
+      clearTimeout(session.limitTimer);
+      session.stream.getTracks().forEach((track) => { track.enabled = false; });
+      setStatus("paused");
+    } catch { cancel(); setError("Recording could not pause. Please start again."); }
+  }
+
+  function resume() {
+    const session = sessionRef.current;
+    if (!session?.paused || session.stopping || session.preparing) return;
+    try {
+      session.node.port.postMessage({ type: "resume" });
+      session.stream.getTracks().forEach((track) => { track.enabled = true; });
+      session.paused = false;
+      session.activeSince = performance.now();
+      session.limitTimer = setTimeout(stop, session.remainingMs);
+      setStatus("recording");
+    } catch { cancel(); setError("Recording could not resume. Please start again."); }
+  }
+
   // create one audio session for each user-triggered recording attempt.
   async function start() {
     if (sessionRef.current) return;
@@ -102,6 +133,9 @@ function useMicrophone() {
       preparing: false,
       limitTimer: null,
       stopTimer: null,
+      paused: false,
+      remainingMs: MAX_RECORDING_SECONDS * 1000,
+      activeSince: 0,
     };
     sessionRef.current = session;
     setError("");
@@ -202,6 +236,7 @@ function useMicrophone() {
       session.node.connect(session.context.destination);
       session.started = true;
       setStatus("recording");
+      session.activeSince = performance.now();
       session.limitTimer = setTimeout(stop, MAX_RECORDING_SECONDS * 1000);
     } catch (cause) {
       if (cause.name === "NotAllowedError") {
@@ -222,7 +257,7 @@ function useMicrophone() {
   useEffect(() => releaseMicrophone, [releaseMicrophone]);
 
   // the controls display status and pass recording to the transcription hook.
-  return { status, error, recording, start, stop };
+  return { status, error, recording, start, stop, pause, resume, cancel };
 }
 
 export default useMicrophone;

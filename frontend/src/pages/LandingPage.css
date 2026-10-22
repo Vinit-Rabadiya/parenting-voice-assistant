@@ -118,14 +118,19 @@ main.landing-shell:not([hidden]):has(.landing-page--chat) { width: 100%; max-wid
 .composer-actions { grid-column: 3; grid-row: 1; display: flex; align-items: center; gap: 6px; }
 .composer-actions .send-message { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%; }
 .composer-help { grid-column: 1 / -1; grid-row: 2; text-align: center; font-size: 11px; padding: 2px 4px 4px; }
-.microphone-controls--compact { display: flex; width: auto; min-width: 0; gap: 0; }
+.microphone-controls--compact { position: relative; display: flex; flex: 0 0 44px; width: 44px; height: 44px; min-width: 44px; gap: 0; }
 .microphone-controls--compact .microphone-button[type="button"] { flex-direction: row; align-items: center; gap: 0; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; }
 .microphone-controls--compact .microphone-button > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .microphone-controls--compact .microphone-button__circle { width: 32px; height: 32px; border: 0; background: transparent; }
 .microphone-controls--compact .microphone-button--recording .microphone-button__circle { background: var(--accent); color: var(--bg); }
 .microphone-controls--compact svg { width: 22px; height: 22px; }
-.microphone-controls--compact > button:not(.microphone-button) { position: absolute; top: calc(100% + 4px); right: 0; font-size: 12px; padding: 4px 8px; }
-.microphone-controls--compact [role="alert"] { position: absolute; bottom: calc(100% + 8px); left: 0; max-width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.microphone-controls--compact .voice-feedback { position: absolute; bottom: calc(100% + 16px); right: -44px; z-index: 20; box-sizing: border-box; width: min(320px, calc(100vw - 48px)); padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg); box-shadow: var(--shadow); text-align: left; }
+.microphone-controls--compact .voice-feedback--idle { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); }
+.microphone-controls--compact .voice-feedback p { margin: 8px 0 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.microphone-controls--compact .voice-feedback [role="alert"] { color: var(--text-h); }
+.voice-secondary-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.voice-secondary-actions:empty { display: none; }
+.microphone-controls--compact .voice-secondary-actions button { min-height: 36px; padding: 6px 10px; border-radius: 8px; font-size: 12px; }
 .history-toggle, .history-backdrop { display: none; }
 @media (max-width: 720px) {
   .chat-shell { grid-template-columns: minmax(0, 1fr); }
