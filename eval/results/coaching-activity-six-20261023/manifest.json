@@ -1,0 +1,27 @@
+{
+  "rubric": "coaching-quality-v1",
+  "question_set_version": "coaching-quality-v1",
+  "question_set_path": "data/evaluation/coaching-questions.json",
+  "question_set_hash_method": "canonical-json-sha256",
+  "question_set_sha256": "927138a60d5e0e8ac53e1bc7b2122a430a4bb4e6944f3819a22f7a5a52b119bf",
+  "code_revision": "704fb7773e8d4310367e2e1e5e5bffd5fb7f75bc",
+  "working_tree_status": "M .gitignore\n M README.md\n M backend/api/v1/endpoints/coaching.py\n M backend/schemas/coaching.py\n M backend/schemas/conversations.py\n M backend/services/caregiver_data.py\n M backend/services/coaching.py\n M backend/services/conversation_context.py\n M backend/services/evidence.py\n M backend/services/input_safety.py\n M backend/services/response_safety.py\n M backend/services/retrieval.py\n M data/README.md\n M data/evaluation/coaching-quality-review.md\n M frontend/src/components/GuidanceAnswer.jsx\n M frontend/src/pages/LandingPage.css\n M scripts/build_reference_expansion.py\n M scripts/create_qdrant_collection.py\n M scripts/download_reference_pdfs.py\n M scripts/evaluate_coaching.py\n M scripts/prepare_retrieval_cases.py\n M tests/test_age_filter.py\n M tests/test_coaching_evaluation.py\n M tests/test_coaching_service.py\n M tests/test_conversation_context.py\n M tests/test_conversations.py\n M tests/test_evidence_gate.py\n M tests/test_input_safety.py\n M tests/test_response_safety.py\n M tests/test_retrieval.py\n M tests/test_retrieval_cases.py",
+  "corpus_revision_asserted": "sha256:687112416aa0e9c2797508a1aa6ad6b1db5aeca58047dfb7acafe2550be898b3",
+  "collection": "caregiver_guidance_activity_review_v5",
+  "primary_model": "gemini-3.5-flash-lite",
+  "fallback_model": "gemini-3.8-flash",
+  "retrieval_min_score": 0.5,
+  "cases": [
+    "aq13",
+    "aq27",
+    "aq34",
+    "aq35",
+    "aq37",
+    "aq38"
+  ],
+  "retrieval_limit": 3,
+  "follow_up_messages": [],
+  "retrieval_only": false,
+  "keyword_search": false,
+  "started_at": "2026-10-23T20:30:19.588831+00:00"
+}

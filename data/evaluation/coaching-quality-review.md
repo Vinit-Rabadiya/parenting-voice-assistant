@@ -1,5 +1,19 @@
 # Coaching quality review
 
+## Evidence included with the caregiver-knowledge changes
+
+The selected final answer examples and their run manifest are retained at
+`eval/results/coaching-activity-six-20261023/`. The summaries below record the
+broader comparisons, findings and limitations. Evaluation questions, labels and
+capture tools are retained separately from generated reports.
+
+Other raw development captures from this change set are retained locally under
+`data/processed/evaluation-archive/`, preserving their original relative paths.
+For example, `eval/results/retrieval-activity-comparison-20261023/` below refers
+to `data/processed/evaluation-archive/eval/results/retrieval-activity-comparison-20261023/`
+in the local archive. These raw captures are not included in the source-control
+change set. Earlier version-controlled project evidence is unchanged.
+
 ## Structured response evaluation: issue #78
 
 Status: question set originally approved at `4edf7ec` and now stored in
@@ -663,3 +677,354 @@ This single live case verifies the primary-model workflow, not live fallback or
 consistent latency across requests. Fallback behavior is covered by mocked
 regression tests. Availability and guidance quality still require evaluation;
 fallback does not guarantee a latency target.
+
+## Practical-care development capture - 23 October 2026
+
+This is development evidence, not qualified health approval or a final evaluation.
+The application collection was not changed. The separate
+`caregiver_guidance_practical_review_v1` collection contains 248 candidate passages
+from 48 sources, pinned to SHA-256
+`47399d51f870f009cb733432ff5966bb588bb51c2786d65c748a6f0779685ce6`.
+
+`data/evaluation/practical-care-cases.json` defines 24 artificial cases with
+first-pass editorial labels: 18 retrieval cases and six workflow cases. The
+deterministic split was exported before retrieval. The held-out cases were not
+run or used for tuning.
+
+### Retrieval
+
+Raw report: `eval/results/practical-care-development.json`.
+
+- Thirteen development retrieval cases; Hit@4 1.0000, labelled-pool Recall@4
+  0.9231 and MRR 0.9487.
+- Mean retrieval time 427.9 ms, range 303.2-1798.5 ms. The first request includes
+  initialization effects. These are retrieval timings, not full response timings.
+- All thirteen cases had at least one passage accepted by the unchanged 0.50 gate.
+- No listed age-ineligible IDs were returned. This development subset contains no
+  dedicated age-boundary or expected-no-evidence cases, so neither category has
+  a measured pass rate from this run.
+- Labels are a limited editorial positive pool. A labelled hit does not establish
+  semantic correctness of every returned passage or clinical safety of an answer.
+
+### Three service-answer samples
+
+Original capture: `eval/results/practical-care-development-20261023/`.
+Condition-instruction capture: `eval/results/practical-care-conditions-20261023/`.
+Both use Gemini 3.5 Flash Lite and three evidence passages. These runs exclude
+authentication, Firestore writes, recording, transcription and audio playback.
+
+| Case | Request | Original total | Condition-instruction total |
+| --- | --- | --- | --- |
+| pc01 | Small milk regurgitation after feeding | 13.359 s | 10.545 s |
+| pc06 | Toddler rejects unfamiliar food | 12.810 s | 24.615 s |
+| pc16 | Sun protection for a three-month-old | 4.694 s | 7.658 s |
+
+The second run follows the addition of explicit evidence applicability conditions
+to retrieved records/prompts and instructions to preserve conditions and urgency,
+avoid blanket reassurance and avoid repeating an introduction as a list. It is
+not a controlled latency comparison: network/provider variation and the small
+sample prevent a general speed claim.
+
+### Editorial findings requiring further review
+
+1. The original reflux answer transferred a smaller-feeds suggestion from a
+   vomiting-illness excerpt without preserving its condition. The repeat omitted
+   that action, but its warning about inability to retain fluids still used softer
+   professional-advice wording than the urgent wording in the evidence. Prompt
+   instructions alone do not guarantee correct urgency.
+2. The toddler answer used blanket normality wording in both runs despite the
+   revised instruction. The older UNICEF food-refusal passage also contains a
+   covered-food/reoffer suggestion. It is present in the original source, not an
+   invented model statement, but safe storage conditions are not captured in that
+   short summary. Review that passage before activating broader feeding advice.
+3. The sun-protection answer repeated actions in the original run. The repeat was
+   shorter and did not repeat the same list. This is one observed improvement,
+   not proof that repetition is solved across follow-ups.
+4. No expert numeric scores are assigned. A health reviewer must assess the
+   selected excerpts, age/condition fit and representative answers. Review of
+   three samples does not approve the entire corpus.
+
+Outstanding: resolve these wording/content findings, obtain qualified Kenya
+applicability review, reconcile national vaccination sources, run broader answer
+and workflow evaluation, and verify the signed-in text/voice/history/feedback flow.
+The 248-passage collection remains review-only. Issues #76, #100, #102, #103,
+#74, #78 and #79 are not complete solely from these results.
+
+### Response safeguards follow-up
+
+Shared generation instructions now preserve applicability conditions and referral
+urgency for both standalone requests and follow-ups. A narrow output check rejects
+the observed phrases “completely normal”, “perfectly normal”, and “nothing to worry
+about”, using the existing blocked-response path without an additional model call.
+
+These changes have automated regression coverage, but have not yet been assessed
+in a new live answer capture. They do not establish medical accuracy or resolve
+the source-level food-storage context gap. The review collection remains separate
+from the live reference collection.
+
+### Live safeguards capture, 23 October 2026
+
+Results: `eval/results/practical-care-safeguards-network-20261023/`.
+The same three development cases used the unchanged review collection and corpus
+revision. No held-out cases were run, and the application collection was not changed.
+
+| Case | Outcome | Service time |
+| --- | --- | --- |
+| pc01, small milk regurgitation | Answered | 8.271 seconds |
+| pc06, unfamiliar food refusal | Answered | 15.116 seconds |
+| pc16, infant sun protection | Answered | 5.542 seconds |
+
+In this capture, pc01 retained feeding-retention and warning-sign conditions and
+did not import smaller-feed advice from the vomiting-illness excerpt. The answer
+included professional advice for persistent distress or poor weight gain. It did
+not independently test escalation for a reported urgent symptom. pc06 omitted
+blanket reassurance and the earlier food-covering/reoffering instruction. pc16
+retained the under-six-month shade condition. All passed the limited output checks;
+this is not clinical approval or proof that the earlier findings cannot recur.
+
+Whitespace-based counts were 92, 94 and 50 words, including list markers. The first
+two slightly exceeded the requested 90-word limit; that limit remains a prompt
+instruction, not an enforced validator. Answers were not truncated because doing
+so could remove conditions or referral advice.
+
+The first restricted-network attempt failed during retrieval and produced no
+answer; its empty-answer diagnostic files were removed. The successful capture used approved
+network access. These are direct-service times, excluding authentication, database
+persistence, speech recognition and audio playback. No new expert ratings were
+assigned. Broader workflow and qualified source/answer review remain outstanding.
+
+### Urgent routing and conversation regression checks
+
+Fluid-retention matching now accepts possessive wording such as "cannot keep his
+milk down" as well as the existing "cannot keep milk down" form. This is a wording
+correction to the existing referral rule, not an expanded clinical assessment.
+
+The targeted 179-test run passed. Coverage includes urgent requests bypassing
+history reads, retrieval and generation even during a history outage; ordinary
+follow-ups using server-owned history; clarification when no usable topic remains;
+and exclusion of prior safety or unsuccessful turns from reusable context. These
+are automated tests with mocked external services, not a signed-in browser or live
+multi-turn evaluation.
+
+The unlabelled generated worksheet at
+`eval/review/caregiver-coverage/question-review.json` was removed after verifying
+that it contained no review decisions or notes. Its generator remains available;
+the coverage report, labelled datasets and completed captures were retained.
+
+### Broader development pass, 23 October 2026
+
+The review collection remains `caregiver_guidance_practical_review_v1`, with the
+same asserted 248-passage corpus fingerprint recorded above. Held-out retrieval
+cases were not used for tuning. No production collection was changed.
+
+| Check | Recorded result | Evidence |
+| --- | --- | --- |
+| All 13 practical-care development answers | 13 answered; 1.210–17.129 seconds, mean 6.078 seconds | `eval/results/practical-care-development-full-20261023/` |
+| Two actual answer/follow-up pairs | Both follow-ups stated no further supported suggestions; 4.731 and 6.107 seconds | `eval/results/practical-care-follow-ups-20261023/` |
+| Existing 40-question answer set | 22 answered, 18 no-evidence; no request errors | `eval/results/coaching-quality-full-20261023/` |
+| Generated answers in that 40-question run | Mean 10.194 seconds, range 1.036–19.129; 3 exceeded the requested 90 words | Same folder |
+| Explicit diagnosis/dose routing after correction | aq23 and aq31 returned fixed professional referrals with no retrieval or generation attempts | `eval/results/coaching-assessment-routing-20261023/` |
+| Existing danger-sign development set | 30/30 danger cases routed; 0/30 ordinary cases escalated | `eval/results/safety-current-20261023.json` |
+| Full Python suite with prepared corpus required, after all corrections below | 699 passed | `python -m pytest --require-corpus` |
+| Frontend checks | 7 audio and 135 UI tests passed; lint and build passed | `npm.cmd run check` |
+
+All times are direct-service measurements, not signed-in or speech-to-speech
+latency. Answered is a routing outcome, not a correctness rating. The 18 no-evidence
+results include appropriate refusals as well as genuine coverage/retrieval gaps;
+do not interpret 22/40 as an accuracy score. The full 40-question run preceded the
+explicit diagnosis-routing correction; the separate two-case run records the fix.
+
+Findings and changes:
+
+- The food-covering/reoffering instruction recurred in pc06. The older selected
+  UNICEF passage lacks storage conditions. This remains a content-review blocker;
+  one earlier clean answer did not resolve it.
+- Two-year-old activity queries in aq33–aq38 returned no evidence. Applicable raw
+  candidates were present for inspected examples but below the 0.50 gate. Threshold
+  calibration and reference selection need independent development review; the
+  threshold was not lowered to force answers.
+- Explicit requests for diagnosis and medicine doses now use the same professional
+  assessment route in the endpoint and evaluation tool. General questions about
+  possible contributors remain eligible for supported education.
+- Under-three-month explicit Celsius readings of 38C or higher now match the
+  existing young-infant referral boundary. The checked source is
+  [NHS fever guidance](https://www.nhs.uk/symptoms/fever-in-children/), checked
+  23 October 2026. Unitless/Fahrenheit readings, historical/hypothetical context
+  and comprehensive temperature triage remain outside this narrow rule. Tests
+  cover the threshold, age boundary, simple negation and bath/room exclusions.
+- The evaluation tool accepts up to three follow-ups per case, uses the existing
+  bounded context and caregiver-only retrieval anchor, and records word-limit
+  compliance without truncating warnings. It does not simulate authenticated
+  conversation persistence or speech processing.
+- The corpus-required run exposed a test passing pytest options into the Qdrant
+  setup CLI. The CLI now accepts an explicit argument list for tests; normal
+  command-line parsing is unchanged. A restricted-environment temporary-directory
+  error was rerun with authorized access; it was not treated as an application bug.
+
+Remaining release gates:
+
+1. Correct/review food-storage context and broader topic/age gaps in a new candidate
+   revision without altering frozen evaluation evidence.
+2. Obtain qualified review of health content and representative answers, and
+   reconcile a complete current Kenya vaccination schedule before enabling it.
+3. Assign authorized feedback reviewers and agree consent/deletion handling before
+   implementing cross-account review reports. No reviewer permissions were invented.
+4. Complete independent answer ratings and a signed-in text, microphone, history,
+   citation, playback, rating-edit and deletion check after approved activation.
+5. Run final held-out evaluation after development decisions are fixed.
+
+Automated success does not close these release gates or establish clinical approval.
+
+### Local correction of the food-reuse selection
+
+The source was rechecked at
+[UNICEF: Feeding your baby, 1–2 years](https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-1-2-years),
+section "What to do when your child refuses to eat solid foods". The revised pack
+retains supported calm feeding, food combinations and texture suggestions, but
+omits the covering/reoffering instruction because that selection supplies no food
+storage conditions. No new storage protocol was invented.
+
+The separate local build is `data/processed/practical-care-revised-candidates`:
+211 earlier passages minus 11 replaced passages plus 48 selections equals 248
+passages from 48 sources. Its file-byte SHA-256 is
+`d236ec2e18d6651bae32711f7642f9365b81343f971167a72999bb43b821838c`.
+The source pack and index preparation checks passed. This is not the corpus used
+in the captures above: those retain the earlier revision and its recorded finding.
+At this stage the correction had not been uploaded, live-evaluated or clinically approved;
+the subsequent development comparison below records the later review-only uploads.
+New labels/fingerprint review are required before evaluating this revised corpus;
+existing frozen labels and held-out files were not rewritten.
+
+### Communication coverage retry, 23 October 2026
+
+The corrected 248-passage revision was uploaded to two separate review collections:
+`caregiver_guidance_practical_text_v2` (passage text) and
+`caregiver_guidance_practical_context_v2` (title/domain/routine plus text). Both
+used the same corrected corpus and the unchanged 0.50 evidence gate.
+
+The existing 40 development questions were run in retrieval-only mode, preserving
+routing and exact returned evidence without generating answers. Each variant
+accepted evidence for 22 questions, but the context variant gained a reading
+example and lost a newborn dressing example. It was not adopted as an improvement.
+The counts are not relevance, clinical accuracy or held-out scores.
+
+Seventeen additional short activity selections were prepared from four NHS
+age-band communication pages and UNICEF's learning-activities page. Original
+URLs/headings are recorded in the pack and source catalogue (C65–C69). UK service
+arrangements, food-reuse advice, small-object bottle activities and blanket rides
+were not selected. The age-band tests preserve boundaries; the application scope
+still ends on the second birthday.
+
+The resulting corpus contains 265 passages from 53 sources at
+`data/processed/practical-care-communication-candidates`. File-byte SHA-256:
+`5d3ff3a6a37801d617b176ebe979c1d7cb494666b9752dc549b2a6cd7f0bb520`.
+It is uploaded only to `caregiver_guidance_communication_review_v3`.
+
+| Retrieval-only run | Evidence accepted | Request errors |
+| --- | --- | --- |
+| Corrected text v2 | 22/40 | 0 |
+| Corrected context v2 | 22/40 | 0 |
+| Expanded communication v3 | 26/40 | 0 |
+
+Raw captures: `eval/results/retrieval-text-comparison-20261023/`,
+`eval/results/retrieval-context-comparison-20261023/` and
+`eval/results/retrieval-communication-comparison-20261023/`.
+
+Actual answers were then captured for the four newly accepted examples:
+
+| Case | Topic | Service seconds |
+| --- | --- | --- |
+| aq12 | Clothing-change conversation at three months | 4.994 |
+| aq21 | Picture books at six months | 1.415 |
+| aq33 | Mealtime conversation at two years | 1.427 |
+| aq36 | Helping with clothes at two years | 1.161 |
+
+All four returned answers within the requested word limit and passed the limited
+output checks. Their selected material supports the described actions; aq36 offers
+sorting clothes, not a complete self-dressing lesson. No expert rubric ratings were
+assigned. Captures are in `eval/results/coaching-communication-retry-20261023/`.
+
+Still rejected: aq13 (young baby's interest in pictures), aq27 (turn-taking at one
+year), aq34 (bath-time words at two years), aq35 (pretend play at two years), aq37
+(interactive picture books at two years) and aq38 (responding to a child bringing
+a toy). Some now have related raw candidates below the threshold. Source selection
+and independent relevance/calibration work remain; the cutoff was not lowered
+or tuned from held-out results. The improved count does not establish complete
+baby-care coverage or a general speed guarantee.
+
+After these changes, the full Python suite with the prepared corpus required
+passed 708 tests, and Python lint passed. The evaluation CLI can now use
+`--retrieval-only`; a regression test verifies that it neither calls generation nor
+reports a generated answer. No application collection/configuration was changed,
+no existing evaluation evidence was overwritten, and nothing was committed.
+
+### Six-example follow-up: focused activities and source selection
+
+The six remaining examples were investigated against the 265-passage v3 corpus.
+Relevant text was already present for several cases, but below the 0.50 similarity
+gate. Bath-time language at the second birthday needed more specific source
+support. A raw match, a gate pass and an answer meeting the request were treated
+as separate observations.
+
+An evaluation-only keyword search was tried before changing reference selections.
+It removed common request words but preserved the message sent to generation.
+On the full 40-case set it accepted evidence for 24 cases, versus 26 for the
+unchanged search. It gained aq13/aq38 but lost aq05/aq08/aq12/aq19; the toy example's
+accepted passage was general play advice, not clear toy-handover support. The
+variant was not adopted in the application. Captures are retained in
+`eval/results/retrieval-keyword-full-20261023/`; the preliminary six-case probe
+was redundant with the full run and contained no independent review ratings.
+
+The next source revision separated turn-taking from dressing narration, focused
+pretend-play and picture-book excerpts, retained four earlier UNICEF two-year-old
+selections and added a focused toy-handover selection. It added HSE book-sharing
+sections with distinct age bands and South Australia Department for Education
+bath-language selections. Sources are recorded as C70/C71 in the catalogue. The
+publisher allowlist includes only those two specific additional hostnames.
+The attempted AAP book page could not be opened and was not used as a new source.
+
+The focused v4 capture recovered evidence for five of the six cases, but aq37
+remained below threshold. Its aq35 answer offered ordinary toy-sharing rather
+than pretend play, and aq38 received an empty model answer. These are preserved
+findings, not successful answers: `eval/results/coaching-focused-six-20261023/`.
+
+The activity v5 revision clarified the existing pretend-play and interactive-book
+wording without adding new claims. The prompt now requires the requested activity
+type to be addressed rather than silently substituting a broadly related activity.
+This instruction is not an enforced semantic relevance validator.
+
+Latest build: `data/processed/practical-care-activity-candidates`, 273 passages
+from 55 sources, compiled as 211 - 15 replaced passages + 77 selections.
+File-byte SHA-256:
+`687112416aa0e9c2797508a1aa6ad6b1db5aeca58047dfb7acafe2550be898b3`.
+Review collection: `caregiver_guidance_activity_review_v5`. The previous focused
+v4 build and captures remain unchanged. No application collection was switched.
+
+| Original development question | Latest outcome | Service seconds | Review note |
+| --- | --- | --- | --- |
+| aq13: baby looks at pictures briefly | Answered | 4.888 | Short picture-sharing rather than requiring a whole story |
+| aq27: practise taking turns in play | Answered | 1.877 | Explicitly offers the dressing-related clothing-bag game as an alternative; not a broad play repertoire |
+| aq34: explore words during bath time | Answered | 1.328 | Body parts, washing objects and water-action words |
+| aq35: pretend play together | Answered | 1.519 | Includes actual pretend dressing/story play; also adds ordinary play, labelled as different, and retains numbered markers despite formatting instructions |
+| aq37: interactive picture-book time | Answered | 1.558 | Sounds, character actions and picture conversation |
+| aq38: child brings a toy and waits | Answered | 3.980 | Shared play/conversation without claiming what the waiting means |
+
+Latest answer capture: `eval/results/coaching-activity-six-20261023/`.
+All six passed the limited output checks. No clinical or expert rubric scores were
+assigned. Times exclude authentication, persistence, microphone processing and audio.
+
+The full original 40-question retrieval-only comparison used the unchanged 0.50
+gate and original query wording: 32 accepted evidence, 8 no-evidence, 0 request
+errors. Relative to communication v3, the six gains were exactly aq13, aq27, aq34,
+aq35, aq37 and aq38, with no previously accepted example lost. Captures:
+`eval/results/retrieval-focused-comparison-20261023/` and
+`eval/results/retrieval-activity-comparison-20261023/`.
+The 32/40 count is not an accuracy score: this set includes intentionally unsupported
+requests, and other accepted examples still require relevance and answer review.
+Development examples informed these wording corrections; held-out evaluation
+remains necessary to assess generalization. No held-out results were examined.
+
+The full Python suite passed 710 tests with the prepared corpus required; Python
+lint passed. Tests cover source replacement, host validation, age eligibility,
+keyword-search isolation and the original generation message. Neither a final
+held-out study nor a signed-in browser/speech run was performed in this pass.
