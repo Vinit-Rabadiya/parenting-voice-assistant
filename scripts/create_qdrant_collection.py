@@ -17,10 +17,10 @@ def ensure_age_indexes(client: QdrantClient, collection_name: str) -> None:
         )
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Create or preserve an age-indexed Qdrant collection.")
     parser.add_argument("--collection", default=settings.QDRANT_COLLECTION)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if not settings.QDRANT_URL or not settings.QDRANT_API_KEY:
         raise SystemExit("Set the Qdrant connection values in the root .env.")
 
