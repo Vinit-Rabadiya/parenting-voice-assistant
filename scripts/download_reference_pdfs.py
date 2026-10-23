@@ -1,4 +1,5 @@
 """Download original reference PDFs only; never save website HTML."""
+import argparse
 import hashlib
 from io import BytesIO
 from pathlib import Path
@@ -10,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 REFERENCES = (
     ("Birth-to-five-2025.pdf", "https://www.publichealth.hscni.net/sites/default/files/2025-04/Birth%20to%20five%202025.pdf"),
     ("Kenya-community-health-guidelines-2024.pdf", "https://www.health.go.ke/sites/default/files/2025-04/Clinical%20Guidelines%20for%20Level%201%20Community%20Health%20Services.pdf"),
+    ("Birth-to-five-2026.pdf", "https://www.publichealth.hscni.net/sites/default/files/2026-03/birth%20to%20five%202026.pdf"),
+    ("Parenting-interventions-Jeong-2021.pdf", "https://journals.plos.org/plosmedicine/article/file?id=10.1371%2Fjournal.pmed.1003602&type=printable"),
 )
 MAX_BYTES = 30 * 1024 * 1024
 
@@ -24,9 +27,16 @@ def describe(raw: bytes) -> tuple[int, str]:
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--filename", action="append", choices=[name for name, _ in REFERENCES],
+                        help="Download only a named reference; repeat to select several.")
+    args = parser.parse_args()
+    selected = set(args.filename) if args.filename else {name for name, _ in REFERENCES[:2]}
     output = ROOT / "data/raw/pdfs"
     output.mkdir(parents=True, exist_ok=True)
     for filename, url in REFERENCES:
+        if filename not in selected:
+            continue
         target = output / filename
         if target.exists():
             raw = target.read_bytes()

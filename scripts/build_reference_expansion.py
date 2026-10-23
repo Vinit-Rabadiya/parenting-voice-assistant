@@ -20,11 +20,27 @@ from scripts.index_rag import load_passages, validate_age_metadata, validate_sou
 ROOT = Path(__file__).resolve().parents[1]
 DOMAINS = {"cognitive", "language", "gross_motor", "fine_motor", "social_emotional",
            "responsive_caregiving", "nutrition", "safety", "immunisation", "common_concerns"}
-HOSTS = {"www.unicef.org", "www.nhs.uk", "www.who.int", "www.health.go.ke", "health.go.ke", "www.publichealth.hscni.net"}
+HOSTS = {"www.unicef.org", "www.nhs.uk", "www.who.int", "www.health.go.ke", "health.go.ke", "www.publichealth.hscni.net", "www.schn.health.nsw.gov.au", "www2.hse.ie", "www.education.sa.gov.au"}
 
 
 def fingerprint(value) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def replace_source_revisions(pack: dict, base: list[dict], manifest: dict) -> tuple[list[dict], dict, int]:
+    """Replace explicitly named source revisions in a separate candidate build."""
+    requested = pack.get("replacement_sources", [])
+    if not isinstance(requested, list) or any(not isinstance(sid, str) for sid in requested) or len(requested) != len(set(requested)):
+        raise ValueError("Replacement sources must be unique source IDs.")
+    old = {source["source_id"]: source for source in manifest["sources"]}
+    new = {source["source_id"]: source for source in pack["sources"]}
+    for sid in requested:
+        if sid not in old or sid not in new or old[sid]["source_url"] != new[sid]["source_url"]:
+            raise ValueError("A replacement must retain a known source ID and its original URL.")
+        if not any(p["source_id"] == sid for p in base):
+            raise ValueError("Replacement source has no passages in the input corpus.")
+    retained = [p for p in base if p["source_id"] not in requested]
+    return retained, {**manifest, "sources": [s for s in manifest["sources"] if s["source_id"] not in requested]}, len(base) - len(retained)
 
 
 def compile_expansion(pack: dict, base: list[dict], manifest: dict, *, pdf_dir: Path = ROOT / "data/raw/pdfs") -> tuple[list[dict], dict, dict]:
@@ -68,11 +84,32 @@ def compile_expansion(pack: dict, base: list[dict], manifest: dict, *, pdf_dir: 
                 raise ValueError("PDF source page count changed.")
         else:
             digest = fingerprint(source)
+        review_metadata = {}
+        if "applicability_note" in source:
+            if not isinstance(source["applicability_note"], str) or not source["applicability_note"].strip():
+                raise ValueError("Source applicability note must be nonempty text.")
+            review_metadata["applicability_note"] = source["applicability_note"]
+            for field in ("source_reviewed_on", "source_next_review_due"):
+                value = source.get(field)
+                if value is not None:
+                    if not isinstance(value, str):
+                        raise ValueError("Source review dates must be text or null.")
+                    parsed = date.fromisoformat(value)
+                    if parsed.isoformat() != value:
+                        raise ValueError("Source review dates must use YYYY-MM-DD.")
+                    if field == "source_reviewed_on" and parsed > date.fromisoformat(pack["checked_on"]):
+                        raise ValueError("Source review date cannot follow the check date.")
+                review_metadata[field] = value
+            due = review_metadata["source_next_review_due"]
+            review_metadata["source_freshness"] = (
+                "past_stated_review_due" if due and date.fromisoformat(due) < date.fromisoformat(pack["checked_on"])
+                else "within_stated_review_window" if due else "review_date_not_stated")
         source_entry = {"source_id": sid, "title": source["title"], "publisher": source["publisher"],
                         "source_url": source["source_url"], "source_format": "web_summary",
                         "sha256": digest, "fingerprint_basis": "canonical_editorial_source_entry",
                         "checked_on": pack["checked_on"], "reuse_status": "editorial summaries; publisher rights retained",
                         "sections": sorted({item["section"] for item in source["passages"]})}
+        source_entry.update(review_metadata)
         if pdf is not None:
             source_entry.update({"source_format": "pdf_summary", "filename": filename,
                                  "expected_pages": len(pdf.pages), "fingerprint_basis": "original_pdf_bytes"})
@@ -118,6 +155,19 @@ def compile_expansion(pack: dict, base: list[dict], manifest: dict, *, pdf_dir: 
             if pdf is not None:
                 record.update({"source_anchor": item["source_anchor"], "normalized_page_sha256": page_digest,
                                "source_filename": filename})
+            record.update(review_metadata)
+            for field in ("source_heading", "guidance_kind"):
+                if field in item:
+                    if not isinstance(item[field], str) or not item[field].strip():
+                        raise ValueError(f"Passage {field} must be nonempty text.")
+                    if field == "guidance_kind" and item[field] not in {"explanation", "practical_action", "precaution", "referral"}:
+                        raise ValueError("Unknown guidance kind.")
+                    record[field] = item[field]
+            if "applicability_conditions" in item:
+                conditions = item["applicability_conditions"]
+                if not isinstance(conditions, list) or not conditions or any(not isinstance(value, str) or not value.strip() for value in conditions):
+                    raise ValueError("Applicability conditions must be a nonempty list of text.")
+                record["applicability_conditions"] = conditions
             if health_review:
                 record.update({"clinical_review_required": True, "country": source["country"],
                                "release_status": "blocked_pending_health_review",
@@ -138,6 +188,8 @@ def compile_expansion(pack: dict, base: list[dict], manifest: dict, *, pdf_dir: 
         "pending_sources": pack.get("pending_sources", []),
         "latency_evidence": "Not measured. Online search and corpus preparation are not part of live requests.",
         "clinical_review_required": health_review,
+        "sources_past_stated_review_due": [s["source_id"] for s in sources
+                                           if s.get("source_freshness") == "past_stated_review_due"],
     }
     return passages, {"schema_version": 1, "sources": sources}, report
 
@@ -148,13 +200,26 @@ def main():
     parser.add_argument("--base", type=Path, default=ROOT / "data/processed/rag/passages.jsonl")
     parser.add_argument("--manifest", type=Path, default=ROOT / "data/sources.json")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "data/processed/expanded")
+    parser.add_argument("--replace-existing-sources", action="store_true",
+                        help="Apply the pack's explicit source replacements only to a separate output directory.")
     args = parser.parse_args()
     try:
         base = load_passages(args.base)
         validate_source_references(base, args.manifest)
         pack = json.loads(args.pack.read_text(encoding="utf-8"))
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+        input_count, input_digest, removed = len(base), fingerprint(base), 0
+        if pack.get("replacement_sources"):
+            if not args.replace_existing_sources:
+                raise ValueError("This pack revises existing sources; pass --replace-existing-sources explicitly.")
+            if args.output_dir.resolve() in {args.base.resolve().parent, args.manifest.resolve().parent}:
+                raise ValueError("Source replacement requires a separate output directory.")
+            base, manifest, removed = replace_source_revisions(pack, base, manifest)
         passages, expanded_manifest, report = compile_expansion(pack, base, manifest)
+        if removed:
+            report.update(input_passage_count=input_count, replaced_passage_count=removed,
+                          input_corpus_fingerprint=input_digest,
+                          replacement_sources=pack["replacement_sources"])
         # Validate before writing; a bad pack cannot replace the working corpus.
         from scripts.index_rag import validate_routine_metadata, validate_source_metadata
         for passage in passages:

@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-23",
+  "status": "candidate_not_expert_validated",
+  "clinical_review_required": true,
+  "notes": "Focused editorial summaries for Kenya applicability and qualified review, not complete clinical protocols or copied website pages. Overseas service numbers, formula mixing quantities, medicines and diagnostic criteria are excluded. Publication dates not stated on a page are not invented. These candidates are not activated or part of the frozen 187-passage evaluation corpus.",
+  "sources": [
+    {
+      "source_id": "unicef-breastfeeding-support",
+      "title": "UNICEF: 5 common breastfeeding problems",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/southafrica/unicef-parenting/food-nutrition/5-common-breastfeeding-problems",
+      "country": null,
+      "age": [0, 25],
+      "source_reviewed_on": null,
+      "applicability_note": "General breastfeeding education from a regional UNICEF page; Kenya applicability requires review. Mastitis treatments and adult clinical protocols are excluded.",
+      "passages": [
+        {"section":"Breastfeeding takes practice and support","domain":"nutrition","routines":["feeding"],"text":"Breastfeeding takes practice for both caregiver and baby. If feeding is difficult, ask a trained breastfeeding supporter or health facility for help. Asking for support is appropriate even when other people seem to find feeding easy."},
+        {"section":"Comfort and attachment","domain":"nutrition","routines":["feeding"],"text":"A comfortable attachment involves a wide-open mouth and the baby's chin close to the breast. A trained supporter can observe a feed and help with positioning. Pain or cracked or bleeding nipples needs professional support, not a chat diagnosis."},
+        {"section":"Concerns about milk supply","domain":"common_concerns","routines":["feeding"],"text":"If you are worried about milk supply, discuss the concern with a health facility. Ask for help checking attachment and effective feeding rather than assuming the cause. General information cannot establish how much milk an individual baby receives."}
+      ]
+    },
+    {
+      "source_id": "nhs-formula-preparation-principles",
+      "title": "NHS: How to make up baby formula",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/breastfeeding-and-bottle-feeding/bottle-feeding/making-up-baby-formula/",
+      "country": null,
+      "age": [0, 12],
+      "source_reviewed_on": "2023-08-31",
+      "source_next_review_due": "2026-08-31",
+      "applicability_note": "Past the stated review-due date when checked. Obtain current Kenya-applicable water, hygiene and complete preparation guidance before release. These passages are not a mixing recipe.",
+      "passages": [
+        {"section":"Hygiene before preparing a feed","domain":"safety","routines":["feeding"],"text":"Before preparing formula, wash hands and clean the preparation surface. Feeding bottles, teats and equipment need appropriate cleaning and sterilising. These hygiene principles do not replace the complete preparation instructions for the product and local safe-water guidance."},
+        {"section":"Keep the specified powder and water proportions","domain":"safety","routines":["feeding"],"text":"Use the formula's own scoop and follow its specified powder and water amounts. Do not add extra water, extra powder, sugar or cereal. This is a safety reminder, not a complete formula-preparation recipe."},
+        {"section":"Avoid microwave heating","domain":"safety","routines":["feeding"],"text":"Do not heat a formula feed in a microwave: uneven heating can burn a baby's mouth. A prepared feed must be cooled appropriately and checked before feeding. Follow complete current preparation guidance rather than treating a short chat answer as all the required steps."},
+        {"section":"Leftover formula after feeding","domain":"safety","routines":["feeding"],"text":"Discard formula remaining in the bottle after a feed rather than keeping that unfinished bottle for later. Prepare feeds according to complete current instructions. Storage and preparation questions require the applicable product and safe-water guidance."}
+      ]
+    },
+    {
+      "source_id": "nhs-toddler-sleep-routines",
+      "title": "NHS: Sleep and young children",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/health/sleep-and-young-children/",
+      "country": null,
+      "age": [12, 25],
+      "source_reviewed_on": "2023-03-31",
+      "source_next_review_due": "2026-03-31",
+      "applicability_note": "Past the stated review-due date. Only general toddler routines are selected from the wider under-five article. Infant sleep training, toys/comforters in sleeping spaces and UK service pathways are excluded.",
+      "passages": [
+        {"section":"Predictable toddler bedtime routine","domain":"responsive_caregiving","routines":["sleep"],"text":"For a toddler, use a calm bedtime sequence at a consistent time, such as quiet preparation, a short story and saying goodnight. Repeat the familiar sequence rather than expecting a single evening to change sleep habits. Choose an approach suited to your child."},
+        {"section":"Reduce excitement before toddler sleep","domain":"responsive_caregiving","routines":["sleep"],"text":"Keep the period before a toddler's bedtime calm. Avoid phones, tablets and laptops close to bedtime. During a night waking, keep interaction quiet and avoid turning it into exciting play."},
+        {"section":"Support for ongoing sleep difficulty","domain":"common_concerns","routines":["sleep"],"text":"Children differ in how easily they settle and how often they wake. If sleep difficulty is affecting the child or caregiver, ask a health professional for advice. General routine suggestions do not assess an underlying health condition."}
+      ]
+    },
+    {
+      "source_id": "nhs-nappy-changing-routine",
+      "title": "NHS: How to change your baby's nappy",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/caring-for-a-newborn/how-to-change-your-babys-nappy/",
+      "country": null,
+      "age": [0, 25],
+      "source_reviewed_on": "2024-08-27",
+      "source_next_review_due": "2027-08-27",
+      "applicability_note": "General nappy-care principles; local disposal, products and care pathways require Kenya review. No UK service numbers or diagnoses are included.",
+      "passages": [
+        {"section":"Prepare supplies before nappy changing","domain":"responsive_caregiving","routines":["changing"],"text":"Before changing a nappy, wash your hands and gather a clean nappy, cleaning materials, a drying cloth and clean clothes. Having supplies together helps avoid leaving your baby while searching for something."},
+        {"section":"Choose a safer changing place","domain":"safety","routines":["changing"],"text":"A changing mat or towel on the floor avoids the fall risk of a raised surface. If using a changing table, stay with the baby throughout and do not rely on straps as a substitute for attention."},
+        {"section":"Gentle cleaning and handwashing","domain":"safety","routines":["changing"],"text":"Clean the nappy area gently, including skin folds, using plain warm water or fragrance-free, alcohol-free wipes. For girls, clean from front to back. Do not pull back a baby boy's foreskin. Wash your hands after the change."},
+        {"section":"Make nappy changes an interaction","domain":"responsive_caregiving","routines":["changing"],"text":"Chat, smile and make friendly faces while changing your baby. Stay calm about normal mess rather than showing disgust. This routine can provide connection as well as cleanliness."}
+      ]
+    },
+    {
+      "source_id": "nhs-first-teeth-care",
+      "title": "NHS: Looking after your baby's teeth",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/babys-development/teething/looking-after-your-babys-teeth/",
+      "country": null,
+      "age": [0, 25],
+      "source_reviewed_on": "2025-04-01",
+      "source_next_review_due": "2028-04-01",
+      "applicability_note": "Apply brushing guidance only when teeth have appeared. Fluoride/product recommendations and dental access require Kenya applicability review; UK dental-entitlement claims and juice recipes are excluded.",
+      "passages": [
+        {"section":"Begin a routine when teeth appear","domain":"responsive_caregiving","routines":["oral_care"],"text":"When your baby's first teeth appear, begin getting them used to brushing with a baby toothbrush. Make it a familiar daily routine and let them watch you brush your own teeth. The presence of teeth, not age alone, determines whether this advice applies."},
+        {"section":"Helping a child accept brushing","domain":"responsive_caregiving","routines":["oral_care"],"text":"If a child dislikes brushing, keep trying patiently and turn it into a simple game. Brush your own teeth alongside them, then help them finish. Young children still need an adult's help to clean their teeth."},
+        {"section":"Reduce prolonged sugary contact","domain":"safety","routines":["oral_care","feeding"],"text":"Avoid putting sugary drinks in a feeding bottle or dipping a dummy in something sweet. Long or frequent contact with sugar can harm teeth. Ask a dental professional about suitable care products and your child's oral-health needs."}
+      ]
+    },
+    {
+      "source_id": "unicef-understanding-crying",
+      "title": "UNICEF: Why do babies cry?",
+      "publisher": "UNICEF",
+      "source_url": "https://www.unicef.org/parenting/child-care/why-babies-cry",
+      "country": null,
+      "age": [0, 12],
+      "source_reviewed_on": null,
+      "applicability_note": "Infant caregiver education; no colic diagnosis, fixed normal-crying threshold, sleep-training claim or adult treatment advice is selected. Instructions for leaving a baby during a caregiver pause are excluded pending a complete, reviewed safe-placement explanation.",
+      "passages": [
+        {"section":"Notice needs behind crying","domain":"responsive_caregiving","routines":["soothing"],"text":"Crying can communicate different needs. Think about the last feed or sleep, whether the baby needs a nappy change, clothing comfort, a cuddle or less stimulation. Do not assume that every cry has the same cause."},
+        {"section":"Different gentle comfort options","domain":"responsive_caregiving","routines":["soothing"],"text":"Depending on the baby's cues, try quietly talking or singing, gentle movement, or holding them close. A baby may still cry while being comforted. Supportive contact does not have to stop the crying immediately to be caring."},
+        {"section":"When a caregiver feels overwhelmed","domain":"safety","routines":["soothing"],"text":"If crying leaves you overwhelmed, ask a trusted person to help care for your baby. Never shake or hit a baby. Contact a health professional if you are finding it difficult to cope or feel unable to care for your baby safely."},
+        {"section":"When crying needs extra help","domain":"common_concerns","routines":["soothing"],"text":"Contact a health professional when your baby continues to cry a great deal, you are worried, or coping feels difficult. A general explanation of crying cannot tell whether an individual baby is ill or in pain."}
+      ]
+    },
+    {
+      "source_id": "nhs-crying-patterns-and-support",
+      "title": "NHS: Soothing a crying baby",
+      "publisher": "NHS",
+      "source_url": "https://www.nhs.uk/baby/caring-for-a-newborn/soothing-a-crying-baby/",
+      "country": null,
+      "age": [0, 12],
+      "source_reviewed_on": "2026-04-22",
+      "source_next_review_due": "2029-04-22",
+      "applicability_note": "General infant support and referral principles. UK emergency numbers, colic diagnosis and unsupported sleep-position changes are excluded.",
+      "passages": [
+        {"section":"Record when crying happens","domain":"responsive_caregiving","routines":["soothing"],"text":"If you seek help for repeated crying, note when it happens, such as during feeds or in the evening. A simple record can help a health professional understand the pattern and help you identify times when extra caregiver support is useful."},
+        {"section":"Feeding-related unsettled behaviour","domain":"common_concerns","routines":["feeding","soothing"],"text":"If a baby is repeatedly unsettled during feeding, ask a trained breastfeeding supporter or health professional to assess feeding. Positioning and attachment may need attention. Do not diagnose reflux or colic from crying alone."},
+        {"section":"Unusual crying and signs of illness","domain":"common_concerns","routines":["soothing"],"text":"Constant crying that cannot be comforted, or a cry that sounds different from usual, needs professional advice. Breathing difficulty, seizures or reduced responsiveness need urgent medical attention rather than more soothing suggestions. Do not wait for chat guidance when a baby seems seriously unwell."}
+      ]
+    }
+  ]
+}
