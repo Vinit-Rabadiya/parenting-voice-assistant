@@ -13,7 +13,8 @@ def is_follow_up(question: str) -> bool:
         r"(?:what else(?: can i (?:try|do))?|(?:any )?more (?:ideas|suggestions|examples)|"
         r"(?:can|could) you (?:give|suggest) (?:me )?(?:another|more) (?:idea|ideas|activity|activities|example|examples)|"
         r"(?:can|could) you explain (?:that|this)|how (?:do|can) i do (?:that|this)|"
-        r"(?:another|one more) (?:idea|activity|example)(?: please)?|something else)",
+        r"(?:another|one more) (?:idea|activity|example)(?: please)?|something else|"
+        r"tell me more|anything else(?: i can (?:try|do))?|please explain (?:that|this))",
         normalized,
     ) is not None
 

@@ -156,10 +156,11 @@ class CaregiverDataService:
         return answer_document.id
 
     def save_message_feedback(self, uid: str, conversation_id: str, message_id: str,
-                              helpful: bool, comment: str | None) -> datetime | None:
+                              helpful: bool | None, comment: str | None, *, rating: int | None = None,
+                              reasons: list[str] | None = None) -> datetime | None:
         conversation = self._conversations(uid).document(conversation_id)
         message = conversation.collection("messages").document(message_id)
-        feedback = self._feedback_data(helpful, comment)
+        feedback = self._feedback_data(helpful, comment, rating=rating, reasons=reasons)
 
         @firestore.transactional
         def save(transaction):
@@ -240,26 +241,34 @@ class CaregiverDataService:
             document.update(update)
         return self.get_child(uid, child_id)
 
-    def create_interaction(self, uid: str, child_id: str, question: str, routine: str | None, answer: str, citations: list[dict], status: str = "answered", *, vaccination_country: str | None = None) -> str:
+    def create_interaction(self, uid: str, child_id: str, question: str, routine: str | None, answer: str, citations: list[dict], status: str = "answered", *, vaccination_country: str | None = None, response_kind: str | None = None) -> str:
         document = self._interactions(uid).document()
         document.set({"child_id": child_id, "question": question, "routine": routine,
                       "answer": answer, "citations": citations, "status": status,
                       **({"vaccination_country": vaccination_country} if vaccination_country else {}),
+                      **({"response_kind": response_kind} if response_kind else {}),
                       "created_at": firestore.SERVER_TIMESTAMP})
         return document.id
 
-    def save_feedback(self, uid: str, interaction_id: str, helpful: bool, comment: str | None) -> datetime | None:
+    def save_feedback(self, uid: str, interaction_id: str, helpful: bool | None, comment: str | None,
+                      *, rating: int | None = None, reasons: list[str] | None = None) -> datetime | None:
         document = self._interactions(uid).document(interaction_id)
         if not document.get().exists:
             return None
-        feedback = self._feedback_data(helpful, comment)
+        feedback = self._feedback_data(helpful, comment, rating=rating, reasons=reasons)
         document.update({"feedback": feedback})
         return feedback["recorded_at"]
 
     @staticmethod
-    def _feedback_data(helpful: bool, comment: str | None) -> dict:
-        return {"helpful": helpful, "comment": comment.strip() if comment else None,
-                "recorded_at": datetime.now(timezone.utc)}
+    def _feedback_data(helpful: bool | None, comment: str | None, *, rating: int | None = None,
+                       reasons: list[str] | None = None) -> dict:
+        from backend.schemas.coaching import FeedbackValues
+
+        # Validate at the storage boundary too; do not infer numeric ratings from
+        # historical boolean feedback. Replacing feedback resets prior review.
+        value = FeedbackValues(helpful=helpful, rating=rating, reasons=reasons or [], comment=comment)
+        return {**value.model_dump(), "comment": comment.strip() if comment else None,
+                "review_status": "pending", "recorded_at": datetime.now(timezone.utc)}
 
     def delete_child(self, uid: str, child_id: str) -> bool:
         # Query only this user's interactions; recursive deletion includes future subcollections.

@@ -25,9 +25,37 @@ INJURY = {
     "pdf_page": None, "source_url": "https://www.nhs.uk/baby/first-aid-and-safety/first-aid/what-to-do-if-your-child-has-an-accident/",
     "title": "Child accidents and urgent help (web page, not a PDF)",
 }
+VOMITING = {
+    "passage_id": "safety-nhs-fluid-retention", "source_title": "NHS: Diarrhoea and vomiting",
+    "pdf_page": None, "source_url": "https://www.nhs.uk/symptoms/diarrhoea-and-vomiting/",
+    "title": "Urgent advice: unable to keep fluids down",
+}
+FEVER = {
+    "passage_id": "safety-nhs-young-infant-temperature",
+    "source_title": "NHS: High temperature (fever) in children",
+    "pdf_page": None,
+    "source_url": "https://www.nhs.uk/symptoms/fever-in-children/",
+    "title": "Urgent advice: under three months with a temperature of 38C or higher",
+}
+CELSIUS = re.compile(r"(?<![\w.,])(?P<value>\d{2}(?:[.,]\d+)?)\s*(?:(?:°|degrees?)\s*)?(?:celsius|c)\b")
+
+
+def reported_high_infant_temperature(text: str) -> bool:
+    """Recognize explicit body readings, not bath/room temperatures or bare numbers."""
+    for match in CELSIUS.finditer(text):
+        prefix = text[max(0, match.start() - 80):match.start()]
+        if re.search(r"\b(?:below|under|less than|not|isn't|is not)\s*$", prefix):
+            continue
+        if re.search(r"\b(?:bath|water|room|bottle|milk)\b", prefix):
+            continue
+        if re.search(r"\b(?:temperature|temp|thermometer|baby|child|infant)\b", prefix):
+            if float(match["value"].replace(",", ".")) >= 38:
+                return True
+    return False
 
 # Keep a source per category rather than attributing every rule to a single excerpt.
 RULES = (
+    ("cannot_keep_fluids", r"\b(?:cannot|can't|cant|unable to) keep (?:any |even |any of )?(?:the |their |his |her )?(?:fluids?|liquids?|water|milk|feeds?) (?:down|in)\b", VOMITING),
     ("breathing", r"\b(?:can(?:not|'t) breathe|not breathing(?!\s+fast\b)|stopped breathing|struggling to breathe|difficulty breathing|difficult breathing|breathing (?:very )?fast|fast breathing|gasping)\b", KENYA),
     ("not_feeding", r"\b(?:(?:cannot|can't|unable to|will not|won't|not able to) (?:drink|feed|breastfeed)|not (?:feeding|drinking|breastfeeding)(?!\s+poorly\b)|(?:feeding|drinking|breastfeeding) poorly)\b", KENYA),
     ("convulsions", r"\b(?:convuls(?:ion|ions|ing)|seizures?)\b", WHO),
@@ -58,6 +86,12 @@ def inspect_input(question: str, completed_months: int) -> InputSafetyDecision:
     rules = list(RULES)
     if completed_months < 3:
         rules.append(("young_infant_fever", r"\b(?:fever|feverish|unusually hot|unusually cold)\b", KENYA))
+        # Explicit Celsius readings only; do not infer units from a bare number.
+        # This extends the existing young-infant referral, not temperature triage
+        # for every age, measurement method, hypothetical or historical report.
+        if reported_high_infant_temperature(text):
+            reasons.append("young_infant_temperature")
+            citations[FEVER["passage_id"]] = FEVER.copy()
     for code, pattern, source in rules:
         for match in re.finditer(pattern, text):
             prefix = text[max(0, match.start() - 45):match.start()]
