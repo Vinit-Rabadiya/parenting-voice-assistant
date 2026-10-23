@@ -35,3 +35,32 @@ def test_additional_negated_phrases_do_not_trigger_by_themselves(question):
 
 def test_non_emergency_clause_does_not_hide_another_danger_sign():
     assert inspect_input("My baby is not breathing fast but is choking.", 1).escalate
+
+
+@pytest.mark.parametrize("question", [
+    "My baby cannot keep his milk down.",
+    "She can't keep her feeds down.",
+    "My child cannot keep any of their fluids down.",
+])
+def test_fluid_retention_wording_preserves_urgent_routing(question):
+    assert "cannot_keep_fluids" in inspect_input(question, 6).reasons
+
+
+@pytest.mark.parametrize("reading", ["38C", "38.2 C", "38,2 C", "38 degrees Celsius", "38°C"])
+def test_young_infant_explicit_celsius_readings(reading):
+    decision = inspect_input(f"My baby's temperature is {reading}", 2)
+    assert "young_infant_temperature" in decision.reasons
+
+
+@pytest.mark.parametrize("question,months", [
+    ("My baby's temperature is 37.9C", 2),
+    ("My baby's temperature is 38C", 3),
+    ("My baby's temperature is 100.4F", 2),
+    ("My baby's temperature is 38", 2),
+    ("My baby's bath water is 38C", 2),
+    ("My baby's room is 38C", 2),
+    ("My baby's temperature is below 38C", 2),
+    ("My baby's temperature is not 38C", 2),
+])
+def test_numeric_rule_does_not_infer_units_or_apply_to_other_ages_and_objects(question, months):
+    assert "young_infant_temperature" not in inspect_input(question, months).reasons

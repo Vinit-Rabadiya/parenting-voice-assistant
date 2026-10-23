@@ -309,6 +309,28 @@ def test_safety_referral_survives_conversation_storage_failure(client, coaching_
     assert response.json()["message_id"] is None
 
 
+def test_urgent_turn_does_not_depend_on_previous_chat_or_history_availability(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    data.get_conversation.side_effect = RuntimeError("History unavailable")
+    response = client.post("/coach", json=coaching_payload("My baby cannot keep his milk down."))
+    assert response.status_code == 200
+    assert response.json()["status"] == "escalated"
+    assert "urgent medical care now" in response.json()["answer"]
+    data.get_conversation.assert_not_called()
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_explicit_diagnosis_request_is_saved_as_referral_not_generated(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    response = client.post("/coach", json=coaching_payload("Can you diagnose why my child is not talking?"))
+    assert response.status_code == 200
+    assert response.json()["response_kind"] == "professional_referral"
+    assert data.save_conversation_turn.call_args.args[-1]["response_kind"] == "professional_referral"
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
 @pytest.mark.parametrize("answer,status", [
     ("Talk with your baby.", "answered"),
     ("Give 5 mg of medicine.", "safety_blocked"),
@@ -361,6 +383,27 @@ def test_feedback_without_conversation_keeps_legacy_path(client, history_service
     assert client.post("/coach/interaction-1/feedback", json={"helpful": False}).status_code == 200
     history_service.save_feedback.assert_called_once_with("account-a", "interaction-1", False, None)
     history_service.save_message_feedback.assert_not_called()
+
+
+def test_numeric_feedback_uses_owned_message_path(client, history_service):
+    history_service.save_message_feedback.return_value = datetime.now(timezone.utc)
+    response = client.post("/coach/answer-1/feedback", json={
+        "conversation_id": "chat-1", "rating": 4, "reasons": ["unclear"],
+    })
+    assert response.status_code == 200
+    assert response.json()["rating"] == 4
+    assert response.json()["helpful"] is None
+    history_service.save_message_feedback.assert_called_once_with(
+        "account-a", "chat-1", "answer-1", None, None, rating=4, reasons=["unclear"],
+    )
+    history_service.save_feedback.assert_not_called()
+
+
+def test_numeric_feedback_for_missing_message_is_not_saved(client, history_service):
+    history_service.save_message_feedback.return_value = None
+    assert client.post("/coach/missing/feedback", json={
+        "conversation_id": "chat-1", "rating": 5,
+    }).status_code == 404
 
 
 def test_missing_assistant_message_rejects_feedback(client, history_service):

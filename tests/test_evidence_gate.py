@@ -101,6 +101,27 @@ def test_only_eligible_evidence_reaches_generation(client, services):
     assert coaching.generate.call_args.args[-1] == [accepted]
 
 
+@pytest.mark.parametrize("question,kind", [
+    ("I am feeding my baby", "insufficient_references"),
+    ("My baby has a rash", "professional_referral"),
+    ("What should I do?", "clarification"),
+    ("car repair", "unrelated"),
+    ("the child cant keep any food", "professional_referral"),
+])
+def test_fallback_kind_is_saved_without_generation(client, services, question, kind):
+    data, retrieval, coaching = services
+    retrieval.retrieve.return_value = []
+    response = client.post("/coach", json={"child_id": "child-1", "question": question})
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_evidence"
+    assert response.json()["response_kind"] == kind
+    assert response.json()["citations"] == []
+    assert data.create_interaction.call_args.kwargs["response_kind"] == kind
+    coaching.generate.assert_not_called()
+    if kind == "unrelated" or "keep any food" in question:
+        retrieval.retrieve.assert_not_called()
+
+
 def test_retrieval_failure_is_not_a_no_evidence_response(client, services):
     _, retrieval, coaching = services
     retrieval.retrieve.side_effect = TimeoutError("Connection timed out")

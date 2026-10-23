@@ -44,6 +44,7 @@ def test_coaching_service_includes_only_retrieved_passages_in_prompt():
     assert "precaution when the excerpts support one" in client.models.request["contents"]
     assert "do not invent safety advice" in client.models.request["contents"]
     assert "at most 90 words" in client.models.request["contents"]
+    assert "Address the requested activity type" in client.models.request["contents"]
 
 
 def test_coaching_service_returns_a_safe_message_when_no_passage_matches():
@@ -51,6 +52,20 @@ def test_coaching_service_returns_a_safe_message_when_no_passage_matches():
 
     assert result.passages == []
     assert "health worker" in result.answer
+
+
+def test_generation_preserves_applicability_conditions_and_avoids_blanket_reassurance():
+    client = FakeClient()
+    reference = fallback_reference()
+    reference.applicability_conditions = ["Only during vomiting illness; no reported danger signs"]
+    CoachingService(client=client).generate("What can I try?", 6, None, [reference])
+    prompt = client.models.request["contents"]
+    assert "Applies only when: Only during vomiting illness; no reported danger signs" in prompt
+    assert "do not transfer actions between different conditions" in prompt
+    assert "Do not declare an individual child completely normal" in prompt
+    policy = client.models.request["config"].system_instruction
+    assert "Do not turn urgent care into routine advice" in policy
+    assert "necessary safety conditions are missing" in policy
 
 
 def test_generation_includes_history_as_context_not_evidence():
@@ -92,7 +107,9 @@ def test_standalone_prompt_keeps_initial_coaching_format():
     client = FakeClient()
     CoachingService(client=client).generate("How can I talk during feeding?", 6, "feeding", [fallback_reference()])
     assert "Give 2 to 4 short actions in plain language." in client.models.request["contents"]
-    assert client.models.request["config"].system_instruction is None
+    policy = client.models.request["config"].system_instruction
+    assert "Preserve all conditions" in policy
+    assert "Conversation-response rules" not in policy
 
 
 def quota_error():

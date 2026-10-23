@@ -57,3 +57,18 @@ def test_every_inventory_case_has_a_reasoned_first_pass_label():
     assert {case["id"] for case in inventory["cases"]} == {case["id"] for case in labels["cases"]}
     assert all(case["reason"].strip() for case in labels["cases"])
     assert "not an exhaustive gold standard" in labels["label_policy"]
+
+
+def test_everyday_cases_preserve_workflow_and_age_boundary_expectations():
+    inventory = json.loads((ROOT / "data/evaluation/everyday-care-questions.json").read_text(encoding="utf-8"))
+    labels = json.loads((ROOT / "data/evaluation/everyday-care-labels.json").read_text(encoding="utf-8"))
+    # Compile using only reviewed positive IDs and their candidate source bands;
+    # no generated local corpus or network access is required for this contract.
+    pack = json.loads((ROOT / "data/everyday-care-reference-expansion.json").read_text(encoding="utf-8"))
+    from scripts.build_reference_expansion import compile_expansion
+    passages, _, _ = compile_expansion(pack, [], {"sources": []})
+    retrieval, workflow = compile_cases(inventory, labels, passages)
+    assert len(retrieval) == 13
+    assert len(workflow) == 5
+    assert next(case for case in retrieval if case["id"] == "ec06")["expected_passage_ids"]
+    assert next(case for case in workflow if case["id"] == "ec15")["expected_outcome"] == "escalated"

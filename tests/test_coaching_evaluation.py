@@ -12,6 +12,8 @@ from google.genai import errors
 from backend.services.coaching import CoachingService
 from backend.services.retrieval import RetrievedPassage
 from scripts.evaluate_coaching import QUESTION_SET_PATH, capture_case, load_cases, profile_dates
+from scripts.evaluate_coaching import load_retrieval_capture_cases
+from scripts.evaluate_coaching import keyword_search_text
 from backend.core.config import PROJECT_ROOT
 from backend.services.response_safety import SAFE_RESPONSE
 
@@ -94,6 +96,64 @@ def test_no_evidence_does_not_generate():
     models.generate_content.assert_not_called()
 
 
+@pytest.mark.parametrize("question,outcome", [
+    ("Which vaccines are due in Kenya?", "vaccination_notice"),
+    ("How do I repair my car?", "no_evidence"),
+    ("What else can I try?", "no_evidence"),
+    ("Can you diagnose why my child is not talking?", "no_evidence"),
+])
+def test_capture_reuses_vaccination_and_unrelated_boundaries(question, outcome):
+    case, _, retrieval, coaching, models = setup_case()
+    case["question"] = question
+    record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)
+    assert record["outcome"] == outcome
+    retrieval.retrieve.assert_not_called()
+    models.generate_content.assert_not_called()
+
+
+def test_capture_uses_context_aware_missing_evidence_wording():
+    case, _, retrieval, coaching, models = setup_case(score=0)
+    case["question"] = "I am feeding my baby"
+    record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)
+    assert record["response_kind"] == "insufficient_references"
+    assert "baby-care topic" in record["answer"]
+    models.generate_content.assert_not_called()
+
+
+def test_development_capture_reuses_pinned_dates_and_excludes_held_out(tmp_path):
+    path = tmp_path / "queries.jsonl"
+    base = {"date_of_birth": "2026-04-23", "evaluation_date": "2026-10-23",
+            "query": "Feeding ideas", "corpus_sha256": "a" * 64}
+    path.write_text("\n".join(json.dumps({**base, "id": key, "split": split})
+                              for key, split in [("dev", "development"), ("final", "held_out")]), encoding="utf-8")
+    selected, digest = load_retrieval_capture_cases(path)
+    assert len(selected) == 1
+    case, profile = selected[0]
+    assert case["id"] == "dev"
+    assert profile["completed_months"] == 6
+    assert profile["date_of_birth"] == "2026-04-23"
+    assert len(digest) == 64
+    with pytest.raises(ValueError, match="development split"):
+        load_retrieval_capture_cases(path, ["final"])
+
+
+def test_development_capture_requires_fingerprint(tmp_path):
+    path = tmp_path / "queries.jsonl"
+    path.write_text(json.dumps({"id": "dev", "split": "development", "query": "Feeding",
+                                "date_of_birth": "2026-04-23", "evaluation_date": "2026-10-23"}), encoding="utf-8")
+    with pytest.raises(ValueError, match="fingerprint"):
+        load_retrieval_capture_cases(path)
+
+
+def test_capture_food_retention_concern_does_not_generate_routine_feeding_advice():
+    case, _, retrieval, coaching, models = setup_case()
+    case["question"] = "the child cant keep any food"
+    record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)
+    assert record["response_kind"] == "professional_referral"
+    retrieval.retrieve.assert_not_called()
+    models.generate_content.assert_not_called()
+
+
 def test_fallback_capture_uses_actual_model_and_identical_prompt():
     case, _, retrieval, coaching, models = setup_case()
     models.generate_content.side_effect = [
@@ -147,3 +207,57 @@ def test_capture_caregiver_crisis_without_model_or_retrieval_calls():
     assert record["caregiver_safety"]["kind"] == "crisis_support"
     retrieval.retrieve.assert_not_called()
     models.generate_content.assert_not_called()
+
+
+def test_capture_follow_up_uses_bounded_context_and_caregiver_search_anchor():
+    case, _, retrieval, coaching, models = setup_case()
+    case["question"] = "What else can I try?"
+    messages = [{"role": "user", "text": "How can I talk during feeding?"},
+                {"role": "assistant", "text": "Talk softly.", "status": "answered"}]
+    record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching,
+                          messages=messages)
+    assert record["outcome"] == "answered"
+    assert "How can I talk during feeding?" in retrieval.retrieve.call_args.args[0]
+    assert "Talk softly." not in retrieval.retrieve.call_args.args[0]
+    assert "Recent conversation" in models.generate_content.call_args.kwargs["contents"]
+    assert record["answer_word_count"] == 2
+    assert record["within_requested_word_limit"] is True
+
+
+def test_capture_does_not_reuse_context_across_safety_boundary():
+    case, _, retrieval, coaching, models = setup_case()
+    case["question"] = "What else can I try?"
+    messages = [{"role": "user", "text": "My baby is choking."},
+                {"role": "assistant", "text": "Seek urgent care.", "status": "escalated"}]
+    record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching,
+                          messages=messages)
+    assert record["response_kind"] == "clarification"
+    assert record["conversation_context"] == []
+    retrieval.retrieve.assert_not_called()
+    models.generate_content.assert_not_called()
+
+
+def test_retrieval_only_records_matches_without_generation_or_an_answer():
+    case, passage, retrieval, coaching, models = setup_case()
+    record = capture_case(case, profile_dates(date(2026, 10, 23), 6), retrieval, coaching,
+                          retrieval_only=True)
+    assert record["outcome"] == "evidence_available"
+    assert record["answer"] is None
+    assert record["supplied_evidence"][0]["passage_id"] == passage.passage_id
+    assert record["attempts"] == []
+    models.generate_content.assert_not_called()
+
+
+def test_keyword_baseline_preserves_negation_and_explicit_numbers():
+    assert keyword_search_text("My baby isn't feeding at 38.2C") == "baby isn't feeding 38.2c"
+    assert keyword_search_text("Picture-book time") == "picture book time"
+
+
+def test_keyword_baseline_changes_search_but_not_the_generation_message():
+    case, _, retrieval, coaching, models = setup_case()
+    case["question"] = "How can I share a picture-book?"
+    record = capture_case(case, profile_dates(date(2026, 10, 23), 6), retrieval, coaching,
+                          keyword_search=True)
+    assert retrieval.retrieve.call_args.args[0] == "share picture book"
+    assert "Caregiver question: How can I share a picture-book?" in record["attempts"][0]["prompt"]
+    assert record["search_query"] == "share picture book"
