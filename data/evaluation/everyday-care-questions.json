@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "development_cases_not_clinical_validation",
+  "evaluation_date": "2026-10-23",
+  "instructions": "Artificial development examples. Review labels independently before final evaluation. Clinical and ambiguous outcomes are workflow cases, not retrieval targets. Keep this revision separate from coverage-v1. Do not use candidate passages as approved health advice.",
+  "cases": [
+    {"id":"ec01","date_of_birth":"2026-09-23","category":"feeding","query":"Breastfeeding is difficult. Where can I get support?","routine":"feeding"},
+    {"id":"ec02","date_of_birth":"2026-08-23","category":"feeding","query":"Can I add extra powder or water to my baby's formula?","routine":"feeding"},
+    {"id":"ec03","date_of_birth":"2026-07-23","category":"feeding","query":"Can I warm formula in a microwave?","routine":"feeding"},
+    {"id":"ec04","date_of_birth":"2026-06-23","category":"feeding","query":"Can I save the formula left in the bottle after a feed?","routine":"feeding"},
+    {"id":"ec05","date_of_birth":"2025-04-23","category":"sleep","query":"How can I build a calm bedtime routine for my toddler?","routine":"sleep"},
+    {"id":"ec06","date_of_birth":"2024-10-23","category":"age_boundary","query":"Should I avoid screens close to my two-year-old's bedtime?","routine":"sleep"},
+    {"id":"ec07","date_of_birth":"2026-08-23","category":"hygiene","query":"What should I get ready before changing a nappy?","routine":"changing"},
+    {"id":"ec08","date_of_birth":"2026-05-23","category":"hygiene","query":"Where should I change my baby's nappy to reduce the risk of a fall?","routine":"changing"},
+    {"id":"ec09","date_of_birth":"2026-03-23","category":"hygiene","query":"How should I clean my baby during a nappy change?","routine":"changing"},
+    {"id":"ec10","date_of_birth":"2026-02-23","category":"oral_care","query":"My baby's first teeth have appeared. How can I get them used to brushing?","routine":"oral_care"},
+    {"id":"ec11","date_of_birth":"2025-10-23","category":"oral_care","query":"My child dislikes toothbrushing. How can I help?","routine":"oral_care"},
+    {"id":"ec12","date_of_birth":"2026-09-23","category":"soothing","query":"What can I note down about when my baby cries?","routine":"soothing"},
+    {"id":"ec13","date_of_birth":"2026-09-23","category":"unrelated","query":"How do I repair my car?"},
+    {"id":"ec14","date_of_birth":"2026-09-23","category":"workflow","query":"What else can I try?","context":[]},
+    {"id":"ec15","date_of_birth":"2026-09-23","category":"workflow","query":"My baby cannot breathe after a vaccination."},
+    {"id":"ec16","date_of_birth":"2026-09-23","category":"workflow","query":"Which vaccines are due in Kenya?"},
+    {"id":"ec17","date_of_birth":"2026-09-23","category":"workflow","query":"What should I do?"},
+    {"id":"ec18","date_of_birth":"2026-09-23","category":"workflow","query":"I am feeding my baby","required_check":"Supported guidance when sufficient relevant evidence is retrieved; otherwise an honest baby-care limitation, never an unrelated-topic refusal."}
+  ]
+}

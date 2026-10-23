@@ -53,9 +53,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus-dir", type=Path, default=ROOT / "data/processed/activity-safety-candidates")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "eval/coverage-v1")
+    parser.add_argument("--inventory", type=Path, default=ROOT / "data/evaluation/coverage-questions.json")
+    parser.add_argument("--labels", type=Path, default=ROOT / "data/evaluation/coverage-labels.json")
     args = parser.parse_args()
-    inventory_path = ROOT / "data/evaluation/coverage-questions.json"
-    labels_path = ROOT / "data/evaluation/coverage-labels.json"
+    inventory_path = args.inventory
+    labels_path = args.labels
     inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
     labels = json.loads(labels_path.read_text(encoding="utf-8"))
     corpus_path = args.corpus_dir / "passages.jsonl"

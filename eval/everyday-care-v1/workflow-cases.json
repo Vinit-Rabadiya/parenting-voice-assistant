@@ -1,0 +1,69 @@
+[
+  {
+    "id": "ec14",
+    "date_of_birth": "2026-09-23",
+    "category": "workflow",
+    "query": "What else can I try?",
+    "context": [],
+    "evaluation_date": "2026-10-23",
+    "split": "development",
+    "expected_outcome": "clarification",
+    "expected_passage_ids": [],
+    "notes": "No permitted earlier topic is supplied.",
+    "label_status": "first_pass_editorial_positive_pool_not_expert_approved",
+    "limit": 4
+  },
+  {
+    "id": "ec15",
+    "date_of_birth": "2026-09-23",
+    "category": "workflow",
+    "query": "My baby cannot breathe after a vaccination.",
+    "evaluation_date": "2026-10-23",
+    "split": "held_out",
+    "expected_outcome": "escalated",
+    "expected_passage_ids": [],
+    "notes": "Recognised breathing danger must precede vaccination handling and generation.",
+    "label_status": "first_pass_editorial_positive_pool_not_expert_approved",
+    "limit": 4
+  },
+  {
+    "id": "ec16",
+    "date_of_birth": "2026-09-23",
+    "category": "workflow",
+    "query": "Which vaccines are due in Kenya?",
+    "evaluation_date": "2026-10-23",
+    "split": "development",
+    "expected_outcome": "vaccination_notice",
+    "expected_passage_ids": [],
+    "notes": "Current implementation does not enable approved Kenya schedule education.",
+    "label_status": "first_pass_editorial_positive_pool_not_expert_approved",
+    "limit": 4
+  },
+  {
+    "id": "ec17",
+    "date_of_birth": "2026-09-23",
+    "category": "workflow",
+    "query": "What should I do?",
+    "evaluation_date": "2026-10-23",
+    "split": "development",
+    "expected_outcome": "clarification",
+    "expected_passage_ids": [],
+    "notes": "Message gives no baby-care situation.",
+    "label_status": "first_pass_editorial_positive_pool_not_expert_approved",
+    "limit": 4
+  },
+  {
+    "id": "ec18",
+    "date_of_birth": "2026-09-23",
+    "category": "workflow",
+    "query": "I am feeding my baby",
+    "required_check": "Supported guidance when sufficient relevant evidence is retrieved; otherwise an honest baby-care limitation, never an unrelated-topic refusal.",
+    "evaluation_date": "2026-10-23",
+    "split": "held_out",
+    "expected_outcome": "workflow_review",
+    "expected_passage_ids": [],
+    "notes": "Check actual statement handling and retrieved evidence; do not force a generated answer when evidence is insufficient.",
+    "label_status": "first_pass_editorial_positive_pool_not_expert_approved",
+    "limit": 4
+  }
+]

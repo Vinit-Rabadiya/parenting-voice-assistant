@@ -1,0 +1,10 @@
+{
+  "corpus_sha256": "47399d51f870f009cb733432ff5966bb588bb51c2786d65c748a6f0779685ce6",
+  "labels_sha256": "e222147a17073b108bff8980bf98e17f3541ded9646dafe27bcb54c9c55923df",
+  "questions_sha256": "e222147a17073b108bff8980bf98e17f3541ded9646dafe27bcb54c9c55923df",
+  "split_policy": "SHA256 coverage-v1:ID order; 30 percent rounded to nearest whole case",
+  "retrieval_cases": 18,
+  "workflow_cases": 6,
+  "label_status": "first_pass_editorial_positive_pool_not_expert_approved",
+  "limitation": "Initial editorial positive pool, not exhaustive clinical or independent gold-standard validation."
+}
