@@ -110,7 +110,7 @@ def test_setup_adds_indexes_without_recreating_existing_collection(monkeypatch):
     monkeypatch.setattr(create_qdrant_collection, "QdrantClient", lambda **kwargs: client)
     monkeypatch.setattr(create_qdrant_collection.settings, "QDRANT_URL", "https://example.org")
     monkeypatch.setattr(create_qdrant_collection.settings, "QDRANT_API_KEY", "test-key")
-    create_qdrant_collection.main()
+    create_qdrant_collection.main([])
     client.create_collection.assert_not_called()
     assert client.create_payload_index.call_count == 4
     client.close.assert_called_once()

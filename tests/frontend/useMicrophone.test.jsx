@@ -106,6 +106,35 @@ function expectReleased(context = contexts[0], node = nodes[0], audioTrack = tra
   expect(vi.getTimerCount()).toBe(0);
 }
 
+it("excludes paused samples and can stop while paused", async () => {
+  const { result } = renderHook(() => useMicrophone());
+  await act(async () => { await result.current.start(); });
+  await act(async () => { await nodes[0].feed(new Float32Array([0.1, 0.2])); });
+  await act(async () => { result.current.pause(); });
+  expect(result.current.status).toBe("paused");
+  expect(track.enabled).toBe(false);
+  await act(async () => { await nodes[0].feed(new Float32Array([0.9, 0.9])); });
+  await act(async () => { result.current.resume(); });
+  expect(result.current.status).toBe("recording");
+  expect(track.enabled).toBe(true);
+  await act(async () => { await nodes[0].feed(new Float32Array([0.3])); result.current.pause(); });
+  await act(async () => { result.current.stop(); });
+  expect(result.current.recording.chunks.reduce((count, chunk) => count + chunk.length, 0)).toBe(3);
+  expectReleased();
+});
+
+it("does not stop automatically during paused time", async () => {
+  const { result } = renderHook(() => useMicrophone());
+  await act(async () => { await result.current.start(); });
+  act(() => result.current.pause());
+  act(() => vi.advanceTimersByTime(60000));
+  expect(result.current.status).toBe("paused");
+  act(() => result.current.cancel());
+  expect(result.current.recording).toBeNull();
+  expect(createWavBlob).not.toHaveBeenCalled();
+  expectReleased();
+});
+
 // stop must flush a partial worklet buffer before preparing the complete recording.
 it("preserves mono samples including the final partial batch on stop", async () => {
   const { result } = renderHook(() => useMicrophone(), {

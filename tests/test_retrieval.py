@@ -35,6 +35,22 @@ def test_retrieval_excludes_missing_and_unknown_age_metadata():
     assert RetrievalService(client=client).retrieve("play", child_age_months=7) == []
 
 
+@pytest.mark.parametrize("conditions", [["Baby can retain feeds"], "not-a-list", [None]])
+def test_retrieval_preserves_valid_applicability_conditions_and_rejects_invalid_metadata(conditions):
+    point = MagicMock(id="p1", score=0.8, payload={
+        "passage_id": "p1", "text": "Try supported care.",
+        "source_age": {"min_months": 0, "max_months_exclusive": 12},
+        "applicability_conditions": conditions,
+    })
+    client = MagicMock()
+    client.query_points.return_value.points = [point]
+    results = RetrievalService(client=client).retrieve("feeding", child_age_months=6)
+    if isinstance(conditions, list) and all(isinstance(value, str) for value in conditions):
+        assert results[0].applicability_conditions == conditions
+    else:
+        assert results == []
+
+
 def test_is_age_eligible_first_week():
     # check 0 to 7 days newborn range.
     source_age = {"label": "birth up to 1 week", "min_days": 0, "max_days_exclusive": 7}

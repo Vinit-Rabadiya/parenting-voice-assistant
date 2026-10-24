@@ -29,3 +29,7 @@
   .site-navbar nav { width: 100%; justify-content: space-between; }
   .navbar-identity { min-width: 0; flex: 1; }
 }
+.navbar-account-menu { position: relative; }
+.navbar-account-options { position: absolute; right: 0; top: calc(100% + 8px); z-index: 1100; display: grid; gap: 6px; width: 200px; max-width: calc(100vw - 32px); padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); box-shadow: var(--shadow); }
+.navbar-account-options button { width: 100%; text-align: left; justify-content: flex-start; }
+.navbar-account-options .navbar-logout { color: #dc3545; }

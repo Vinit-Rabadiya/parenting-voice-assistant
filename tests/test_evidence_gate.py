@@ -24,6 +24,33 @@ def test_gate_keeps_boundary_and_rejects_invalid_or_empty_evidence():
                             passage(0.9, " "), accepted], 0.50) == [accepted]
 
 
+@pytest.mark.parametrize("country", [None, "KE"])
+def test_vaccination_notice_skips_retrieval_generation_and_preserves_country(client, services, country):
+    data, retrieval, coaching = services
+    response = client.post("/coach", json={"child_id": "child-1", "question": "Which vaccines are due?",
+                                          **({"vaccination_country": country} if country else {})})
+    assert response.status_code == 200
+    assert response.json()["status"] == "vaccination_notice"
+    assert response.json()["vaccination_country"] == "KE"
+    assert response.json()["citations"] == []
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+    assert data.create_interaction.call_args.args[-1] == "vaccination_notice"
+    assert data.create_interaction.call_args.kwargs["vaccination_country"] == "KE"
+    assert "Select a vaccination country" not in response.json()["answer"]
+
+
+def test_danger_sign_precedes_vaccination_notice(client, services):
+    _, retrieval, coaching = services
+    response = client.post("/coach", json={"child_id": "child-1",
+                                          "question": "My baby has difficulty breathing after vaccination.",
+                                          "vaccination_country": "KE"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "escalated"
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
 @pytest.mark.parametrize("threshold", [-0.1, 1.1, float("nan"), float("inf")])
 def test_gate_rejects_invalid_configuration(threshold):
     with pytest.raises(ValueError, match="RETRIEVAL_MIN_SCORE"):
@@ -72,6 +99,27 @@ def test_only_eligible_evidence_reaches_generation(client, services):
     assert response.json()["status"] == "answered"
     assert len(response.json()["citations"]) == 1
     assert coaching.generate.call_args.args[-1] == [accepted]
+
+
+@pytest.mark.parametrize("question,kind", [
+    ("I am feeding my baby", "insufficient_references"),
+    ("My baby has a rash", "professional_referral"),
+    ("What should I do?", "clarification"),
+    ("car repair", "unrelated"),
+    ("the child cant keep any food", "professional_referral"),
+])
+def test_fallback_kind_is_saved_without_generation(client, services, question, kind):
+    data, retrieval, coaching = services
+    retrieval.retrieve.return_value = []
+    response = client.post("/coach", json={"child_id": "child-1", "question": question})
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_evidence"
+    assert response.json()["response_kind"] == kind
+    assert response.json()["citations"] == []
+    assert data.create_interaction.call_args.kwargs["response_kind"] == kind
+    coaching.generate.assert_not_called()
+    if kind == "unrelated" or "keep any food" in question:
+        retrieval.retrieve.assert_not_called()
 
 
 def test_retrieval_failure_is_not_a_no_evidence_response(client, services):

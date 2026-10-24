@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-22",
+  "status": "candidate_not_expert_validated",
+  "clinical_review_required": true,
+  "notes": "Selected caregiver-facing summaries only. The complete PDFs are retained as evidence, not automatically indexed. UK schedules, local emergency numbers, medication protocols, outdated or conflicting recommendations are excluded. Physical PDF pages differ from printed page labels.",
+  "sources": [
+    {
+      "source_id": "pha-birth-to-five-2025",
+      "source_format": "pdf_summary",
+      "filename": "Birth-to-five-2025.pdf",
+      "title": "Birth to Five 2025",
+      "publisher": "Public Health Agency, Northern Ireland",
+      "source_url": "https://www.publichealth.hscni.net/sites/default/files/2025-04/Birth%20to%20five%202025.pdf",
+      "sha256": "dc6b0af565144268ae6d1093fb18c0fed2d64203461d2e04035b20c3dd70b4ce",
+      "expected_pages": 174,
+      "country": null,
+      "age": [0, 25],
+      "passages": [
+        {"section": "Crying: comfort and support", "pdf_page": 87, "source_anchor": "Advice for parents/carers", "domain": "common_concerns", "routines": ["soothing"], "text": "For crying, check hunger, a wet nappy, and temperature comfort. Try holding or gentle movement. Seek professional support when crying persists or worries you."},
+        {"section": "Changes in stools", "pdf_page": 91, "source_anchor": "blood in it", "domain": "common_concerns", "routines": [], "text": "Bowel patterns vary. Discuss marked stool changes, very pale stools, or blood with a health professional rather than judging illness solely by bowel frequency."},
+        {"section": "Nappy-area care", "pdf_page": 93, "source_anchor": "Change wet or soiled", "domain": "common_concerns", "routines": ["dressing"], "text": "Change soiled nappies promptly, clean gently with plain water, and allow nappy-free time. Ask a health professional about persistent or worsening irritation."},
+        {"section": "Teething: uncertainty and safety", "pdf_page": 74, "source_anchor": "Teething", "domain": "common_concerns", "routines": [], "text": "Teething can involve sore gums and chewing. Avoid teething jewellery. Do not attribute every symptom to teeth; seek professional advice if unsure about health."},
+        {"section": "Signs of illness needing help", "pdf_page": 98, "source_anchor": "Recognising the signs", "domain": "common_concerns", "routines": [], "text": "Breathing difficulty, reduced responsiveness, green vomit, much less urine, or a rash that does not fade under pressure require urgent medical assessment."},
+        {"section": "Jaundice", "pdf_page": 98, "source_anchor": "Jaundice", "domain": "common_concerns", "routines": [], "age": [0, 1], "text": "Yellow skin or eyes needs professional assessment. Jaundice appearing in the first day after birth requires urgent treatment, not a wait for chat guidance."}
+      ]
+    },
+    {
+      "source_id": "kenya-community-guidelines-2024",
+      "source_format": "pdf_summary",
+      "filename": "Kenya-community-health-guidelines-2024.pdf",
+      "title": "Clinical Guidelines for Level 1 Community Health Services (2024)",
+      "publisher": "Kenya Ministry of Health",
+      "source_url": "https://www.health.go.ke/sites/default/files/2025-04/Clinical%20Guidelines%20for%20Level%201%20Community%20Health%20Services.pdf",
+      "sha256": "8b03d5c7ef99fa54dc35523a2d18c6e2be3c1c8ecaf20831e1f01ef6f8bf19e9",
+      "expected_pages": 184,
+      "country": "KE",
+      "age": [0, 25],
+      "passages": [
+        {"section": "BCG and polio vaccine purposes", "pdf_page": 68, "source_anchor": "BCG", "domain": "immunisation", "routines": [], "text": "The Kenya guideline identifies BCG as protection against tuberculosis and polio vaccines against poliomyelitis. These examples do not establish an individual child's current appointments."},
+        {"section": "Pentavalent vaccine purpose", "pdf_page": 68, "source_anchor": "Pentavalent", "domain": "immunisation", "routines": [], "text": "Pentavalent DPT-HepB-Hib combines protection against diphtheria, pertussis, tetanus, hepatitis B, and Haemophilus influenzae type b. Confirm appointments using current clinic advice and vaccination records."},
+        {"section": "Young infant warning signs", "pdf_page": 69, "source_anchor": "Signs to Observe", "domain": "common_concerns", "routines": [], "age": [0, 2], "text": "Poor sucking, unusual floppiness, fever or feeling cold, and difficult breathing in a young infant need prompt assessment at a health facility."},
+        {"section": "General danger signs", "pdf_page": 70, "source_anchor": "IMPORTANT SIGNS", "domain": "common_concerns", "routines": [], "text": "A child unable to drink or breastfeed, vomiting everything, having convulsions, or becoming unresponsive needs urgent professional care rather than developmental coaching."},
+        {"section": "Diarrhoea: feeding and referral", "pdf_page": 73, "source_anchor": "Caregivers should be told", "domain": "common_concerns", "routines": ["feeding"], "text": "Continue breastfeeding during diarrhoea if the child can feed. Seek health-facility care if the child cannot drink, becomes sicker, or develops fever."}
+      ]
+    }
+  ],
+  "pending_sources": [
+    {"title": "Clinical review and country-specific reconciliation", "reason": "Large documents contain mixed audiences, age ranges, and potentially conflicting guidance. Do not bulk-index their diagnosis, medicines, first-aid procedures, or vaccination tables."},
+    {"title": "Symptom-routing integration", "reason": "Add reviewed recognition of numeric temperature reports and other danger signs, then evaluate before enabling health candidates. Source selection alone is not safe clinical triage."}
+  ]
+}

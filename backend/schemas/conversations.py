@@ -1,6 +1,7 @@
 """Contracts for account-scoped conversation history."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -27,7 +28,9 @@ class ConversationMessageResponse(BaseModel):
     citations: list[CitationSchema] = Field(default_factory=list)
     support_resources: list[SupportResource] = Field(default_factory=list)
     status: str | None = None
+    response_kind: Literal["clarification", "unrelated", "professional_referral", "insufficient_references"] | None = None
     routine: str | None = None
+    vaccination_country: Literal["KE", "OTHER"] | None = None
     child_age_months: float | None = None
     processing_seconds: float | None = None
     safety: str | None = None

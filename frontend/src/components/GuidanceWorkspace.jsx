@@ -5,6 +5,7 @@ import GuidanceAnswer from "./GuidanceAnswer";
 import MicrophoneControls from "./MicrophoneControls";
 import useConversations from "../hooks/useConversations";
 import PrivacyConsent from "./PrivacyConsent";
+import ChatLoading from "./ChatLoading";
 
 function ConversationListItem({ conversation, active, disabled, onOpen, onDelete, workspaceActive }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -94,6 +95,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
     await chat.submit(message, routine, supportCountry);
   }
 
+  if (chat.loading) return <ChatLoading />;
   return <div className={`chat-shell${sidebarOpen ? " chat-shell--history-open" : ""}`}>
     {sidebarOpen && <button type="button" className="history-backdrop" aria-label="Close history" onClick={() => setSidebarOpen(false)} />}
     <aside className="chat-sidebar" aria-label="Conversation history" id="conversation-sidebar">

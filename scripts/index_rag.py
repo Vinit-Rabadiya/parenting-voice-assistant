@@ -64,6 +64,12 @@ def validate_source_metadata(passage: dict) -> None:
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"{field} must be nonempty text.")
 
+    if passage.get("source_format") == "web_summary":
+        if passage.get("pdf_page") is not None:
+            raise ValueError("Web references must not invent a PDF page.")
+        if not isinstance(passage.get("source_section"), str) or not passage["source_section"].strip():
+            raise ValueError("Web references require source_section.")
+        return
     # pdf_page is the physical page number used to locate the original passage.
     page = passage.get("pdf_page")
     if type(page) is not int or page < 1:
@@ -174,7 +180,7 @@ def validate_source_references(passages: list[dict], manifest_path: Path) -> Non
         if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
             raise ValueError(f"Manifest source {position} has an invalid sha256 fingerprint.")
         page_count = source.get("expected_pages")
-        if type(page_count) is not int or page_count < 1:
+        if source.get("source_format") != "web_summary" and (type(page_count) is not int or page_count < 1):
             raise ValueError(f"Manifest source {position} requires a positive integer expected_pages.")
 
         source_id = source["source_id"]
@@ -202,11 +208,24 @@ def validate_source_references(passages: list[dict], manifest_path: Path) -> Non
                 )
 
         # positive page numbers were checked earlier; now enforce the document's page limit.
-        if passage["pdf_page"] > source["expected_pages"]:
+        if source.get("source_format") == "web_summary":
+            if passage.get("source_format") != "web_summary" or passage.get("pdf_page") is not None:
+                raise ValueError(f"Passage {passage_id}: source format does not match the manifest.")
+            if passage.get("source_section") not in source.get("sections", []):
+                raise ValueError(f"Passage {passage_id}: unknown source section.")
+        elif passage.get("source_format") == "web_summary" or passage["pdf_page"] > source["expected_pages"]:
             raise ValueError(f"Passage {passage_id} refers to a page beyond the source document.")
 
 
-def build_point(passage: dict) -> PointStruct:
+def build_point(passage: dict, *, embedding_context: bool = False, routine_correction: dict | None = None) -> PointStruct:
+    passage = dict(passage)
+    if routine_correction is not None:
+        if (routine_correction["source_id"] != passage["source_id"]
+                or routine_correction["passage_id"] != passage["passage_id"]):
+            raise ValueError("Routine correction source does not match the passage.")
+        passage["routines"] = routine_correction["routines"]
+        validate_routine_metadata(passage)
+        passage["routine_review_reason"] = routine_correction["reason"]
     # a point is one qdrant record: an id, a vector, and a payload; one passage becomes one point.
     # a collection groups these points under a shared vector size and similarity metric.
     # derive the same qdrant id whenever this passage is indexed again.
@@ -220,8 +239,18 @@ def build_point(passage: dict) -> PointStruct:
     # an embedding is a numerical vector representing text meaning for similarity search.
     # document holds text and model instructions, not the 384 numbers the model will generate.
     # cloud inference generates those numbers when submitted through an inference-enabled client.
+    search_text = passage["text"]
+    if embedding_context:
+        context = [passage["title"]]
+        if passage.get("developmental_domain"):
+            context.append(passage["developmental_domain"].replace("_", " "))
+        if passage.get("routines"):
+            context.append("Routines: " + ", ".join(passage["routines"]))
+        search_text = "\n".join([*context, passage["text"]])
+    if embedding_context or routine_correction is not None:
+        passage["embedding_variant"] = "context_v1" if embedding_context else "text_only_routine_review"
     embedding_input = Document(
-        text=passage["text"],
+        text=search_text,
         model="sentence-transformers/all-minilm-l6-v2",
     )
 
@@ -274,18 +303,45 @@ def main() -> None:
         action="store_true",
         help="Upload the prepared points to the Qdrant Cloud collection.",
     )
+    parser.add_argument("--passages", type=Path, default=PROJECT_ROOT / "data/processed/rag/passages.jsonl")
+    parser.add_argument("--manifest", type=Path, default=PROJECT_ROOT / "data/sources.json")
+    parser.add_argument("--report", type=Path, default=PROJECT_ROOT / "data/processed/rag/preparation-report.json")
+    parser.add_argument("--collection", default=settings.QDRANT_COLLECTION)
+    parser.add_argument("--allow-candidate-upload", action="store_true",
+                        help="Allow a candidate corpus only into a separate staging collection.")
+    parser.add_argument("--embedding-context", action="store_true",
+                        help="Compare title/domain/routine-enriched vectors in a separate collection.")
+    parser.add_argument("--routine-corrections", type=Path,
+                        help="Apply individually reviewed routine metadata during indexing only.")
     args = parser.parse_args()
 
-    passages_path = PROJECT_ROOT / "data/processed/rag/passages.jsonl"
-    report_path = PROJECT_ROOT / "data/processed/rag/preparation-report.json"
+    passages_path = args.passages
+    report_path = args.report
 
     try:
         passages = load_passages(passages_path)
         # cross-check the whole corpus against the source inventory before constructing points.
-        validate_source_references(passages, PROJECT_ROOT / "data/sources.json")
+        validate_source_references(passages, args.manifest)
+        candidate = any(p.get("review_status") == "candidate_not_expert_validated" for p in passages)
+        if args.upload and candidate and (not args.allow_candidate_upload or args.collection == settings.QDRANT_COLLECTION):
+            raise ValueError("Candidate passages require --allow-candidate-upload and a separate staging collection.")
+        if args.upload and (args.embedding_context or args.routine_corrections) and args.collection == settings.QDRANT_COLLECTION:
+            raise ValueError("Index experiments require a separate staging collection.")
+        corrections = {}
+        if args.routine_corrections:
+            document = json.loads(args.routine_corrections.read_text(encoding="utf-8"))
+            if document.get("schema_version") != 1:
+                raise ValueError("Unsupported routine correction schema.")
+            known = {p["passage_id"] for p in passages}
+            for correction in document["corrections"]:
+                pid = correction["passage_id"]
+                if pid not in known or pid in corrections or not correction.get("reason", "").strip():
+                    raise ValueError("Routine corrections require a known unique passage and a review reason.")
+                corrections[pid] = correction
         # these point objects exist only in python memory until an upload stores them in qdrant.
-        points = [build_point(passage) for passage in passages]
-    except (OSError, ValueError) as exc:
+        points = [build_point(passage, embedding_context=args.embedding_context,
+                              routine_correction=corrections.get(passage["passage_id"])) for passage in passages]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
         raise SystemExit(f"Passage preparation failed: {exc}") from None
 
     print(f"Loaded passages: {len(passages)}")
@@ -293,10 +349,10 @@ def main() -> None:
 
     if args.upload:
         try:
-            uploaded_count = upload_points(points)
+            uploaded_count = upload_points(points, args.collection)
             print(f"Successfully uploaded {uploaded_count} points to Qdrant Cloud.")
             # update the report so the index_built flag reflects the current state.
-            if report_path.exists():
+            if report_path.exists() and not (args.embedding_context or args.routine_corrections):
                 mark_index_built(report_path)
                 print(f"Updated {report_path.name}: index_built = true")
         except Exception as exc:

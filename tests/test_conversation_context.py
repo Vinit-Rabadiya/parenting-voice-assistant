@@ -11,7 +11,7 @@ def pair(question="How can I talk during feeding?", answer="Talk softly.", statu
             {"role": "assistant", "text": answer, "status": status}]
 
 
-@pytest.mark.parametrize("question", ["What else can I try?", "More ideas", "Can you explain that?", "Another activity please."])
+@pytest.mark.parametrize("question", ["What else can I try?", "More ideas", "Can you explain that?", "Another activity please.", "Tell me more", "Anything else I can do?", "Please explain that."])
 def test_recognizes_explicit_follow_ups(question):
     assert is_follow_up(question)
 

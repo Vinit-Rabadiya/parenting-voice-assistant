@@ -19,10 +19,12 @@ from backend.services.caregiver_data import CaregiverDataService
 from backend.services.coaching import CoachingResult, CoachingService, generation_request_id
 from backend.services.usage import UsageControlService
 from backend.services.retrieval import RetrievalService
-from backend.services.evidence import NO_GUIDANCE_MESSAGE, select_evidence
+from backend.services.evidence import select_evidence
+from backend.services.care_response import clearly_unrelated, professional_assessment_response, missing_evidence_response
 from backend.services.response_safety import SAFE_RESPONSE, inspect_response
 from backend.services.input_safety import ESCALATION_MESSAGE, inspect_input
 from backend.services.crisis_safety import inspect_crisis
+from backend.services.vaccination import inspect_vaccination
 from backend.services.conversation_context import (
     MAX_CONTEXT_MESSAGES, contextual_retrieval_query, is_follow_up, select_conversation_context,
 )
@@ -43,6 +45,10 @@ async def save_coaching_response(data_service: CaregiverDataService, uid: str,
             "citations", "support_resources", "status", "safety",
             "child_age_months", "processing_seconds",
         })
+        if response.vaccination_country is not None:
+            stored["vaccination_country"] = response.vaccination_country
+        if response.response_kind is not None:
+            stored["response_kind"] = response.response_kind
         stored["text"] = response.answer
         response.message_id = await run_in_threadpool(
             data_service.save_conversation_turn, uid, payload.conversation_id,
@@ -54,6 +60,8 @@ async def save_coaching_response(data_service: CaregiverDataService, uid: str,
             data_service.create_interaction, uid, payload.child_id, payload.question,
             payload.routine, response.answer,
             [citation.model_dump() for citation in response.citations], response.status,
+            **({"vaccination_country": response.vaccination_country} if response.vaccination_country else {}),
+            **({"response_kind": response.response_kind} if response.response_kind else {}),
         )
 
 
@@ -146,12 +154,14 @@ async def coach(
         context = select_conversation_context(conversation["messages"])
     await run_in_threadpool(enforce_usage_limit, usage, user["uid"], "coaching")
     retrieval_query = contextual_retrieval_query(payload.question, context)
+    vaccination = inspect_vaccination(retrieval_query)
     unresolved_follow_up = is_follow_up(payload.question) and retrieval_query == payload.question
+    assessment = professional_assessment_response(payload.question)
     stage = "Qdrant retrieval"
     try:
         with timed_stage(request_id, "retrieval"):
             # Do not retrieve arbitrary advice for a follow-up with no safe topic.
-            if unresolved_follow_up:
+            if unresolved_follow_up or vaccination is not None or assessment is not None or clearly_unrelated(payload.question):
                 passages = []
             else:
                 passages = await run_in_threadpool(
@@ -166,7 +176,14 @@ async def coach(
             request_id, len(passages), len(evidence), sum(len(item.text) for item in evidence),
         )
         status = "answered" if evidence else "no_evidence"
-        if evidence:
+        response_kind = None
+        if vaccination is not None:
+            status = "vaccination_notice"
+            result = CoachingResult(answer=vaccination.answer, passages=[])
+        elif assessment is not None:
+            response_kind = assessment.kind
+            result = CoachingResult(answer=assessment.answer, passages=[])
+        elif evidence:
             stage = "Gemini generation"
             with timed_stage(request_id, "generation"):
                 context_options = {"conversation_context": context} if context else {}
@@ -188,7 +205,9 @@ async def coach(
                     result = CoachingResult(answer=SAFE_RESPONSE, passages=[])
         else:
             # A normal response, not a service error: no generation call or supporting citations.
-            result = CoachingResult(answer=NO_GUIDANCE_MESSAGE, passages=[])
+            fallback = missing_evidence_response(retrieval_query, unresolved_follow_up=unresolved_follow_up)
+            response_kind = fallback.kind
+            result = CoachingResult(answer=fallback.answer, passages=[])
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
@@ -230,9 +249,11 @@ async def coach(
     ]
     response = CoachingResponse(
         interaction_id=None, answer=result.answer,
+        response_kind=response_kind,
         citations=[CitationSchema(**citation) for citation in citations],
         child_age_months=child["age_months"],
         processing_seconds=round(time.perf_counter() - started, 3), status=status,
+        vaccination_country=payload.vaccination_country if vaccination is not None else None,
     )
     try:
         with timed_stage(request_id, "interaction_save"):
@@ -256,13 +277,15 @@ async def feedback(
     user: dict = Depends(require_authenticated_user),
     data_service: CaregiverDataService = Depends(get_caregiver_data_service),
 ) -> FeedbackResponse:
+    extra = {"rating": payload.rating, "reasons": payload.reasons} if payload.rating is not None or payload.reasons else {}
     if payload.conversation_id is not None:
         recorded_at = await run_in_threadpool(
             data_service.save_message_feedback, user["uid"], payload.conversation_id,
             interaction_id, payload.helpful, payload.comment,
+            **extra,
         )
     else:
-        recorded_at = await run_in_threadpool(data_service.save_feedback, user["uid"], interaction_id, payload.helpful, payload.comment)
+        recorded_at = await run_in_threadpool(data_service.save_feedback, user["uid"], interaction_id, payload.helpful, payload.comment, **extra)
     if recorded_at is None:
         raise HTTPException(status_code=404, detail="Interaction not found.")
     return FeedbackResponse(
@@ -270,4 +293,5 @@ async def feedback(
         conversation_id=payload.conversation_id,
         message_id=interaction_id if payload.conversation_id is not None else None,
         helpful=payload.helpful, recorded_at=recorded_at,
+        rating=payload.rating, reasons=payload.reasons,
     )

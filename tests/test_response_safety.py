@@ -27,6 +27,9 @@ def reference():
     ("Give medicine, never use antibiotics.", "medication_instruction"),
     ("Shake your baby to stop the crying.", "harmful_child_instruction"),
     ("Hit the child.", "harmful_child_instruction"),
+    ("It is completely normal for your child to refuse food.", "blanket_reassurance"),
+    ("This is perfectly normal.", "blanket_reassurance"),
+    ("There is nothing to worry about.", "blanket_reassurance"),
 ])
 def test_known_prohibited_output_is_blocked(answer, reason):
     passage = reference()
@@ -46,6 +49,7 @@ def test_known_prohibited_output_is_blocked(answer, reason):
     "Talk softly [1].",
     "Never shake your baby.",
     "Shake a rattle for your baby.",
+    "Food preferences can vary. I cannot assess your child's health here.",
 ])
 def test_benign_wording_and_direct_medication_refusals_are_not_blocked(answer):
     passage = reference()

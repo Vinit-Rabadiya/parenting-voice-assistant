@@ -1,12 +1,15 @@
 // connects the recording and transcription hooks to the controls shown on the landing page.
 import useMicrophone from "../hooks/useMicrophone";
 import useTranscription from "../hooks/useTranscription";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import MicrophoneButton from "./MicrophoneButton";
 import "./MicrophoneControls.css";
 
 export default function MicrophoneControls({ onTranscriptChange, compact = false, disabled = false, onCaptureStateChange }) {
-  const { status, error, start, stop, recording } = useMicrophone();
+  const { status, error, start, stop, recording, pause, resume, cancel } = useMicrophone();
+  const [cancelled, setCancelled] = useState(false);
+  const [feedbackRevision, setFeedbackRevision] = useState(0);
+  const [dismissedFeedback, setDismissedFeedback] = useState(null);
   // a finished recording passes from the microphone hook into the transcription hook.
   const transcription = useTranscription(recording);
 
@@ -16,20 +19,31 @@ export default function MicrophoneControls({ onTranscriptChange, compact = false
   const capturing = status !== "idle";
   const transcribing = transcription.status === "transcribing";
   const recordingNow = status === "recording";
+  const paused = status === "paused";
+  const feedbackKey = `${feedbackRevision}:${status}:${transcription.status}:${cancelled}`;
+  const finished = !capturing && !transcribing && (cancelled || ["success", "cancelled"].includes(transcription.status));
+  useEffect(() => {
+    if (!finished || !compact) return;
+    const timer = setTimeout(() => setDismissedFeedback(feedbackKey), 4000);
+    return () => clearTimeout(timer);
+  }, [finished, compact, feedbackKey]);
+  const showFeedback = capturing || transcribing || error || transcription.error
+    || (finished && dismissedFeedback !== feedbackKey);
   useEffect(() => {
     onCaptureStateChange?.(capturing || transcribing);
   }, [capturing, transcribing, onCaptureStateChange]);
   useEffect(() => () => onCaptureStateChange?.(false), [onCaptureStateChange]);
-  const buttonBusy = (capturing && !recordingNow) || transcribing;
+  const buttonBusy = (capturing && !recordingNow && !paused) || transcribing;
   const buttonLabel = status === "requesting" ? "Waiting for microphone…"
     : status === "stopping" ? "Stopping recording…"
       : status === "preparing" ? "Preparing audio…"
         : transcribing ? "Transcribing…"
-          : recordingNow ? "Stop and transcribe" : "Start recording";
+          : recordingNow || paused ? "Stop and transcribe" : "Start recording";
   const microphoneMessages = {
     idle: "Ready to record.",
     requesting: "Requesting microphone access…",
     recording: "Recording… Speak, then press Stop and transcribe.",
+    paused: "Recording paused. Resume, stop and transcribe, or cancel.",
     stopping: "Finishing audio capture…",
     preparing: "Preparing your audio…",
   };
@@ -56,28 +70,35 @@ export default function MicrophoneControls({ onTranscriptChange, compact = false
       <MicrophoneButton
         label={buttonLabel}
         recording={recordingNow}
-        busy={buttonBusy || (disabled && !recordingNow)}
+        busy={buttonBusy || (disabled && !recordingNow && !paused)}
         describedBy="microphone-status"
         onClick={() => {
-          if (recordingNow) stop();
+          if (recordingNow || paused) stop();
           else {
+            setCancelled(false);
+            setFeedbackRevision((value) => value + 1);
             transcription.cancel();
             void start();
           }
         }}
       />
-      {(status === "requesting" || status === "preparing") && (
-        <button type="button" onClick={stop}>Cancel recording</button>
+      <div className={`voice-feedback${compact && !showFeedback ? " voice-feedback--idle" : ""}`}>
+      <div className="voice-secondary-actions">
+      {(recordingNow || paused) && <button type="button" onClick={paused ? resume : pause}>{paused ? "Resume recording" : "Pause recording"}</button>}
+      {capturing && (
+        <button type="button" onClick={() => { cancel(); setCancelled(true); setFeedbackRevision((value) => value + 1); }}>Cancel recording</button>
       )}
       {transcribing && <button type="button" onClick={transcription.cancel}>Cancel transcription</button>}
       {!capturing && ["error", "cancelled"].includes(transcription.status) && recording?.wavBlob && (
         <button type="button" onClick={transcription.retry}>Retry transcription</button>
       )}
-      <p id="microphone-status" role="status" className={compact ? "visually-hidden" : undefined}>
-        {capturing ? microphoneMessages[status] : transcriptionMessages[transcription.status] || microphoneMessages.idle}
+      </div>
+      <p id="microphone-status" role="status">
+        {capturing ? microphoneMessages[status] : cancelled ? "Recording cancelled. Audio discarded." : transcriptionMessages[transcription.status] || microphoneMessages.idle}
       </p>
       {error && <p role="alert">{error}</p>}
       {transcription.error && <p role="alert">{transcription.error}</p>}
+      </div>
       {recording && !compact && (
         <p>Recorded {durationSeconds.toFixed(2)} seconds.
           {transcription.processingSeconds !== null && ` Server processing: ${transcription.processingSeconds.toFixed(2)} seconds.`}

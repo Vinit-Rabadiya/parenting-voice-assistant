@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field
 import logging
 from math import isfinite
 from typing import Any
@@ -19,11 +19,12 @@ class RetrievedPassage:
     text: str
     title: str
     source_title: str
-    pdf_page: int
+    pdf_page: int | None
     source_url: str
     score: float
     source_age_label: str
     routines: list[str]
+    applicability_conditions: list[str] = dataclass_field(default_factory=list)
 
 
 def is_age_eligible(source_age: dict[str, Any], child_age_months: float, *, child_age_days: int | None = None) -> bool:
@@ -156,6 +157,7 @@ class RetrievalService:
         limit: int = 3,
         *,
         child_age_days: int | None = None,
+        candidate_limit: int | None = None,
     ) -> list[RetrievedPassage]:
         if not query.strip():
             return []
@@ -165,7 +167,10 @@ class RetrievalService:
             age_filter = build_age_filter(child_age_months, child_age_days=child_age_days)
 
         # Age filtering happens before ranking; retain extra candidates for routines.
-        candidate_limit = max(limit * 5, 15)
+        if candidate_limit is None:
+            candidate_limit = max(limit * 5, 15)
+        elif type(candidate_limit) is not int or candidate_limit < limit or candidate_limit < 1:
+            raise ValueError("candidate_limit must be a positive integer at least as large as limit.")
 
         try:
             results = self.client.query_points(
@@ -197,6 +202,9 @@ class RetrievalService:
             if normalized_routine and point_routines and normalized_routine not in point_routines:
                 continue
 
+            conditions = payload.get("applicability_conditions", [])
+            if not isinstance(conditions, list) or any(not isinstance(value, str) or not value.strip() for value in conditions):
+                continue
             filtered.append(
                 RetrievedPassage(
                     passage_id=payload.get("passage_id", str(point.id)),
@@ -208,6 +216,7 @@ class RetrievalService:
                     score=float(point.score or 0.0),
                     source_age_label=source_age.get("label", "0-24 months"),
                     routines=point_routines,
+                    applicability_conditions=conditions,
                 )
             )
 

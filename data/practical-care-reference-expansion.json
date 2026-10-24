@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-23",
+  "status": "candidate_not_expert_validated",
+  "clinical_review_required": true,
+  "replacement_sources": ["nhs-baby-reflux", "nhs-baby-diarrhoea-vomiting", "nhs-nappy-rash-care", "who-vaccine-safety", "unicef-feeding-12-24-months", "unicef-development-24-months"],
+  "notes": "Source-linked practical education and explanations, not diagnostic or treatment protocols. Existing source IDs are explicitly revised rather than duplicated. Ages are conservative project selections, not publisher approval of every age. Conditions are review metadata, not an implemented symptom classifier. Medicines, doses, UK contacts, national service timetables, formula recipes and individualized vaccine decisions are excluded. No live activation.",
+  "selection_review": {
+    "checked_on":"2026-10-23",
+    "status":"editorial_selection_not_clinical_approval",
+    "issues":[76,100,102,103,74,78,79],
+    "method":"Compared selected public website sections with each summary. Preserved original section headings, dates where checked, age restrictions and conditional wording. No website HTML saved.",
+    "exclusions":[
+      "The older UNICEF food-refusal summary's food-covering/reoffering instruction is omitted because the selected section does not supply storage conditions. This is a narrower selection, not an invented food-storage protocol.",
+      "Teething-page raw-food examples are not selected: first-food guidance identifies hard raw foods as choking hazards. No blanket recommendation to chew raw vegetables.",
+      "The sick-child page's blanket/sofa and general fluid suggestions are not extracted for infants; age-specific advice needs separate selection.",
+      "UK service numbers, legal rules, appointment schedules and product-specific claims are excluded from Kenya guidance.",
+      "No medication, dose, reflux thickener, laxative, home jaundice treatment or individual vaccine decision is selected."
+    ],
+    "limits":[
+      "The added applicability metadata is preserved for review but is not a runtime clinical decision engine.",
+      "No claim that the existing safety rules recognize every symptom or numeric temperature formulation.",
+      "No new reviewed Kenya vaccination timetable; general vaccine safety remains separate from country-specific schedules.",
+      "This is a selected web-source revision, not full extraction of the 2026 book, research papers or all catalogue entries."
+    ]
+  },
+  "sources": [
+    {
+      "source_id":"hse-sharing-books","title":"HSE: Sharing books with babies and young children","publisher":"Health Service Executive, Ireland","source_url":"https://www2.hse.ie/babies-children/checks-milestones/communication-development/reading-with-your-baby/","country":null,"age":[0,25],
+      "applicability_note":"General book-sharing selections, not Irish services or screening schedules. The source's newborn, six-month and toddler sections retain separate age eligibility. No expectation to finish a book or demonstrate a milestone.",
+      "passages":[
+        {"section":"Short picture-sharing moments with a young baby","source_heading":"How to share stories with a newborn","guidance_kind":"practical_action","domain":"language","routines":["reading"],"age":[0,6],"text":"Share pictures with your young baby, even if you look at only one page. Follow their interest: point, name things or make sounds rather than requiring a whole story."},
+        {"section":"Let a baby explore picture books at their own pace","source_heading":"How to share stories with babies 6 months and older","guidance_kind":"practical_action","domain":"language","routines":["reading"],"age":[6,12],"text":"Notice the pictures your baby looks at or touches and talk about them. Let them move through pages quickly or stay on a favourite page. Relate a pictured object to a familiar real object."},
+        {"section":"Make toddler picture-book reading interactive","source_heading":"How to share stories with toddlers (age 1 to 3)","guidance_kind":"practical_action","domain":"language","routines":["reading"],"age":[12,25],"text":"Interactive picture-book time can include sounds, character actions and talking about the pictures with your toddler. Follow their interests rather than asking lots of questions."},
+        {"section":"Pauses and familiar stories with a toddler","source_heading":"How to share stories with toddlers (age 1 to 3)","guidance_kind":"practical_action","domain":"language","routines":["reading"],"age":[12,25],"text":"Pause near the end of a familiar line to let your toddler join in; finish it yourself if they do not. Repeating favourite stories is welcome. Let your child set the pace."}
+      ]
+    },
+    {
+      "source_id":"sa-education-bath-language","title":"South Australia Department for Education: Splish splash, I'm having a bath","publisher":"South Australia Department for Education","source_url":"https://www.education.sa.gov.au/parents-and-families/curriculum-and-learning/early-years/learning-with-your-child-greatstart/getting-ready/splish-splash-im-having-bath","country":null,"age":[0,25],
+      "applicability_note":"Source covers birth to five with a birth-to-two section; selections are limited to naming and conversation. Water experiments, local services and suggestions to help wash another baby are excluded. This is not a water-safety protocol.",
+      "passages":[
+        {"section":"Words to explore during bath time","source_heading":"Language to use","guidance_kind":"practical_action","domain":"language","routines":["bathing"],"text":"Talk during bath time about body parts and washing objects. Name fingers, toes, arms, soap and towels. Describe water with action words such as splash or pour."},
+        {"section":"Responding together while washing","source_heading":"Splish splash - I'm having a bath","guidance_kind":"practical_action","domain":"language","routines":["bathing"],"applicability_conditions":["Adapt questions to the child's communication; no required spoken answer"],"text":"Name the body part you are washing. Invite your child to point or help name what to wash next. Listen and respond to their contribution as you talk together."}
+      ]
+    },
+    {
+      "source_id":"unicef-development-24-months","title":"UNICEF: Developmental milestones at 2 years","publisher":"UNICEF","source_url":"https://www.unicef.org/parenting/child-development/your-toddlers-developmental-milestones-2-years","country":null,"age":[24,25],
+      "applicability_note":"Retains four earlier selections and adds a focused toy-handover interaction. No inference that waiting has a specific meaning or that an individual child meets a milestone. Application scope ends on the second birthday.",
+      "passages":[
+        {"section":"Social and emotional development","source_heading":"Social and emotional milestones at 2 years","guidance_kind":"practical_action","domain":"social_emotional","routines":["play","dressing"],"text":"At the second birthday, try rolling a ball to one another, taking turns handing over toys, or helping with a safe supervised activity such as folding clothes. Shared activities offer practice in cooperation."},
+        {"section":"Language and communication","source_heading":"Language and communication milestones at 2 years","guidance_kind":"practical_action","domain":"language","routines":["walking"],"text":"At the second birthday, name the things you see together while walking. Familiar surroundings provide opportunities to hear words and connect them with objects and people."},
+        {"section":"Brain development","source_heading":"Brain development milestones at 2 years","guidance_kind":"practical_action","domain":"cognitive","routines":["play"],"text":"At the second birthday, hide suitable objects around the room and give your child hints to find them. This is a playful shared search, not a diagnostic assessment."},
+        {"section":"Movement and physical development","source_heading":"Movement and physical development milestones at 2 years","guidance_kind":"practical_action","domain":"fine_motor","routines":["reading"],"text":"At the second birthday, invite your child to turn a page while you share a book. This is a small fine-motor challenge that can be part of an enjoyable familiar routine."},
+        {"section":"Sharing play when a toddler hands over a toy","source_heading":"Social and emotional milestones at 2 years","guidance_kind":"practical_action","domain":"social_emotional","routines":["play"],"text":"Share play and conversation when your toddler hands you a toy. Hand toys between you or roll a ball back and forth together."}
+      ]
+    },
+    {
+      "source_id":"nhs-talk-0-6-months","title":"NHS: First sounds, 0 to 6 months","publisher":"NHS","source_url":"https://www.nhs.uk/best-start-in-life/baby/learning-to-talk/first-sounds-0-to-6-months/","country":null,"age":[0,6],
+      "applicability_note":"Selected everyday language activities only. UK appointment schedules, local services and screens advice are not selected.",
+      "passages":[
+        {"section":"Talking and singing during feeding","source_heading":"Feeding time","guidance_kind":"practical_action","domain":"language","routines":["feeding"],"text":"During feeding, talk or sing while your baby watches your face. Repeating familiar songs and using a varied, sing-song voice gives them opportunities to hear sounds and watch your mouth."},
+        {"section":"Talking while changing nappies and removing socks","source_heading":"Nappy changing","guidance_kind":"practical_action","domain":"language","routines":["changing","dressing"],"text":"During changing, describe your actions with repeated simple phrases, such as taking socks off. Spend face-to-face time talking to your baby and repeat familiar words and actions."},
+        {"section":"Reading and feeling fabric books with a young baby","source_heading":"Little tips for everyday play","guidance_kind":"practical_action","domain":"language","routines":["reading","play"],"text":"Read to your young baby and explore a fabric book together. Talk about the different textures your baby feels. Respond when they make sounds, giving their noises your attention."}
+      ]
+    },
+    {
+      "source_id":"nhs-talk-6-12-months","title":"NHS: Listening and learning, 6 to 12 months","publisher":"NHS","source_url":"https://www.nhs.uk/best-start-in-life/baby/learning-to-talk/listening-and-learning-6-to-12-months/","country":null,"age":[6,12],
+      "applicability_note":"Everyday communication activities, not feeding treatment or water-safety instructions. Bathing requires the separately applicable supervision precautions.",
+      "passages":[
+        {"section":"Naming food during mealtimes","source_heading":"Mealtimes","guidance_kind":"practical_action","domain":"language","routines":["feeding"],"text":"At mealtimes, name the food your baby is eating and repeat its name in simple phrases. Talk together while feeding so your baby hears words connected with what they see."},
+        {"section":"Bath-time words and taking turns","source_heading":"Bath time","guidance_kind":"practical_action","domain":"language","routines":["bathing"],"text":"Name the body part you are washing and make playful splashing sounds. Take a turn making a sound, then wait for your baby to respond. They do not have to copy you."},
+        {"section":"Sharing simple picture books with a baby","source_heading":"Little tips for everyday play","guidance_kind":"practical_action","domain":"language","routines":["reading"],"text":"Share a simple picture book with your baby and describe what the pictures show. You can also read a textured book together so your baby can feel it while listening."}
+      ]
+    },
+    {
+      "source_id":"nhs-talk-12-24-months","title":"NHS: First words and little sentences, 1 to 2 years","publisher":"NHS","source_url":"https://www.nhs.uk/best-start-in-life/toddler/learning-to-talk/first-words-and-little-sentences-1-to-2-years/","country":null,"age":[12,24],
+      "applicability_note":"General communication selections, not nutrition portions, food preparation or UK services. Pretend bathing is a play suggestion, not unsupervised water play.",
+      "passages":[
+        {"section":"Conversation during meals","source_heading":"Mealtimes","guidance_kind":"practical_action","domain":"language","routines":["feeding"],"text":"Talk with your toddler while eating together. Name foods and describe their taste, smell or texture, using words such as sweet, cold or smooth. Describe what you are both doing."},
+        {"section":"Taking turns with clothes while getting dressed","source_heading":"Getting dressed","guidance_kind":"practical_action","domain":"language","routines":["dressing","play"],"text":"Practise taking turns by pulling clothing items out of a cloth bag together. Name each item as you play."},
+        {"section":"Describing dressing actions","source_heading":"Getting dressed","guidance_kind":"practical_action","domain":"language","routines":["dressing"],"text":"As you help your toddler get dressed, describe each action with simple words. Talk about an arm going into a shirt and name body parts."},
+        {"section":"Picture-book conversation with a toddler","source_heading":"Little tips for everyday play","guidance_kind":"practical_action","domain":"language","routines":["reading"],"text":"Look at picture books together and allow time for your toddler to point. Describe what they notice using words for objects and actions, rather than rushing through the pages."},
+        {"section":"Pretend games with a teddy or doll","source_heading":"Little tips for everyday play","guidance_kind":"practical_action","domain":"cognitive","routines":["play"],"text":"Play a pretend teddy-bear picnic together or pretend to wash a doll. Talk about your actions and name the doll's body parts as part of the game."}
+      ]
+    },
+    {
+      "source_id":"nhs-talk-24-months","title":"NHS: Chatting and building sentences, 2 to 3 years","publisher":"NHS","source_url":"https://www.nhs.uk/best-start-in-life/toddler/learning-to-talk/chatting-and-building-sentences-2-to-3-years/","country":null,"age":[24,25],
+      "applicability_note":"The source covers two to three years; the application permits only the exact second birthday. The age metadata does not expand application scope beyond that birthday. No guarantee of an individual milestone.",
+      "passages":[
+        {"section":"Talking together during meals at two years","source_heading":"Mealtimes","guidance_kind":"practical_action","domain":"language","routines":["feeding"],"text":"During meals, talk about the food and offer choices. Name what your child points towards. Use names, action words and descriptions, such as cup, drinking or cold, to keep the conversation going."},
+        {"section":"Pretend play dressing a teddy","source_heading":"Playtime fun","guidance_kind":"practical_action","domain":"cognitive","routines":["play"],"text":"Try pretend play together by acting out a story with a soft toy. Pretend to dress teddy, talk about the pretend actions and let your toddler lead the game."},
+        {"section":"Interactive picture-book time at two years","source_heading":"Little tips for everyday play","guidance_kind":"practical_action","domain":"language","routines":["reading"],"text":"Make picture-book reading a conversation: talk together about the pictures and how the objects shown are used."},
+        {"section":"Following a child's interest in toys","source_heading":"Chatting and building sentences: 2 to 3 years","guidance_kind":"practical_action","domain":"language","routines":["play"],"text":"Follow your child's lead during play. Talk about what they are doing and the toys they are using. Join their ideas rather than directing every part of the activity."}
+      ]
+    },
+    {
+      "source_id":"unicef-learning-activities-selected","title":"UNICEF: 21 learning activities for babies and toddlers","publisher":"UNICEF","source_url":"https://www.unicef.org/parenting/child-care/21-learning-activities-babies-and-toddlers","country":null,"age":[12,25],
+      "applicability_note":"Age-specific selections only. The bottle containing beads, blanket-ride activity and small art objects are not selected. No inference that all listed activities suit every age.",
+      "passages":[
+        {"section":"Responding when a one-year-old points","source_heading":"Words, words, words!","guidance_kind":"practical_action","domain":"language","routines":["play"],"age":[12,18],"text":"When your one-year-old points to an object, name it and talk about it. Responding to what catches their interest gives you a shared topic for talking together."},
+        {"section":"Taking turns with pretend play at eighteen months","source_heading":"Make believe","guidance_kind":"practical_action","domain":"social_emotional","routines":["play"],"age":[18,24],"text":"Use a baby-safe toy for pretend play. You can take turns pretending to rock a teddy to sleep, or use a wooden spoon as a pretend microphone."},
+        {"section":"Helping with clothes and household tasks at two years","source_heading":"Household helper","guidance_kind":"practical_action","domain":"responsive_caregiving","routines":["dressing","play"],"age":[24,25],"text":"Invite your two-year-old to help with age-appropriate household tasks, such as sorting clothes. Make it playful and acknowledge their help. This is participation in a task, not a requirement to dress independently."}
+      ]
+    },
+    {
+      "source_id":"unicef-feeding-12-24-months","title":"UNICEF: Feeding your baby, 1-2 years","publisher":"UNICEF","source_url":"https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-1-2-years","country":null,"age":[12,24],
+      "applicability_note":"Replaces the three older summaries from the same source. Food-reuse instructions are omitted; no storage procedure is inferred. The original age range is retained.",
+      "passages":[
+        {"section":"Encouraging self-feeding","source_heading":"Mealtime tips","guidance_kind":"practical_action","domain":"responsive_caregiving","routines":["feeding"],"text":"Offer a child their own bowl and plenty of time to practise feeding themselves. Sit facing them, smile and talk, with warm encouragement at mealtimes."},
+        {"section":"Responding calmly to food refusal","source_heading":"What to do when your child refuses to eat solid foods","guidance_kind":"practical_action","domain":"responsive_caregiving","routines":["feeding"],"text":"Try different suitable food combinations and textures, including a familiar food with one the child likes less. Stay calm and avoid forcing or pressuring the child to eat."},
+        {"section":"Preparing varied family foods","source_heading":"What to feed your child","guidance_kind":"precaution","domain":"nutrition","routines":["feeding"],"text":"Offer varied nutritious family foods in suitable forms. Cook animal foods well and chop or mash them finely. Prepare nuts crushed, ground or as smooth nut butter rather than whole."}
+      ]
+    },
+    {
+      "source_id":"nhs-baby-reflux","title":"NHS: Reflux in babies","publisher":"NHS","source_url":"https://www.nhs.uk/conditions/reflux-in-babies/","country":null,"age":[0,12],
+      "source_reviewed_on":"2025-06-10","source_next_review_due":"2028-06-10","applicability_note":"Support for reported small milk regurgitation, not diagnosis from a vague inability to keep food. Persistent/new symptoms and danger signs require assessment. No feed thickeners, medicine or sleep-position changes.",
+      "passages":[
+        {"section":"Explaining small milk regurgitation","source_heading":"Causes of reflux","guidance_kind":"explanation","domain":"common_concerns","routines":["feeding"],"text":"Reflux means milk comes back up during or after feeding. One explanation is that the muscle at the lower end of the food pipe is still developing. This does not establish why an individual baby is vomiting; forceful vomiting, feeding refusal or poor growth needs assessment."},
+        {"section":"Feeding-position support for reflux symptoms","source_heading":"Things you can try to ease reflux in babies","guidance_kind":"practical_action","domain":"common_concerns","routines":["feeding"],"applicability_conditions":["No reported urgent warning signs","Reported small milk regurgitation, not inability to retain fluids"],"text":"For small milk regurgitation, ask for help with breastfeeding position or bottle-feeding technique. Hold the baby upright during and after feeding and burp them during feeds. Persistent distress or poor weight gain needs professional advice rather than repeated positioning suggestions."},
+        {"section":"Reflux and sleep precautions","source_heading":"Things you can try to ease reflux in babies","guidance_kind":"precaution","domain":"safety","routines":["feeding","sleep"],"text":"Even with reflux symptoms, a baby should sleep flat on their back. Do not raise the cot head or place the baby on their side or front to treat reflux. Feeding-position suggestions are not instructions to change the sleeping position."},
+        {"section":"When regurgitation needs urgent assessment","source_heading":"Urgent advice: Ask for an urgent GP appointment or call NHS 111 if your baby:","guidance_kind":"referral","domain":"common_concerns","routines":["feeding"],"text":"Green or bloody vomit, forceful vomiting, a swollen or tender tummy, refusal to feed, or vomiting with inability to keep fluids down needs urgent professional assessment. Do not assume these are ordinary reflux or delay care while trying more soothing ideas."}
+      ]
+    },
+    {
+      "source_id":"nhs-baby-diarrhoea-vomiting","title":"NHS: Diarrhoea and vomiting","publisher":"NHS","source_url":"https://www.nhs.uk/symptoms/diarrhoea-and-vomiting/","country":null,"age":[0,25],
+      "source_reviewed_on":"2023-12-21","source_next_review_due":"2026-12-21","applicability_note":"Selected baby-specific feeding and referral advice. Adult advice, general water instructions, oral rehydration recipes and medicines are excluded. Supportive care never delays urgent assessment.",
+      "passages":[
+        {"section":"Possible explanations for vomiting and diarrhoea","source_heading":"Causes of diarrhoea and vomiting","guidance_kind":"explanation","domain":"common_concerns","routines":["feeding"],"text":"A stomach infection or contaminated food can cause vomiting and diarrhoea. Babies may also bring feeds back up with reflux. These are possible explanations, not a diagnosis; the message alone cannot distinguish them or rule out a serious problem."},
+        {"section":"Milk feeding during vomiting illness","source_heading":"How to treat diarrhoea and vomiting yourself","guidance_kind":"practical_action","domain":"common_concerns","routines":["feeding"],"applicability_conditions":["Baby can still take and retain feeds","No urgent danger signs; obtain advice for a concerning infant illness"],"text":"Continue breast or bottle feeds during a vomiting illness; smaller feeds more often may help. Do not dilute formula. If feeds cannot be retained, feeding stops, wet nappies decrease or the baby seems unwell, seek urgent professional advice instead of continuing home-care trials."},
+        {"section":"Reducing spread during diarrhoea or vomiting","source_heading":"Diarrhoea and vomiting can spread easily","guidance_kind":"practical_action","domain":"safety","routines":["feeding","changing"],"text":"Wash hands regularly and clean frequently touched surfaces when someone has vomiting or diarrhoea. Wash soiled clothing and bedding separately and avoid sharing towels. Hygiene reduces spread but does not assess dehydration or replace medical advice for an unwell baby."},
+        {"section":"Vomiting danger signs","source_heading":"Urgent advice: Call 111 now if:","guidance_kind":"referral","domain":"common_concerns","routines":[],"text":"A child who keeps vomiting and cannot retain fluids, stops milk feeding while ill, or has fewer wet nappies needs urgent professional advice. Blood or green vomit, severe breathing difficulty or reduced responsiveness requires immediate emergency assessment. Do not wait for a chat answer."}
+      ]
+    },
+    {
+      "source_id":"nhs-nappy-rash-care","title":"NHS: Nappy rash","publisher":"NHS","source_url":"https://www.nhs.uk/baby/caring-for-a-newborn/nappy-rash/","country":null,"age":[0,25],
+      "source_reviewed_on":"2026-08-28","source_next_review_due":"2029-08-28","applicability_note":"Gentle skin care and referral only; no diagnosis of infection, antifungals, steroid treatment or prescribing. Local product suitability requires review.",
+      "passages":[
+        {"section":"Possible causes of nappy irritation","source_heading":"Causes of nappy rash","guidance_kind":"explanation","domain":"common_concerns","routines":["changing"],"text":"Nappy-area irritation can relate to prolonged urine or stool contact, rubbing, or fragranced cleaning products. Diarrhoea can also irritate the skin. Appearance alone does not establish the cause; persistent, spreading or very painful irritation needs assessment."},
+        {"section":"Gentle steps for nappy irritation","source_heading":"Things you can do to help with nappy rash","guidance_kind":"practical_action","domain":"common_concerns","routines":["changing"],"text":"Change wet or dirty nappies promptly, clean gently with water or fragrance-free alcohol-free wipes, and dry gently. Check the fit and allow nappy-free time when practical. Avoid tight nappies, talcum powder and irritating scented products."},
+        {"section":"When nappy-area irritation needs help","source_heading":"When and where to get medical help","guidance_kind":"referral","domain":"common_concerns","routines":["changing"],"text":"Seek professional advice if nappy-area irritation does not improve, worsens, spreads, is very uncomfortable or occurs with a high temperature. Do not choose steroid, antifungal or antibiotic treatments from a chat description; a professional should assess what is needed."}
+      ]
+    },
+    {
+      "source_id":"who-vaccine-safety","title":"WHO: Vaccine safety","publisher":"WHO","source_url":"https://www.who.int/news-room/questions-and-answers/item/vaccines-and-immunization-vaccine-safety","country":null,"age":[0,25],
+      "source_reviewed_on":null,"applicability_note":"WHO page dated 23 September 2025, not represented as a clinical approval date. General vaccine education only; not a Kenya schedule or assessment of an individual reaction.",
+      "passages":[
+        {"section":"Understanding expected vaccine effects","source_heading":"Are there side effects from vaccines?","guidance_kind":"explanation","domain":"immunisation","routines":[],"text":"Vaccines can cause effects such as soreness where an injection was given or a mild fever. Serious reactions are possible but uncommon. A general description cannot decide whether a particular child's symptoms are expected; unexpected symptoms should be discussed with a health worker."},
+        {"section":"Symptoms after vaccination do not establish the cause","source_heading":"What is an Adverse Event Following Immunizaton (AEFI)","guidance_kind":"explanation","domain":"immunisation","routines":[],"text":"A health problem noticed after vaccination is not automatically caused by the vaccine. It may be related or coincidental and needs appropriate assessment. Report an unexpected reaction to a health worker rather than assuming either that the vaccine caused it or that it is harmless."},
+        {"section":"How vaccine safety is monitored","source_heading":"How do we know that a vaccine is safe?","guidance_kind":"explanation","domain":"immunisation","routines":[],"text":"Vaccines undergo testing before introduction and continued safety monitoring afterwards. Health authorities review reported concerns. This general monitoring does not replace assessment when an individual child becomes unwell or determine that child's next vaccination appointment."}
+      ]
+    },
+    {
+      "source_id":"nhs-first-foods-practical","title":"NHS: Your baby's first solid foods","publisher":"NHS","source_url":"https://www.nhs.uk/baby/weaning-and-feeding/babys-first-solid-foods/","country":null,"age":[6,25],
+      "source_reviewed_on":null,"applicability_note":"Conservative minimum of six completed months for these excerpts. Readiness, prematurity and swallowing concerns require review. UK egg certification, supplements, milk substitutions and juice advice are not selected.",
+      "passages":[
+        {"section":"Readiness for complementary foods","source_heading":"Signs your baby is ready for solid foods","guidance_kind":"explanation","domain":"nutrition","routines":["feeding"],"text":"Around six months, readiness for solids involves sitting with steady head control, coordinating food towards the mouth and swallowing rather than pushing it out. Chewing fists or waking at night alone does not prove readiness. Ask a professional about prematurity or feeding difficulties."},
+        {"section":"Responding to hunger and fullness","source_heading":"How to start solid foods","guidance_kind":"practical_action","domain":"nutrition","routines":["feeding"],"text":"Offer a small amount and allow time for learning. Watch whether the baby opens their mouth or turns away and closes it. Stop when they show fullness; do not force food. Breast or formula feeds continue while solids are introduced."},
+        {"section":"Helping a baby explore tastes and textures","source_heading":"Texture progression","guidance_kind":"practical_action","domain":"nutrition","routines":["feeding"],"text":"As a baby manages solids, offer a variety of suitable tastes and progress textures according to their ability. Let them touch food and participate, with an adult present. Difficulty managing or swallowing food needs advice rather than pressure to progress."},
+        {"section":"Safety when serving first foods","source_heading":"Safety and hygiene","guidance_kind":"precaution","domain":"safety","routines":["feeding"],"text":"Stay with a baby while eating, seated upright and securely supported. Wash hands and preparation surfaces; check food temperature. Remove bones and hard stones and avoid hard or round choking hazards. Choose preparation suited to their feeding ability."}
+      ]
+    },
+    {
+      "source_id":"nhs-toddler-food-refusal","title":"NHS: Fussy eaters","publisher":"NHS","source_url":"https://www.nhs.uk/baby/weaning-and-feeding/fussy-eaters/","country":null,"age":[12,25],
+      "source_reviewed_on":"2023-11-13","source_next_review_due":"2026-11-13","applicability_note":"Toddler mealtime support only. Excludes refusal of milk in infancy, swallowing difficulty, vomiting, dehydration or poor growth. General reassurance is not evidence that a specific child is well.",
+      "passages":[
+        {"section":"Understanding toddler food refusal","source_heading":"Fussy eaters","guidance_kind":"explanation","domain":"nutrition","routines":["feeding"],"text":"Toddlers may reject unfamiliar food and their preferences can change. The amount eaten at one meal does not describe the whole diet. This explanation applies to ordinary food preferences, not a child who is ill, losing weight or unable to keep feeds down."},
+        {"section":"Small portions and repeated opportunities","source_heading":"Tips for parents of fussy eaters","guidance_kind":"practical_action","domain":"nutrition","routines":["feeding"],"text":"Offer small portions and calmly give another opportunity to try an unfamiliar food on a different occasion. Do not force the child to eat or turn the meal into a struggle. Keep a variety of suitable foods available."},
+        {"section":"Make meals social rather than a reward","source_heading":"Tips for parents of fussy eaters","guidance_kind":"practical_action","domain":"nutrition","routines":["feeding"],"text":"Eat together so a toddler can watch familiar adults enjoying food. Keep mealtimes pleasant and allow patience for a slow eater. Avoid using sweets as a reward for eating another food; make conversation part of the meal."}
+      ]
+    },
+    {
+      "source_id":"nhs-teething-comfort","title":"NHS: Tips for helping your teething baby","publisher":"NHS","source_url":"https://www.nhs.uk/baby/babys-development/teething/tips-for-helping-your-teething-baby/","country":null,"age":[0,25],
+      "source_reviewed_on":"2025-10-23","source_next_review_due":"2028-10-23","applicability_note":"Use only where teething discomfort is the reported context, not a diagnosis. Raw hard foods, medicine, doses and gels are excluded. Teething does not override illness assessment.",
+      "passages":[
+        {"section":"Teething-ring precautions","source_heading":"Teething rings","guidance_kind":"practical_action","domain":"common_concerns","routines":["soothing"],"applicability_conditions":["Age-suitable teething ring used according to its instructions"],"text":"An appropriate teething ring can provide something to chew. Follow its instructions about chilling in the refrigerator; never freeze it. Do not tie a ring around the baby's neck. Do not treat an unsafe household object as a substitute."},
+        {"section":"Comfort alternatives for sore gums","source_heading":"Comforting a teething baby","guidance_kind":"practical_action","domain":"common_concerns","routines":["soothing","play"],"text":"Comfort, gentle play or rubbing the gums with a clean finger may help with reported teething discomfort. Different babies respond differently. These are comfort options, not evidence that a baby with other symptoms is only teething."},
+        {"section":"Caring for dribbling skin","source_heading":"Preventing teething rashes","guidance_kind":"practical_action","domain":"responsive_caregiving","routines":["soothing"],"text":"If increased dribbling is irritating the face, gently wipe it away. This is skin care, not a diagnosis of every facial rash. Seek advice for symptoms that worry you rather than assuming the teeth explain them."}
+      ]
+    },
+    {
+      "source_id":"nhs-teething-observations","title":"NHS: Baby teething symptoms","publisher":"NHS","source_url":"https://www.nhs.uk/baby/babys-development/teething/baby-teething-symptoms/","country":null,"age":[0,25],
+      "source_reviewed_on":"2026-05-14","source_next_review_due":"2029-05-14","applicability_note":"Explains variation; no tooth-emergence deadline or illness diagnosis. Infant fever and other warning signs retain priority.",
+      "passages":[
+        {"section":"Variation in when teeth appear","source_heading":"When do babies start teething?","guidance_kind":"explanation","domain":"responsive_caregiving","routines":["oral_care"],"text":"The timing of the first tooth varies: some babies start earlier and others later than around six months. Teething may cause mild gum discomfort, chewing or dribbling. Timing alone does not diagnose a developmental problem."},
+        {"section":"Do not explain diarrhoea or fever away as teeth","source_heading":"Teething symptoms","guidance_kind":"precaution","domain":"common_concerns","routines":["soothing"],"text":"Do not assume diarrhoea is caused by teething; the source reports no evidence for that claim. A high temperature or other worrying illness symptoms needs its own assessment, not only a teething suggestion."}
+      ]
+    },
+    {
+      "source_id":"nhs-child-constipation-education","title":"NHS: Constipation in children","publisher":"NHS","source_url":"https://www.nhs.uk/baby/health/constipation-in-children/","country":null,"age":[12,25],
+      "source_reviewed_on":null,"applicability_note":"Selected toddler education, not a newborn diagnostic rule or treatment plan. Medicines, laxatives and arbitrary fluid quantities excluded. Do not use stool frequency alone to diagnose constipation.",
+      "passages":[
+        {"section":"Possible contributors to hard painful stools","source_heading":"Causes of constipation in children","guidance_kind":"explanation","domain":"common_concerns","routines":["feeding"],"text":"In children, hard painful stools can relate to diet, insufficient fluids or stress around changes and toileting. Pain may make a child hold back, which can worsen the difficulty. These possibilities do not establish a diagnosis or rule out another cause."},
+        {"section":"Early support for constipation concerns","source_heading":"How to treat your child's constipation","guidance_kind":"referral","domain":"common_concerns","routines":[],"text":"Seek professional help early for suspected constipation because treatment depends on age and the individual situation. Stay calm rather than blaming or pressuring the child. Do not choose laxatives or treatment quantities from general chat guidance."}
+      ]
+    },
+    {
+      "source_id":"nhs-newborn-jaundice-education","title":"NHS: Jaundice in babies","publisher":"NHS","source_url":"https://www.nhs.uk/conditions/jaundice-in-babies/","country":null,"age":[0,1],
+      "source_reviewed_on":null,"applicability_note":"Newborn education and assessment boundaries only. No home treatment or reassurance that an individual baby's jaundice is harmless; first-day jaundice and associated danger signs require emergency care.",
+      "passages":[
+        {"section":"Understanding yellow skin or eyes","source_heading":"Causes of jaundice in babies","guidance_kind":"explanation","domain":"common_concerns","routines":[],"text":"Jaundice involves yellowing of the skin or eyes and can result from a build-up of bilirubin while a newborn's liver is developing. Other causes are possible. A health professional must assess a baby with suspected jaundice; appearance alone cannot establish severity."},
+        {"section":"Observations to share about jaundice","source_heading":"Urgent advice: Ask for an urgent GP or midwife appointment or call NHS 111 if:","guidance_kind":"referral","domain":"common_concerns","routines":[],"text":"Seek prompt assessment for suspected or worsening jaundice and mention dark urine or very pale stools. First-day jaundice, difficulty waking, feeding refusal, breathing problems or no wet nappies needs immediate medical care. Do not wait for a general explanation before seeking help."}
+      ]
+    },
+    {
+      "source_id":"nhs-fever-care-education","title":"NHS: High temperature in children","publisher":"NHS","source_url":"https://www.nhs.uk/symptoms/fever-in-children/","country":null,"age":[0,25],
+      "source_reviewed_on":"2024-01-03","source_next_review_due":"2027-01-03","applicability_note":"No medicine recommendations. General care does not replace young-infant or symptom-specific referral. Numeric thresholds are candidate education requiring qualified review; no claim that existing routing covers every formulation.",
+      "passages":[
+        {"section":"Why temperature may rise","source_heading":"Causes of a high temperature in children","guidance_kind":"explanation","domain":"common_concerns","routines":[],"text":"A raised temperature can occur when the body responds to infection, and can also occur after vaccination. This does not determine the cause in an individual child. Age, behaviour, feeding and other symptoms matter when deciding what assessment is needed."},
+        {"section":"Comfort and observation during fever","source_heading":"What to do if your child has a high temperature","guidance_kind":"practical_action","domain":"common_concerns","routines":[],"applicability_conditions":["Does not delay urgent assessment for an infant or reported danger sign"],"text":"Continue breastfeeding, watch wet nappies and check the child regularly. Avoid excessive clothing or bedding; do not strip or sponge the child to cool them. These comfort steps do not replace urgent advice for a young infant or a child who seems seriously unwell."},
+        {"section":"Age-specific fever assessment boundaries","source_heading":"Urgent advice: Call 111 if your child:","guidance_kind":"referral","domain":"common_concerns","routines":[],"text":"An infant under three months with a temperature of 38C or higher needs urgent advice. At three to six months, 39C or higher also needs urgent advice. Difficulty breathing, difficulty waking or other serious illness signs require emergency help, regardless of the number."}
+      ]
+    },
+    {
+      "source_id":"nhs-growth-record-education","title":"NHS: Your baby's weight and height","publisher":"NHS","source_url":"https://www.nhs.uk/baby/babys-development/height-weight-and-reviews/baby-height-and-weight/","country":null,"age":[0,25],
+      "source_reviewed_on":null,"applicability_note":"Growth-record education only; no individual diagnosis, UK weighing schedule or claim that one measurement proves health.",
+      "passages":[
+        {"section":"Understanding a growth record","source_heading":"Understanding your baby's weight chart","guidance_kind":"explanation","domain":"responsive_caregiving","routines":[],"text":"Growth charts help show changes in measurements over time. Children do not all follow the same pattern, even within a family. Discuss the pattern with a health professional rather than judging growth from comparison with another baby or one measurement."},
+        {"section":"Questions to raise about weight gain","source_heading":"Your baby's weight and height","guidance_kind":"referral","domain":"common_concerns","routines":["feeding"],"text":"If weight gain concerns you, bring the child's growth record and discuss feeding with a health professional. They may assess feeding and the baby's health together. A chat description cannot establish whether growth is adequate or what is causing a change."}
+      ]
+    },
+    {
+      "source_id":"nhs-preparing-child-health-review","title":"NHS: Your baby's health and development reviews","publisher":"NHS","source_url":"https://www.nhs.uk/baby/babys-development/height-weight-and-reviews/baby-reviews/","country":null,"age":[0,25],
+      "source_reviewed_on":null,"applicability_note":"General preparation and record-keeping principles only. Kenya uses its own child-health record and services; UK red-book entitlement, review appointments and questionnaires are not adopted.",
+      "passages":[
+        {"section":"Preparing for a child-health appointment","source_heading":"Your baby's health and development reviews","guidance_kind":"practical_action","domain":"responsive_caregiving","routines":[],"text":"Use a child-health visit to raise questions about development, feeding and concerns at home. Where possible, involve the people who care for the child so observations can be shared. Ask for help when a concern arises rather than waiting only for a routine review."},
+        {"section":"Bring the child's health record","source_heading":"The personal child health record (red book)","guidance_kind":"practical_action","domain":"responsive_caregiving","routines":[],"text":"Bring the child's health record to health visits. Keep relevant information about growth, vaccinations, illnesses and developmental observations together so it can be discussed with a health professional. The book's colour and service arrangements vary by country."}
+      ]
+    },
+    {
+      "source_id":"unicef-childcare-separation-support","title":"UNICEF: Managing separation anxiety","publisher":"UNICEF","source_url":"https://www.unicef.org/parenting/child-care/managing-child-separation-anxiety","country":null,"age":[6,25],
+      "source_reviewed_on":null,"applicability_note":"Support for transitions and familiar caregivers, not diagnosis or a claim that persistent distress is always normal. Soft objects in infant sleep spaces are excluded.",
+      "passages":[
+        {"section":"Understanding distress during separation","source_heading":"What is separation anxiety?","guidance_kind":"explanation","domain":"social_emotional","routines":[],"text":"A baby or toddler may become upset when a familiar caregiver leaves while they are learning that separations are temporary. Listen to their cues and respond gently. This explanation does not prove why a particular child is distressed or rule out another concern."},
+        {"section":"Introduce another caregiver gradually","source_heading":"Introduce any new caregiver gradually","guidance_kind":"practical_action","domain":"responsive_caregiving","routines":[],"text":"Before leaving a child with a new caregiver, arrange short times together with all of you present. Familiarity can make the later separation less abrupt. Practise short separations with a trusted person before expecting a longer one."},
+        {"section":"Predictable and positive goodbyes","source_heading":"Make goodbyes quick and positive","guidance_kind":"practical_action","domain":"social_emotional","routines":[],"text":"Keep goodbyes calm, positive and brief, and use a familiar routine. Tell the child you will return in words they can understand, such as after work. When together, acknowledge fear kindly rather than dismissing it."}
+      ]
+    },
+    {
+      "source_id":"sch-travel-planning-education","title":"Sydney Children's Hospitals Network: Travel safety","publisher":"Sydney Children's Hospitals Network, NSW Government","source_url":"https://www.schn.health.nsw.gov.au/kids-health-hub/safety-and-injury-prevention/outdoor/travel","country":null,"age":[0,25],
+      "source_reviewed_on":null,"applicability_note":"General infant/toddler planning only. Australian laws, medicine packing instructions, general water advice, sunscreen dosing and older-child pressure-equalisation techniques are excluded. Not a Kenya travel-health protocol.",
+      "passages":[
+        {"section":"Prepare an outing checklist","source_heading":"Plan ahead","guidance_kind":"practical_action","domain":"responsive_caregiving","routines":["outings"],"text":"Before an outing, think about the route, destination and likely waiting times. Make a checklist and pack enough nappies and wipes, keeping essentials accessible. Allow extra time because travel with a young child may need flexibility."},
+        {"section":"Check temporary surroundings","source_heading":"Accommodation and furniture","guidance_kind":"precaution","domain":"safety","routines":["outings"],"text":"At unfamiliar accommodation, check the room and surroundings for child hazards rather than assuming they are childproof. Ask ahead about facilities and supervise closely around play areas and water. Familiar routines do not remove hazards in a new place."},
+        {"section":"Shade for a young baby outside","source_heading":"Sun protection","guidance_kind":"precaution","domain":"safety","routines":["outings"],"age":[0,6],"text":"For a baby under six months, use protective clothing, a hat and shade rather than relying on sunscreen as the main protection. Plan outings with sun exposure in mind. This does not replace local advice about heat or an unwell baby."}
+      ]
+    },
+    {
+      "source_id":"unicef-postpartum-practical-support","title":"UNICEF: What is postpartum depression?","publisher":"UNICEF","source_url":"https://www.unicef.org/parenting/mental-health/what-postpartum-depression","country":null,"age":[0,12],
+      "source_reviewed_on":null,"applicability_note":"Postpartum caregiver support, not diagnosis or treatment. Age filtering cannot establish who gave birth or when. Crisis and child-safety routing remain authoritative. No helpline numbers, medicines or reassurance about harmful thoughts are selected.",
+      "passages":[
+        {"section":"Ask for practical support at home","source_heading":"How can my partner support me at home?","guidance_kind":"practical_action","domain":"responsive_caregiving","routines":[],"applicability_conditions":["Caregiver describes postpartum support needs"],"text":"Ask trusted people for concrete help so the caregiver can eat, wash and rest. Sharing care can make room for those basic needs. Practical help is support, not a substitute for professional assessment when emotional difficulties persist or feel overwhelming."},
+        {"section":"Reach out about persistent emotional difficulty","source_heading":"When should I reach out for help?","guidance_kind":"referral","domain":"common_concerns","routines":[],"text":"Talk with a trusted healthcare professional when postpartum feelings worry you or make daily care difficult. You do not need a chat diagnosis before asking for help. Discuss support options suited to your situation rather than choosing treatment from general information."}
+      ]
+    }
+  ],
+  "pending_sources": [
+    {"topic":"Complete current Kenya vaccination schedule","reason":"General vaccine education does not reconcile national ages, formulations, regional eligibility or individual records."},
+    {"topic":"Original 2026 handbook and WHO book extraction","reason":"PDF collection or a publication-page check is not completed page-by-page selection. No whole-book automatic ingestion."},
+    {"topic":"Formula/water preparation and transport","reason":"Requires a complete Kenya-applicable workflow and conflict review; do not combine partial recipes."},
+    {"topic":"More routines, siblings and additional needs","reason":"The catalogue is broader than this first selected passage revision. Further exact sections and review remain necessary."}
+  ]
+}

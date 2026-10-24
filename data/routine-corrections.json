@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "corrections": [
+    {
+      "passage_id": "7726540107e02bed6b14",
+      "source_id": "reach-up-parent-manual-2020",
+      "routines": ["feeding", "bathing", "changing", "dressing"],
+      "reason": "Chat with baby explicitly includes changing, feeding and bath time. Add dressing for clothing-change conversation while retaining the original ambiguous changing tag; do not globally equate nappy care with dressing."
+    }
+  ]
+}

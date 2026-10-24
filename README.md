@@ -18,13 +18,39 @@ references, and listen to the answer.
 - Qdrant retrieval from 106 selected source-linked passages and Gemini-generated guidance.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
 - Browser speech playback with Listen/replay and Stop controls.
-- Stored interactions and Helpful/Not helpful feedback with optional comments.
+- Stored interactions and Helpful/Not helpful or 1–5 helpfulness ratings, with optional reasons and comments.
 - Responsive interface with light and dark theme support.
 
 The application supports developmental caregiver-child interaction. It is not
 intended for medical diagnosis, treatment, or emergency assessment. Generated
 answers can contain errors; references support review rather than guarantee every
 claim. See [scope and availability](RELEASE.md#scope-and-availability).
+
+## Planned baby-care coverage
+
+The next scope expands beyond developmental activities to source-backed everyday
+baby-care support for Kenya, from birth through the second birthday. Planned topics
+include feeding and nutrition, sleep, hygiene and clothing, crying and bonding,
+growth and routine care, development and learning, vaccination, common concerns,
+safety, outings/travel and childcare transitions. English remains the supported language.
+
+This is a development plan, not a claim that all these topics are available in the
+published release. The original live reference collection remains separate from the
+187-passage candidate corpus. Vaccination currently returns Kenya-specific notices
+and referrals; reviewed vaccine education and schedules are not enabled.
+
+Relevant baby-care statements and follow-ups should receive supported guidance,
+a useful clarification, an honest reference limitation or an appropriate referral.
+Unrelated questions should receive a distinct out-of-scope response. Missing
+references must not trigger invented advice. This broader response handling is
+planned work, not a guarantee of the current system.
+
+The topic inventory and completion requirements are in
+[the baby-care coverage plan](data/baby-care-coverage-plan.json). Reference work is
+tracked in #76, vaccination in #100, common concerns in #102, and evaluation and
+qualified review in #74, #78 and #79. Statements, follow-ups and helpful no-evidence
+responses are tracked separately in #103. Medical diagnosis, prescribing and individualized
+dose decisions remain outside scope. Published release notes retain their original scope.
 
 ## How it works
 
@@ -278,8 +304,11 @@ storage and feedback contract remain available. New conversation messages are no
 duplicated in the interactions collection.
 
 For conversation feedback, put the assistant's `message_id` in the existing
-feedback route and include `conversation_id` with `helpful` and optional `comment`
-in the JSON body. Feedback is stored on that assistant message.
+feedback route and include `conversation_id` with either `helpful` or an integer
+`rating` from 1 to 5, plus optional `reasons` and `comment` in the JSON body.
+Feedback is stored on that assistant message. Historical boolean ratings are not
+converted to numeric scores. Helpfulness ratings do not establish clinical accuracy
+and do not automatically train a model.
 
 History reads accept a bounded `limit` and optional `before` document ID. For older
 conversation pages, use the last returned conversation ID; for older message
@@ -474,8 +503,11 @@ Authentication and profile lookup remain required; this is not an emergency serv
 
 These are conservative keyword/pattern rules with narrow negation and prevention
 handling, not a validated clinical triage tool. They require explicit child/pronoun
-context and can miss implicit subjects, spelling errors, other languages, numeric
-temperature descriptions and unfamiliar symptoms. False alarms are also possible.
+context and can miss implicit subjects, spelling errors, other languages and
+unfamiliar symptoms. Explicit Celsius readings of 38C or above are routed for
+profiles under three completed months. Unitless and Fahrenheit readings, other
+age-specific numeric thresholds and complex symptom descriptions are not covered
+by that numeric rule. Historical or hypothetical readings can cause false alarms.
 Fever routing uses the stored profile age, not an age inferred from free text. The
 initial tests include 30 danger examples and 30 benign look-alikes, plus integration
 checks; these are development examples, not an independently validated benchmark.
@@ -535,3 +567,82 @@ These controls are not external-provider quota tracking or a billing guarantee.
 Fixed windows allow bursts around reset boundaries. Deleting account data also
 deletes its counters; these limits do not prevent account recreation or replace
 broader abuse protection.
+
+## Aggregate feedback administration
+
+An authorized account has a **Feedback overview** dialog in My Account. Ordinary
+caregiver accounts do not see this control. Backend authorization requires the
+boolean `feedback_summary_admin` custom claim in a verified Firebase token, in
+addition to the existing email verification and authenticator sign-in checks.
+There is no endpoint for granting permission or opening other accounts' chats.
+
+The overview contains numeric-rating bands, optional reason-category bands and
+separate Helpful/Not helpful bands. It never returns questions, answers,
+transcripts, free-text comments, names, birth dates, account IDs, individual
+timestamps or conversation links. It has no filters, exports, totals, averages
+or individual-record drill-down. Each account contributes only its latest
+eligible feedback. A bin with fewer than five distinct caregivers is hidden;
+larger bins show ranges such as 5–9, not exact counts. This is disclosure
+minimization, not a claim of formal differential privacy or clinical validation.
+
+Notice version `2026-10-24.1` explains this use. A contribution is eligible only
+when its account accepted the current notice and its recorded time is at or after
+acceptance. Old feedback is not repurposed automatically. An intentional edit after
+acceptance is a new contribution. Numeric ratings are never inferred from old
+boolean ratings. Private comments remain account-scoped and are not read by this
+report. The former per-message `review_status` field is no longer created or
+returned; historical fields need no migration and do not grant review access.
+
+The service projects only feedback rating, helpfulness, reason and recorded-time
+fields, plus message role. It recomputes from retained source records without
+storing or exporting private feedback. After an edit or completed deletion, the
+next summary reflects the remaining eligible contributions. It scans at most
+10,000 documents per collection group and 500 accounts, with a ten-second
+processing budget and bounded individual database calls. Failure, timeout or a
+limit produces an unavailable response, never partial counts or invented zeroes.
+At larger scale, use a separately reviewed aggregate pipeline rather than raising
+limits silently. No summary scan runs during coaching, so this adds no model calls
+or reference retrieval to caregiver requests.
+
+### Grant or revoke access
+
+Run these commands only on a trusted server with the existing Firebase Admin
+credentials. Replace `ACCOUNT_UID` with the intended account's Firebase UID.
+Preview does not connect to Firebase or change an account:
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.set_feedback_admin --uid ACCOUNT_UID --grant
+.\venv\Scripts\python.exe -m scripts.set_feedback_admin --uid ACCOUNT_UID --grant --apply
+```
+
+Revoke access with:
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.set_feedback_admin --uid ACCOUNT_UID --revoke --apply
+```
+
+The command preserves unrelated custom claims and revokes existing sign-in
+sessions. Sign in again after a successful change. If session revocation fails,
+retry the command; do not assume revocation is complete. No real account is
+promoted by setup or automated tests. Application permission does not grant cloud
+console access; protect production service credentials and cloud IAM separately.
+See [Firebase custom claims](https://firebase.google.com/docs/auth/admin/custom-claims)
+and [session revocation](https://firebase.google.com/docs/auth/admin/manage-sessions).
+
+### Improvement workflow without private chats
+
+1. Observe a sufficiently large aggregate reason category; a low rating alone
+   does not establish an incorrect answer.
+2. Open an improvement issue using only the category and a separately written
+   test question. Do not copy a caregiver's question, answer or comment.
+3. Reproduce the concern with the existing evaluation tools. Record the test
+   case, original sources, corpus fingerprint, actual model/prompt configuration
+   and evaluation split. Keep tuning separate from held-out evaluation.
+4. Review a source, retrieval or prompt correction and compare the same
+   development example before and after. Health changes require qualified review.
+5. Link the correction and evaluation evidence in the improvement issue, then
+   close that issue when its acceptance criteria are met. Do not mark an
+   individual private conversation reviewed or train automatically from ratings.
+
+A synthetic demonstration is documented in
+[the coaching evaluation review](data/evaluation/coaching-quality-review.md#aggregate-feedback-improvement-example).

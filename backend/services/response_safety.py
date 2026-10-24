@@ -34,6 +34,9 @@ AGE_CLAIM = re.compile(
 )
 NUMBERED_CITATION = re.compile(r"\[(\d+)\]")
 WEB_LINK = re.compile(r"https?://|www\.", re.I)
+BLANKET_REASSURANCE = re.compile(
+    r"\b(?:completely normal|perfectly normal|nothing to worry about)\b", re.I,
+)
 CHILD_VIOLENCE = re.compile(r"\b(?:shake|hit|slap)\s+(?:your|the)\s+(?:baby|child|infant)\b", re.I)
 
 
@@ -64,6 +67,9 @@ def inspect_response(answer: str, returned_passages: list[RetrievedPassage],
         reasons.append("harmful_child_instruction")
     if DIAGNOSIS.search(answer):
         reasons.append("diagnostic_claim")
+    # Deliberately narrow: this catches observed wording, not all unsafe reassurance.
+    if BLANKET_REASSURANCE.search(answer):
+        reasons.append("blanket_reassurance")
 
     # Compare complete records, not just IDs: a real ID with a changed URL/text
     # must not turn into a trusted source card.

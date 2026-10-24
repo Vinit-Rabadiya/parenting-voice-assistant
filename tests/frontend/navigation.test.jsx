@@ -101,6 +101,7 @@ it("preserves the workspace and draft across account navigation", () => {
   expect(screen.getAllByRole("button", { name: "Start recording" })).toHaveLength(1);
   fireEvent.change(screen.getByLabelText("Test chat draft"), { target: { value: "Unsent message" } });
   fireEvent.click(screen.getByRole("button", { name: "My Account" }));
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   expect(screen.getByText(/Account: caregiver@example.test/)).toBeTruthy();
   expect(microphoneReleased).not.toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: "Start recording" })).toBeNull();
@@ -128,6 +129,7 @@ it("clears the retained workspace after saved-data deletion", () => {
   render(<App />);
   fireEvent.change(screen.getByLabelText("Test chat draft"), { target: { value: "Private draft" } });
   fireEvent.click(screen.getByRole("button", { name: "My Account" }));
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   fireEvent.click(screen.getByRole("button", { name: "Simulate saved data deletion" }));
   fireEvent.click(screen.getByRole("button", { name: "Back to home" }));
   expect(screen.getByLabelText("Test chat draft").value).toBe("");
@@ -160,6 +162,7 @@ it.each(["Log in", "Log in to use microphone", "Sign up"])(
 
     // intentional account navigation must not be redirected back home.
     fireEvent.click(screen.getByRole("button", { name: "My Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByText(/Account: verified@example.test/)).toBeTruthy();
   },
 );
@@ -178,6 +181,7 @@ it("returns to the microphone after logout from account and subsequent login", (
   state.user = { uid: "first", email: "first@example.test", emailVerified: true };
   const { rerender } = render(<App />);
   fireEvent.click(screen.getByRole("button", { name: "My Account" }));
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   state.user = null;
   rerender(<App />);
   const navigation = within(screen.getByRole("navigation", { name: "Account" }));
@@ -238,6 +242,7 @@ it("shows the name, verified badge and account action in the header across scree
   expect(header.getByText("Verified")).toBeTruthy();
   expect(screen.queryByText(/Voice transcription requires/)).toBeNull();
   fireEvent.click(header.getByRole("button", { name: "My Account" }));
+  fireEvent.click(header.getByRole("button", { name: "Settings" }));
   expect(within(screen.getByRole("banner")).getByText("Vinit")).toBeTruthy();
   fireEvent.click(header.getByRole("button", { name: "Parenting Voice Assistant" }));
   expect(screen.getByRole("button", { name: "Start recording" })).toBeTruthy();

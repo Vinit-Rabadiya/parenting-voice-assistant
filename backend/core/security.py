@@ -78,5 +78,15 @@ def require_authenticated_user(
 
     # Sensitive endpoints can require a recent sign-in using this verified claim.
     request.state.auth_time = claims.get("auth_time", 0)
+    # Only a verified server-issued boolean claim grants aggregate-report access.
+    request.state.feedback_summary_admin = claims.get("feedback_summary_admin") is True
     # return the verified user id.
     return {"uid": claims["uid"]}
+
+
+def require_feedback_summary_admin(
+    request: Request, user: dict = Depends(require_authenticated_user),
+) -> dict:
+    if getattr(request.state, "feedback_summary_admin", False) is not True:
+        raise HTTPException(status_code=403, detail="Administrator permission required.")
+    return user

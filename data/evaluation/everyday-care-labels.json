@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "first_pass_editorial_positive_pool_not_expert_approved",
+  "corpus_sha256": "cde8f689edde6f8593678fb7951b5245f6f1924f3e27f6270ac148f77834f135",
+  "notes": "Labels identify direct candidate text support, not approval to deliver clinical guidance. Other relevant passages may exist. No retrieval scores informed these labels. Workflow expectations do not imply a universal semantic classifier.",
+  "cases": [
+    {"id":"ec01","outcome":"answer","passages":["2113f76665ceef344d1a"],"reason":"Directly describes seeking trained breastfeeding support."},
+    {"id":"ec02","outcome":"answer","passages":["a25c9cbe9e64ba3abff9"],"reason":"Directly addresses changing powder/water proportions; not a complete recipe."},
+    {"id":"ec03","outcome":"answer","passages":["54cb7226e4f8ceac320b"],"reason":"Directly addresses microwave heating and uneven heat."},
+    {"id":"ec04","outcome":"answer","passages":["fb20f500c7dcfa1bae23"],"reason":"Directly addresses leftover formula after feeding."},
+    {"id":"ec05","outcome":"answer","passages":["e5bceda1a128a7240645"],"reason":"Describes a predictable toddler bedtime sequence."},
+    {"id":"ec06","outcome":"answer","passages":["35dc5050552dc800107c"],"reason":"Addresses screens and stimulation; eligible on the second birthday."},
+    {"id":"ec07","outcome":"answer","passages":["541b8c2e16cc990b0d9a"],"reason":"Lists preparation supplies before changing."},
+    {"id":"ec08","outcome":"answer","passages":["918fec5b9531065e9532"],"reason":"Addresses changing surface and fall prevention."},
+    {"id":"ec09","outcome":"answer","passages":["9a6baaee4a29721df2f7"],"reason":"Describes selected gentle cleaning precautions and handwashing; not a full procedure."},
+    {"id":"ec10","outcome":"answer","passages":["c2f1e869e113b8c1ee1e"],"reason":"Describes brushing familiarisation conditional on teeth being present."},
+    {"id":"ec11","outcome":"answer","passages":["6ca972a9a1db5d70948b"],"reason":"Describes patient adult help and playful brushing."},
+    {"id":"ec12","outcome":"answer","passages":["a42a089c96561daed574"],"reason":"Describes recording crying patterns for professional support."},
+    {"id":"ec13","outcome":"no_evidence","passages":[],"reason":"Car repair is unrelated; raw retrieval gate rejection is measured independently of endpoint routing."},
+    {"id":"ec14","outcome":"clarification","passages":[],"reason":"No permitted earlier topic is supplied."},
+    {"id":"ec15","outcome":"escalated","passages":[],"reason":"Recognised breathing danger must precede vaccination handling and generation."},
+    {"id":"ec16","outcome":"vaccination_notice","passages":[],"reason":"Current implementation does not enable approved Kenya schedule education."},
+    {"id":"ec17","outcome":"clarification","passages":[],"reason":"Message gives no baby-care situation."},
+    {"id":"ec18","outcome":"workflow_review","passages":[],"reason":"Check actual statement handling and retrieved evidence; do not force a generated answer when evidence is insufficient."}
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "checked_on": "2026-10-22",
+  "base_corpus": "187-passage candidate revision; frozen evaluation files unchanged",
+  "new_pack": "data/everyday-care-reference-expansion.json",
+  "review_type": "editorial coverage audit, not clinical approval or retrieval evaluation",
+  "corrections": {
+    "checked_on": "2026-10-23",
+    "changes": [
+      "Added the source's front-to-back cleaning instruction to the nappy-cleaning summary.",
+      "Removed the vague safe-place caregiver-pause instruction. Retained trusted-person support, never-shake advice and professional support. A complete safe-placement explanation remains a separate review task."
+    ],
+    "freshness_decision": "Reopened both overdue NHS pages; their stated review dates remain unchanged. Neither source is marked refreshed or approved. Their candidate passages remain blocked pending health review.",
+    "corroborating_sources": [
+      {"url":"https://www.who.int/publications/i/item/9789241595414","finding":"WHO identifies cleaning, preparation temperature, cooling, holding and storage as parts of complete formula guidance. The publication landing page was checked, not the full PDF; it does not establish a current Kenya preparation protocol."},
+      {"url":"https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/","finding":"The bedtime-routine section also supports quiet routines and reduced stimulation as a child grows. This does not update the separate toddler page's review date or establish Kenya approval."},
+      {"url":"https://www.nhs.uk/baby/caring-for-a-newborn/sudden-infant-death-syndrome-sids/","finding":"Safe placement involves specific sleep-position, surface and bedding precautions. A vague safe-place phrase is insufficient as standalone guidance; no combined safe-pause passage is approved by this audit."}
+    ],
+    "automated_checks": {
+      "command":".\\venv\\Scripts\\python.exe -m pytest tests/test_everyday_care_pack.py tests/test_reference_expansion.py tests/test_health_reference_pack.py",
+      "result":"26 passed after the editorial corrections; subsequent response-handling, rating and evaluation changes require their own test run",
+      "scope":"Preparation and metadata validation, not clinical accuracy or answer quality"
+    }
+  },
+  "source_verification": {
+    "checked_on": "2026-10-23",
+    "method": "Opened all seven original publisher pages and compared their selected sections, stated review dates, exclusions and candidate summaries. No website HTML was saved.",
+    "result": "Source traceability checked; clinical approval, Kenya applicability and system behaviour remain unverified.",
+    "sources": [
+      {"source_id":"unicef-breastfeeding-support","sections_checked":["Opening support advice","Good breastfeeding latch","Low milk supply","Cracked nipples"],"finding":"Selected support and attachment principles are supported. Diagnostic and treatment sections are excluded. No page review date is stated."},
+      {"source_id":"nhs-formula-preparation-principles","sections_checked":["Step-by-step guide","Dos and don'ts","Reducing the risk of infection"],"finding":"Selected hygiene, proportions, microwave and leftover-feed principles are supported. Review due 2026-08-31 has passed. These excerpts omit essential preparation steps and must not be presented as complete instructions."},
+      {"source_id":"nhs-toddler-sleep-routines","sections_checked":["If your child will not go to bed","Sleep tips for under-5s","Further support and advice"],"finding":"Routine and reduced-stimulation principles are supported. Review due 2026-03-31 has passed. The 12-month lower age limit is an editorial restriction, not an explicit age band stated by the source."},
+      {"source_id":"nhs-nappy-changing-routine","sections_checked":["What you need","Where to change a nappy","How to change a nappy","Nappy hygiene"],"finding":"Selected preparation, fall prevention, cleaning, handwashing and interaction principles are supported. The cleaning summary is not a complete procedure; front-to-back cleaning is also stated in the source and should be included if a full procedure is prepared."},
+      {"source_id":"nhs-first-teeth-care","sections_checked":["Opening advice","Tooth brushing tips for babies","Sugar and tooth decay"],"finding":"Selected brushing familiarisation, adult help and sugar-contact principles are supported. Teeth must be present. Toothpaste, brushing frequency and technique are not fully covered by these excerpts; this is not complete dental-care guidance."},
+      {"source_id":"unicef-understanding-crying","sections_checked":["Why is my baby crying?","How can I calm my baby?","How can I stay calm when my baby cries?"],"finding":"Selected cues, comfort, caregiver support and never-shake principles are supported. No page review date is stated. Safe-place wording still needs a specific, reviewed safe-sleep explanation before activation."},
+      {"source_id":"nhs-crying-patterns-and-support","sections_checked":["Crying during feeds","Crying and illness","Getting help with a crying baby","Never shake your baby"],"finding":"Selected feeding support, crying records and urgent-warning examples are supported. The selected warning signs are not an exhaustive triage checklist. UK service contacts are excluded."}
+    ],
+    "interpretation_limits": [
+      "Application statements such as not diagnosing through chat or not treating a short answer as complete instructions are editorial safety boundaries, not direct publisher quotations.",
+      "Passage age bands are project eligibility restrictions, not proof that each publisher explicitly validates every age in that band.",
+      "A reachable official page and an unexpired review date do not establish clinical correctness or Kenya applicability.",
+      "No clinical reviewer approval, retrieval metrics, answer-quality scores or live activation is recorded by this source check."
+    ]
+  },
+  "areas": [
+    {"topic":"feeding","existing":"Age-banded breastfeeding/complementary-food passages, responsive feeding and meal interaction; no dedicated formula-preparation source or breastfeeding-difficulty source in the candidate inventory.","additions":"Breastfeeding support, attachment concerns, supply concerns and limited formula safety principles.","remaining":"Current Kenya-applicable complete formula preparation, safe-water instructions, responsive bottle feeding and qualified feeding review. Do not treat short safety passages as a complete recipe."},
+    {"topic":"sleep","existing":"General baby routine passages end before 24 completed months; the checkpoint audit has zero sleep-tagged passages at the second birthday.","additions":"Toddler bedtime sequence, reducing stimulation and support for ongoing difficulty, eligible from 12 months through the second-birthday boundary.","remaining":"The selected NHS toddler page is past its stated review-due date. Current-source and Kenya applicability review are needed; candidate eligibility is not proof of an approved answer."},
+    {"topic":"hygiene","existing":"Bathing and nappy-rash care, with limited distinct nappy-changing workflow and no dedicated oral-care source.","additions":"Nappy supplies, changing location, cleaning and handwashing, caregiver interaction, first-teeth routines and avoiding sugary bottle contact.","remaining":"Kenya-applicable oral-care product recommendations, clothing/temperature guidance, local disposal practices and clinical review. Toothbrushing passages require teeth to be present."},
+    {"topic":"crying_soothing","existing":"Basic comfort actions and broad caregiver support; limited crying-pattern and feeding-related concern context.","additions":"Understanding cues, alternative comfort approaches, caregiver support, recording patterns and professional-referral boundaries.","remaining":"Qualified review of safe-pause wording, symptom-routing integration and checking follow-ups for genuinely different suggestions rather than paraphrases."}
+  ],
+  "reuse_decisions": [
+    "Original PDFs already retained are not downloaded again; selected website sources are kept as URLs and sections, not HTML files.",
+    "Exact duplicate IDs and text hashes are rejected by the existing builder. Related soothing content still needs semantic-overlap review before activation.",
+    "UK phone numbers, dental-entitlement claims, medication advice, colic diagnosis and complete formula mixing recipes are not selected."
+  ],
+  "remaining_release_checks": ["Source freshness and Kenya applicability", "Qualified health review", "Updated topic/age coverage", "New representative development questions and reviewed passage labels", "Actual retrieval and evidence-gate outcomes", "Answer quality and helpful follow-ups", "Latency and signed-in end-to-end verification"],
+  "issues": [76, 74, 44, 102, 103, 78, 79]
+}
