@@ -120,6 +120,20 @@ def test_capture_uses_context_aware_missing_evidence_wording():
     models.generate_content.assert_not_called()
 
 
+def test_no_evidence_follow_up_retains_the_permitted_caregiver_topic():
+    case, _, retrieval, coaching, models = setup_case(score=0)
+    case["question"] = "What else can I try?"
+    messages = [{"role": "user", "text": "I am feeding my baby"},
+                {"role": "assistant", "text": "Talk softly.", "status": "answered"}]
+    record = capture_case(case, profile_dates(date(2026, 10, 24), 6), retrieval, coaching,
+                          messages=messages)
+    assert record["response_kind"] == "insufficient_references"
+    assert "I am feeding my baby" in record["search_query"]
+    assert "Talk softly." not in record["search_query"]
+    assert record["supplied_evidence"] == []
+    models.generate_content.assert_not_called()
+
+
 def test_development_capture_reuses_pinned_dates_and_excludes_held_out(tmp_path):
     path = tmp_path / "queries.jsonl"
     base = {"date_of_birth": "2026-04-23", "evaluation_date": "2026-10-23",
