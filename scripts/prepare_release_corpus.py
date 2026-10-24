@@ -1,4 +1,4 @@
-"""Prepare an explicitly source-checked everyday corpus; never enable health candidates."""
+"""Prepare source-checked everyday references without releasing clinical content."""
 import argparse
 from datetime import date, timedelta
 import hashlib
@@ -31,7 +31,17 @@ def select_release_passages(candidate, original, plan, *, evaluated):
             raise ValueError("Source is past its stated review date.")
         checks[sid] = check
     baseline = {p["passage_id"]: p for p in original}
-    selected, additions, retained, used = [], 0, set(), set()
+    corrections = {}
+    for correction in plan.get("nonclinical_scope_corrections", []):
+        sid = correction["source_id"]
+        if sid not in checks or not correction.get("reason", "").strip():
+            raise ValueError("Scope corrections require a checked source and explicit rationale.")
+        for pid in correction["passage_ids"]:
+            if pid in corrections or pid in baseline:
+                raise ValueError("Scope corrections require unique added passage IDs.")
+            corrections[pid] = sid
+    corrected_sources = set(corrections.values())
+    selected, additions, retained, used, corrected = [], 0, set(), set(), set()
     for passage in candidate:
         pid, sid = passage["passage_id"], passage["source_id"]
         if pid in baseline:
@@ -39,19 +49,33 @@ def select_release_passages(candidate, original, plan, *, evaluated):
                 raise ValueError("Release must preserve the exact existing baseline records.")
             retained.add(pid)
             selected.append(dict(passage))
-        elif sid in checks:
-            if (passage.get("clinical_review_required") is not None and passage["clinical_review_required"] is not False
-                    or passage.get("release_status") == "blocked_pending_health_review"
-                    or passage.get("developmental_domain") in {"immunisation", "common_concerns"}):
+        elif sid in checks and (sid not in corrected_sources or pid in corrections):
+            correction = corrections.get(pid)
+            domain = passage.get("developmental_domain")
+            if correction and (correction != sid or domain not in {
+                "language", "cognitive", "social_emotional", "responsive_caregiving", "fine_motor", "gross_motor",
+            }):
+                raise ValueError("Scope corrections are limited to explicitly reviewed nonclinical development.")
+            if (domain in {"immunisation", "common_concerns"}
+                    or (not correction and (
+                        passage.get("clinical_review_required") is not None and passage["clinical_review_required"] is not False
+                        or passage.get("release_status") == "blocked_pending_health_review"))):
                 raise ValueError("Health-review candidates cannot enter an everyday release.")
             if passage["source_url"] != checks[sid]["url"]:
                 raise ValueError("Source check URL differs from the selected passage.")
             used.add(sid)
-            selected.append({**passage, "review_status": "editorially_selected_not_expert_validated",
+            released = {**passage, "review_status": "editorially_selected_not_expert_validated",
                              "editorial_reviewed_on": checked.isoformat(),
-                             "editorial_review_kind": plan["review_kind"]})
+                             "editorial_review_kind": plan["review_kind"]}
+            if correction:
+                corrected.add(pid)
+                released.update(clinical_review_required=False, release_status="nonclinical_editorial_release",
+                                original_release_status=passage.get("release_status"),
+                                scope_classification="nonclinical_development_source_checked")
+            selected.append(released)
             additions += 1
-    if retained != set(baseline) or used != set(checks) or additions != plan["expected_additions"]:
+    if (retained != set(baseline) or used != set(checks) or additions != plan["expected_additions"]
+            or corrected != set(corrections)):
         raise ValueError("Release selection differs from the pinned review inventory.")
     if len({p["passage_id"] for p in selected}) != len(selected):
         raise ValueError("Release contains duplicate passage IDs.")
@@ -90,6 +114,7 @@ def main():
                   "base_corpus_sha256": plan["base_corpus_sha256"],
                   "candidate_corpus_sha256": plan["candidate_corpus_sha256"],
                   "review_sha256": hashlib.sha256(args.review.read_bytes()).hexdigest(),
+                  "nonclinical_scope_corrections": sum(len(c["passage_ids"]) for c in plan.get("nonclinical_scope_corrections", [])),
                   "health_candidates_activated": False}
         (args.output_dir / "preparation-report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         (args.output_dir / "coverage.md").write_text(coverage_markdown(selected, current_date()), encoding="utf-8")
