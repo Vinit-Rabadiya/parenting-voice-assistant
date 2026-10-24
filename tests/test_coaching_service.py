@@ -27,6 +27,14 @@ class FakeClient:
         self.models = FakeModels()
 
 
+@pytest.mark.parametrize("question", ["", "  ", "a", None, "a" * 1201])
+def test_invalid_question_does_not_call_model(question):
+    client = FakeClient()
+    with pytest.raises(ValueError, match="between 2 and 1200"):
+        CoachingService(client=client).generate(question, 6, None, [])
+    assert client.models.request is None
+
+
 def test_coaching_service_includes_only_retrieved_passages_in_prompt():
     client = FakeClient()
     passage = RetrievedPassage(

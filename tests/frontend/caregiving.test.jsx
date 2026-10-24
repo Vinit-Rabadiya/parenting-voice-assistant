@@ -4,6 +4,11 @@ import { auth } from "../../frontend/src/services/firebase";
 
 vi.mock("../../frontend/src/services/firebase", () => ({ auth: { currentUser: null } }));
 
+const validResponse = { answer: "Talk softly.", status: "answered", safety: "not_flagged",
+  child_age_months: 6, processing_seconds: 1, interaction_id: "answer-1",
+  citations: [{ passage_id: "p1", source_title: "Reference", title: "Talking",
+    source_url: "https://example.test/reference", pdf_page: 1 }] };
+
 it("shows the server retry interval without automatically retrying", async () => {
   const fetch = vi.fn().mockResolvedValue({ ok: false, status: 429,
     headers: new Headers({ "Retry-After": "65" }),
@@ -63,9 +68,25 @@ it("does not send an already cancelled request", async () => {
 it("returns successful responses and clears the deadline", async () => {
   vi.useFakeTimers();
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true,
-    json: async () => ({ answer: "Talk softly." }) }));
-  await expect(requestCoaching({ question: "Feeding ideas" })).resolves.toEqual({ answer: "Talk softly." });
+    json: async () => validResponse }));
+  await expect(requestCoaching({ question: "Feeding ideas" })).resolves.toEqual(validResponse);
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each([
+  { answer: " " }, { status: "unknown" }, { processing_seconds: -1 },
+  { citations: [] }, { citations: "invalid" }, { support_resources: {} },
+])("rejects malformed guidance without retrying: %j", async (change) => {
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...validResponse, ...change }) });
+  vi.stubGlobal("fetch", fetch);
+  await expect(requestCoaching({ question: "Feeding ideas" })).rejects.toThrow("response could not be read");
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("accepts a fixed urgent response for an older child without citations", async () => {
+  const response = { ...validResponse, status: "escalated", safety: "escalate", child_age_months: 25, citations: [] };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => response }));
+  await expect(requestCoaching({})).resolves.toEqual(response);
 });
 
 it("rejects a response after the signed-in account changes", async () => {
