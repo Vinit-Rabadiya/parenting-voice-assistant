@@ -658,6 +658,42 @@ Parent/colleague wording, independent relevance review and live retrieval
 evaluation remain outstanding under #74. Qualified health review and current Kenya
 schedule reconciliation remain outstanding under #100; no clinical approval is implied.
 
+### Activity v5 coverage checkpoint — 24 October 2026
+
+The latest candidate contains 273 passages from 55 sources. Its file-byte SHA-256
+is `687112416aa0e9c2797508a1aa6ad6b1db5aeca58047dfb7acafe2550be898b3`.
+The matrix below uses `coverage_markdown` from `scripts/prepare_coverage_review.py`
+with evaluation date 2026-10-24. Profile dates use the shared calendar-age helpers;
+the newborn example is 11 days old and the final row is the exact second birthday.
+The earlier 187-passage report is retained as historical evidence, not overwritten.
+
+| Age (months) | Feeding | Bathing | Play | Reading | Dressing | Sleep | Soothing |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 23 | 8 | 10 | 4 | 4 | 4 | 13 |
+| 2 | 23 | 7 | 14 | 4 | 4 | 4 | 13 |
+| 4 | 24 | 8 | 13 | 4 | 5 | 4 | 13 |
+| 6 | 31 | 8 | 13 | 3 | 3 | 3 | 12 |
+| 9 | 31 | 7 | 12 | 4 | 2 | 3 | 12 |
+| 12 | 26 | 5 | 15 | 6 | 6 | 5 | 5 |
+| 18 | 26 | 4 | 16 | 5 | 5 | 5 | 5 |
+| 24 | 22 | 3 | 13 | 5 | 4 | 3 | 5 |
+
+Counts show eligible tagged passages, not distinct activities, relevant retrieval
+results or approved guidance. A passage can contribute to several columns. The
+previous zero sleep cell at the second birthday is now three candidate passages;
+this resolves the missing-tag count, not clinical review or live activation.
+The original 106 passages still need explicit developmental-domain classification.
+Remaining tagged records include language (29), common concerns (39), responsive
+caregiving (24), safety (23), social-emotional (12), nutrition (11), immunisation
+(11), cognitive (10), gross motor (5) and fine motor (3). Topic labels such as
+nutrition and common concerns are not developmental domains.
+
+Reproduce the matrix without writing another review sheet:
+
+```powershell
+.\venv\Scripts\python.exe -c "from datetime import date; from pathlib import Path; from scripts.index_rag import load_passages, validate_source_references; from scripts.prepare_coverage_review import coverage_markdown; p=Path('data/processed/practical-care-activity-candidates/passages.jsonl'); rows=load_passages(p); validate_source_references(rows,p.with_name('sources.json')); print(coverage_markdown(rows,date(2026,10,24)))"
+```
+
 First-pass passage labels are now recorded in `data/evaluation/coverage-labels.json`.
 They include reasons based on passage text and are not an exhaustive gold standard.
 Run `python -m scripts.prepare_retrieval_cases` to validate them against the pinned

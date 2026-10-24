@@ -1028,3 +1028,80 @@ The full Python suite passed 710 tests with the prepared corpus required; Python
 lint passed. Tests cover source replacement, host validation, age eligibility,
 keyword-search isolation and the original generation message. Neither a final
 held-out study nor a signed-in browser/speech run was performed in this pass.
+
+### Response and coverage verification — 24 October 2026
+
+The pre-change endpoint at commit `704fb77` used one `NO_GUIDANCE_MESSAGE` for
+ordinary no-evidence outcomes. Current routing distinguishes the following paths.
+This comparison describes implementation and automated checks, not a new live
+answer capture or a human quality rating.
+
+| Input or condition | Previous path | Current path | Verification |
+| --- | --- | --- | --- |
+| Feeding statement with no accepted evidence | Generic no-guidance message | Baby-care limitation with a next step; no generation or supporting citations | `test_care_response.py`, `test_evidence_gate.py` |
+| Explicit car-repair request | Ordinary retrieval/gate path | Distinct unrelated-topic response, bypassing generation | `test_care_response.py`, `test_evidence_gate.py` |
+| Ambiguous message or follow-up without permitted context | Generic no-guidance message if no evidence | Clarification without guessing a topic | `test_care_response.py`, `test_conversation_context.py` |
+| Explicit request to diagnose or calculate a medicine dose | Ordinary retrieval/generation path unless another safety rule matched | Professional-assessment response before retrieval/generation | `test_care_response.py`, `test_coaching_evaluation.py` |
+| Recognized child danger report | Fixed urgent referral | Existing urgent-first route retained; storage failure does not remove the referral | `test_evidence_gate.py` |
+| Vaccination message | Fixed Kenya notice | Existing Kenya notice retained; candidate content is not activated | `test_vaccination.py` |
+| Supported request | Evidence-grounded generation | Same pipeline, with conditions and requested-activity instructions | Six selected captures above and `test_coaching_service.py` |
+
+One evaluation discrepancy was corrected: no-evidence follow-ups now pass the
+permitted caregiver search context to `missing_evidence_response`, as `/coach`
+already does. Previously the evaluator used only the words "What else can I try?"
+and could report clarification instead of an insufficient-reference response for
+the known baby-care topic. This does not promote previous assistant claims into
+evidence. It changes neither the application endpoint nor the model configuration.
+
+The coverage report now computes days and completed months through
+`backend/services/age.py` rather than multiplying months by an average month
+length. Regression checks include second birthdays spanning 730 and 731 days,
+the 11-day newborn profile and an unrepresentable leap-day checkpoint. The latest
+273-passage matrix is in `data/README.md`; counts are not relevance scores.
+
+The 167 targeted checks across coverage, coaching capture, fallback responses,
+evidence gating, conversation context and storage passed. No new provider calls
+were required. Human rubric scoring, independent labels and signed-in speech
+verification remain separate evidence requirements.
+The complete Python suite also passed 714 tests with `--require-corpus`; Python
+lint passed. No frontend files changed in this checkpoint.
+
+### Prepared sample for qualified review
+
+Status: prepared, not reviewed or approved. The passage sample below refers to
+exact `source_id` and `section` values in
+`data/practical-care-reference-expansion.json`, which also contains each selected
+text, original URL, source heading, applicability note and any conditions. Age
+intervals below exclude the upper bound; the application's second-birthday limit
+still applies to intervals ending at 25 months. These are candidate eligibility
+labels to review, not a claim that every selection is appropriate for every child.
+
+| Source ID | Selected section | Candidate age (months) | Review emphasis |
+| --- | --- | --- | --- |
+| `nhs-talk-0-6-months` | Talking and singing during feeding | 0–6 | Responsive interaction and source fidelity |
+| `hse-sharing-books` | Let a baby explore picture books at their own pace | 6–12 | Age fit and following interest |
+| `nhs-talk-12-24-months` | Taking turns with clothes while getting dressed | 12–24 | Conditions and whether the activity answers the request |
+| `nhs-talk-24-months` | Pretend play dressing a teddy | 24–25 | Exact scope boundary and pretend-play meaning |
+| `nhs-first-foods-practical` | Safety when serving first foods | 6–25 | Precautions and applicability |
+| `nhs-baby-reflux` | Feeding-position support for reflux symptoms | 0–12 | Conditions, sleep distinction and referral boundaries |
+| `nhs-baby-diarrhoea-vomiting` | Vomiting danger signs | 0–25 | Urgency and referral wording |
+| `nhs-newborn-jaundice-education` | Observations to share about jaundice | 0–1 | Young-infant applicability and assessment boundaries |
+| `nhs-fever-care-education` | Age-specific fever assessment boundaries | 0–25 | Numeric thresholds, units and age-specific urgency |
+| `who-vaccine-safety` | Understanding expected vaccine effects | 0–25 | General education versus individual reactions; not a Kenya schedule |
+| `sch-travel-planning-education` | Shade for a young baby outside | 0–6 | Practical precautions and Kenya applicability |
+
+The response sample consists of the six committed `aq*.json` files in
+`eval/results/coaching-activity-six-20261023/`. Each contains the question,
+calendar-age profile, answer, supplied evidence and generation settings. Review
+all six rather than selecting only favourable answers. Include the noted
+limitations in aq27 and aq35. The earlier concern captures remain available in
+the local evidence archive described above; they are not replacements for a new
+post-correction health-answer review. No enabled Kenya schedule answer exists to
+approve; its source reconciliation remains a separate task under #100.
+
+For each reviewed item, record reviewer name/qualification, review date, exact
+source-and-section or answer ID, source support, age fit, usefulness, clarity,
+safety, Kenya applicability, findings, required correction and approval decision.
+Use the existing 1–5 expert rubric for answers; caregiver helpfulness ratings are
+not expert scores. A rejected or corrected health item needs re-review. Approval
+of this sample does not approve the whole corpus or authorize activation.

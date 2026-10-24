@@ -1,9 +1,10 @@
 {
   "schema_version": 1,
-  "updated_on": "2026-10-23",
+  "updated_on": "2026-10-24",
   "status": "planned_scope_not_complete_or_activated",
   "tracking": {"reference_coverage":76,"conversation_behaviour":103,"retrieval_evaluation":74,"evidence_gate":44,"vaccination":100,"common_concerns":102,"answer_quality":78,"qualified_review":79,"feedback_ratings":101,"feedback_review":99,"documentation":67},
   "implementation_progress": {
+    "coverage_checkpoint": "Calendar-date audit on 2026-10-24 confirms 273 passages/55 sources. All seven sampled routines have eligible candidate passages at sampled ages including the exact second birthday; sleep has three at that boundary. Counts do not establish relevance or approval. The original 106 passages still require editorial domain classification. Matrix and reproducible command are in data/README.md.",
     "reference_preparation": "Review-only v1 has 248 passages/48 sources. Corrected v2 has 248 passages/48 sources with incomplete food-reuse advice omitted. Communication v3 has 265 passages/53 sources. Focused v4 and activity v5 have 273 passages/55 sources (211 minus 15 plus 77), with narrower activity passages and selected HSE book-sharing and government education bath-language sources. All remain review-only; application settings and frozen evaluations are unchanged.",
     "response_handling": "Implemented conservative missing-evidence outcomes and explicit unrelated-topic routing on the existing coaching path. Automated checks passed; signed-in manual verification and full broader-scope answer evaluation remain outstanding.",
     "feedback_ratings": "Implemented optional 1-5 rating, four reason codes, historical boolean compatibility and pending-review reset. Automated checks passed; no reviewer report or automatic model training.",
