@@ -52,6 +52,38 @@ export const deleteAccount = () => request("/me", { method: "DELETE" });
 export const deleteMyData = () => request("/me/data", { method: "DELETE" });
 export const createChild = (child) => request("/children", { method: "POST", body: JSON.stringify(child) });
 export const updateChild = (id, child) => request(`/children/${id}`, { method: "PATCH", body: JSON.stringify(child) });
+
+function validateCoachingResponse(value) {
+  const object = item => item !== null && typeof item === "object" && !Array.isArray(item);
+  const text = item => typeof item === "string" && item.trim().length > 0;
+  const number = item => typeof item === "number" && Number.isFinite(item) && item >= 0;
+  const id = item => item == null || (text(item) && item.length <= 128 && !item.includes("/"));
+  const link = (item, telephone = false) => {
+    if (!text(item)) return false;
+    try { return ["https:", "http:", ...(telephone ? ["tel:"] : [])].includes(new URL(item).protocol); }
+    catch { return false; }
+  };
+  const statuses = ["answered", "no_evidence", "safety_blocked", "escalated", "crisis_support", "caregiver_support", "vaccination_notice"];
+  const kinds = ["clarification", "unrelated", "professional_referral", "insufficient_references"];
+  const valid = object(value) && text(value.answer) && statuses.includes(value.status)
+    && ["not_flagged", "escalate"].includes(value.safety)
+    && number(value.processing_seconds) && number(value.child_age_months)
+    && (value.status !== "answered" || value.child_age_months <= 24)
+    && id(value.interaction_id) && id(value.conversation_id) && id(value.message_id)
+    && (value.response_kind == null || kinds.includes(value.response_kind))
+    && (value.vaccination_country == null || value.vaccination_country === "KE")
+    && Array.isArray(value.citations) && value.citations.every(item => object(item)
+      && text(item.passage_id) && text(item.source_title) && text(item.title) && link(item.source_url)
+      && (item.pdf_page === null || (Number.isInteger(item.pdf_page) && item.pdf_page > 0)))
+    && (value.status !== "answered" || value.citations.length > 0)
+    && (value.support_resources === undefined || (Array.isArray(value.support_resources)
+      && value.support_resources.every(item => object(item) && text(item.label) && text(item.service)
+        && item.country === "KE" && text(item.availability) && text(item.verified_on)
+        && link(item.url, true) && link(item.source_url))));
+  if (!valid) throw new Error("The guidance response could not be read. Reopen this conversation before sending again.");
+  return value;
+}
+
 export async function requestCoaching(payload, { signal, timeoutMs = 60000 } = {}) {
   const controller = new AbortController();
   let timedOut = false;
@@ -60,7 +92,8 @@ export async function requestCoaching(payload, { signal, timeoutMs = 60000 } = {
   signal?.addEventListener("abort", cancel, { once: true });
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   try {
-    return await request("/coach", { method: "POST", body: JSON.stringify(payload), signal: controller.signal });
+    const response = await request("/coach", { method: "POST", body: JSON.stringify(payload), signal: controller.signal });
+    return validateCoachingResponse(response);
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(`${timedOut ? "Guidance took too long." : "Stopped waiting for guidance."} The server may still save an answer; reopen this conversation before sending again.`, { cause: error });

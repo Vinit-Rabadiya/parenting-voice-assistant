@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { sendFeedback } from "../services/caregiving";
 
 export default function GuidanceAnswer({ message, childName, conversationId, allowFeedback = true }) {
@@ -14,16 +14,60 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
   const [saving, setSaving] = useState(false);
   const [rating, setRating] = useState(message.feedback?.rating || "");
   const [reasons, setReasons] = useState(message.feedback?.reasons || []);
+  const [audioError, setAudioError] = useState("");
+  const utteranceRef = useRef(null);
   const reasonOptions = [
     ["unclear", "Unclear"], ["repeated_advice", "Repeated advice"],
     ["did_not_answer", "Did not answer my message"], ["not_age_appropriate", "Not suited to my child's age"],
   ];
 
+  function clearUtterance() {
+    if (utteranceRef.current) {
+      utteranceRef.current.onerror = null;
+      utteranceRef.current.onend = null;
+      utteranceRef.current = null;
+    }
+  }
+
+  useEffect(() => () => {
+    if (!utteranceRef.current) return;
+    clearUtterance();
+    try { window.speechSynthesis?.cancel(); }
+    catch { /* No state updates while removing the answer. */ }
+  }, [message.text]);
+
   function speak(text) {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    window.speechSynthesis.speak(utterance);
+    setAudioError("");
+    if (typeof window.speechSynthesis?.speak !== "function" || typeof window.SpeechSynthesisUtterance !== "function") {
+      setAudioError("Audio playback is unavailable in this browser. You can still read the answer.");
+      return;
+    }
+    try {
+      clearUtterance();
+      window.speechSynthesis.cancel();
+      const utterance = new window.SpeechSynthesisUtterance(text);
+      utteranceRef.current = utterance;
+      utterance.rate = 0.95;
+      utterance.onend = () => { if (utteranceRef.current === utterance) utteranceRef.current = null; };
+      utterance.onerror = event => {
+        if (utteranceRef.current !== utterance) return;
+        utteranceRef.current = null;
+        if (!["canceled", "interrupted"].includes(event.error)) {
+          setAudioError("Audio could not be played. You can still read the answer or try Listen again.");
+        }
+      };
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      clearUtterance();
+      setAudioError("Audio could not be played. You can still read the answer or try Listen again.");
+    }
+  }
+
+  function stopAudio() {
+    clearUtterance();
+    setAudioError("");
+    try { window.speechSynthesis?.cancel(); }
+    catch { setAudioError("Audio controls are unavailable. You can still read the answer."); }
   }
 
   async function recordFeedback(helpful, numericRating = null) {
@@ -62,7 +106,8 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         : result.status === "no_evidence"
         ? `Processed in ${result.processing_seconds.toFixed(2)} seconds. No coaching answer was generated.`
         : `Prepared in ${result.processing_seconds.toFixed(2)} seconds using age-aware reference material.`}</p>
-      <div className="answer-actions"><button type="button" onClick={() => speak(result.answer)}>Listen</button><button type="button" onClick={() => window.speechSynthesis.cancel()}>Stop audio</button></div>
+      <div className="answer-actions"><button type="button" onClick={() => speak(result.answer)}>Listen</button><button type="button" onClick={stopAudio}>Stop audio</button></div>
+      {audioError && <p className="guidance-meta" role="status">{audioError}</p>}
       {result.status === "vaccination_notice" && result.vaccination_country && <p className="guidance-meta">
         Vaccination country: {result.vaccination_country === "KE" ? "Kenya" : "Another country"}
       </p>}

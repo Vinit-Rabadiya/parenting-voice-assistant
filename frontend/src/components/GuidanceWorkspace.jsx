@@ -135,7 +135,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
               conversationId={message.conversation_id === null ? null : chat.conversationId} />)}
         {!chat.messages.length && <div className="chat-welcome"><h3>What are you doing with your baby today?</h3>
           <p>Describe the moment, or ask for guidance.</p></div>}
-        {chat.generating && <p className="guidance-loading" role="status">Preparing guidance…</p>}
+        {chat.generating && <p className="guidance-loading" role="status"><span className="guidance-spinner" aria-hidden="true" />Preparing guidance…</p>}
       </section>
       {readOnly ? <p className="chat-composer">Read-only access: you can review or delete existing data. Accept the notice above to request coaching.</p> : <section className="question-panel chat-composer" aria-label="Message composer">
         {child.in_scope === false && <p role="status">This profile is outside the coaching age range. Saved conversations remain available.</p>}
