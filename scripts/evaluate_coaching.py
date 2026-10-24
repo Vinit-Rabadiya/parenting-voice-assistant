@@ -252,6 +252,8 @@ def main():
     parser.add_argument("--live", action="store_true", help="Explicitly allow Qdrant and Gemini requests.")
     parser.add_argument("--collection", default=settings.QDRANT_COLLECTION,
                         help="Evaluate a separate staging collection without changing application settings.")
+    parser.add_argument("--allow-candidate-content", action="store_true",
+                        help="Inspect unapproved references in a separate evaluation collection only.")
     parser.add_argument("--follow-up", action="append", default=[],
                         help="Capture an additional synthetic turn after each case; may be repeated.")
     parser.add_argument("--retrieval-only", action="store_true",
@@ -259,6 +261,8 @@ def main():
     parser.add_argument("--keyword-search", action="store_true",
                         help="Compare evaluation-only search keyword extraction; production requests are unchanged.")
     args = parser.parse_args()
+    if args.allow_candidate_content and args.collection == settings.QDRANT_COLLECTION:
+        parser.error("Candidate content requires a separate evaluation collection.")
     if any(not text.strip() for text in args.follow_up) or len(args.follow_up) > 3:
         parser.error("Choose at most three nonempty follow-up messages.")
     if args.retrieval_only and args.follow_up:
@@ -306,10 +310,12 @@ def main():
         "follow_up_messages": args.follow_up,
         "retrieval_only": args.retrieval_only,
         "keyword_search": args.keyword_search,
+        "candidate_content_allowed": args.allow_candidate_content,
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
     (output / "manifest.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    retrieval, coaching = RetrievalService(collection_name=args.collection), CoachingService()
+    retrieval = RetrievalService(collection_name=args.collection, allow_candidate_content=args.allow_candidate_content)
+    coaching = CoachingService()
     for case, profile in selected:
         path = output / f"{case['id']}.json"
         path.write_text(json.dumps({"case": case, "outcome": "incomplete"}, indent=2) + "\n", encoding="utf-8")
