@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "review_kind": "editorial_source_check_not_clinical_validation",
+  "checked_on": "2026-10-24",
+  "review_interval_days": 90,
+  "country": "KE",
+  "language": "English",
+  "base_corpus_sha256": "bcfc1da70073d9f5ec5c5c3f35ef856c30cf89824bf98db7eb5e2387b64b87f6",
+  "candidate_corpus_sha256": "687112416aa0e9c2797508a1aa6ad6b1db5aeca58047dfb7acafe2550be898b3",
+  "expected_additions": 45,
+  "scope": "Retain the existing 106-passage baseline and add selected everyday-care and developmental education. Do not release any health-review-blocked candidate, even when it shares a publisher with everyday-care material. No diagnosis, treatment, immunisation schedule or clinical approval is introduced.",
+  "source_checks": [
+    {"source_id":"unicef-development-2-months","url":"https://www.unicef.org/parenting/child-development/your-babys-developmental-milestones-2-months","publication_date":null,"finding":"Selected social, communication, attention and supervised awake movement summaries match the named sections; clinical feeding quantities and diagnostic checklist are excluded."},
+    {"source_id":"unicef-development-4-months","url":"https://www.unicef.org/parenting/child-development/your-babys-developmental-milestones-4-months","publication_date":null,"finding":"Selected responsive play, sound imitation, everyday conversation and reaching summaries match the source. Pointing describes the caregiver's action, not a required four-month milestone."},
+    {"source_id":"unicef-development-6-months","url":"https://www.unicef.org/parenting/child-development/your-babys-developmental-milestones-6-months","publication_date":null,"finding":"Selected mirror play, sound turns, grasping and supervised reaching summaries match the source. Feeding quantities and milestone diagnosis are not selected."},
+    {"source_id":"unicef-development-9-months","url":"https://www.unicef.org/parenting/child-development/your-babys-developmental-milestones-9-months","publication_date":null,"finding":"Selected child-led interaction, books, hidden-object play and movement descriptions match the source. The summary does not recommend its small-object example or diagnose from milestone timing."},
+    {"source_id":"unicef-development-12-months","url":"https://www.unicef.org/parenting/child-development/your-toddlers-developmental-milestones-1-year","publication_date":null,"finding":"Selected dressing participation, gestures, containers and supervised movement match the sections. Variation and professional review of lost skills are distinguished from a diagnostic checklist."},
+    {"source_id":"unicef-development-18-months","url":"https://www.unicef.org/parenting/child-development/your-toddlers-developmental-milestones-18-months","publication_date":null,"finding":"Selected caring gestures, pointing/name-sharing, pretend play and routine participation match the source; no treatment or diagnostic threshold is selected."},
+    {"source_id":"unicef-feeding-6-12-months","url":"https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-6-12-months","publication_date":null,"finding":"Selected ordinary food-texture, handwashing and responsive feeding summaries preserve six-month eligibility and the narrower nine-to-eleven-month selection. Illness care, feed quantities and individualized nutrition decisions are excluded."},
+    {"source_id":"unicef-everyday-development","url":"https://www.unicef.org/parenting/child-development/baby-tips","publication_date":null,"finding":"Age-labelled interaction and safe-object examples match the named sections. Meal/medical quantities, small-object recommendations and rigid attainment claims are excluded."},
+    {"source_id":"nhs-helping-baby-sleep","url":"https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/","publication_date":null,"source_reviewed_on":"2025-01-28","source_next_review_due":"2028-01-28","finding":"Selected day/night distinction, calming routines and first-six-month room-sharing match the source. Sleep-duration promises, feeding withdrawal, sleep training and UK service pathways are excluded."},
+    {"source_id":"nhs-bathing-baby","url":"https://www.nhs.uk/best-start-in-life/baby/baby-basics/caring-for-your-baby/bathing-your-baby/","publication_date":null,"finding":"Selected preparation, temperature checking, support, continuous supervision and gentle washing match the source. No UK service pathway or treatment advice is selected."},
+    {"source_id":"unicef-activity-environment-safety","url":"https://www.unicef.org/parenting/safety/how-to-babyproof-your-home","publication_date":null,"finding":"Selected small-object/cord precautions, fall prevention and continuous water supervision match the source. They are injury prevention, not accident treatment or a complete safety assessment."},
+    {"source_id":"nhs-feeding-and-toy-safety","url":"https://www.nhs.uk/baby/first-aid-and-safety/safety/baby-and-toddler-safety/","publication_date":null,"finding":"Selected age-suitable toy precautions and supervised seated eating match the source. Emergency treatment and UK product-standard claims are not copied."}
+  ]
+}

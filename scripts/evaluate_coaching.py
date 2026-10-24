@@ -5,6 +5,7 @@ from dataclasses import asdict
 from datetime import date, datetime, timezone
 import hashlib
 import json
+from math import isfinite
 import re
 from pathlib import Path
 import subprocess
@@ -250,6 +251,8 @@ def main():
     parser.add_argument("--corpus-revision", help="Identifier for the corpus uploaded to the live collection.")
     parser.add_argument("--run-id", help="New results folder name; existing folders are never overwritten.")
     parser.add_argument("--live", action="store_true", help="Explicitly allow Qdrant and Gemini requests.")
+    parser.add_argument("--request-interval", type=float, default=0,
+                        help="Minimum seconds between evaluation cases, excluded from service latency.")
     parser.add_argument("--collection", default=settings.QDRANT_COLLECTION,
                         help="Evaluate a separate staging collection without changing application settings.")
     parser.add_argument("--allow-candidate-content", action="store_true",
@@ -261,6 +264,8 @@ def main():
     parser.add_argument("--keyword-search", action="store_true",
                         help="Compare evaluation-only search keyword extraction; production requests are unchanged.")
     args = parser.parse_args()
+    if not isfinite(args.request_interval) or not 0 <= args.request_interval <= 60:
+        parser.error("Request interval must be a finite number from 0 to 60 seconds.")
     if args.allow_candidate_content and args.collection == settings.QDRANT_COLLECTION:
         parser.error("Candidate content requires a separate evaluation collection.")
     if any(not text.strip() for text in args.follow_up) or len(args.follow_up) > 3:
@@ -309,6 +314,7 @@ def main():
         "retrieval_limit": 3,
         "follow_up_messages": args.follow_up,
         "retrieval_only": args.retrieval_only,
+        "request_interval_seconds": args.request_interval,
         "keyword_search": args.keyword_search,
         "candidate_content_allowed": args.allow_candidate_content,
         "started_at": datetime.now(timezone.utc).isoformat(),
@@ -316,7 +322,11 @@ def main():
     (output / "manifest.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     retrieval = RetrievalService(collection_name=args.collection, allow_candidate_content=args.allow_candidate_content)
     coaching = CoachingService()
+    last_started = None
     for case, profile in selected:
+        if last_started is not None:
+            time.sleep(max(0, args.request_interval - (time.monotonic() - last_started)))
+        last_started = time.monotonic()
         path = output / f"{case['id']}.json"
         path.write_text(json.dumps({"case": case, "outcome": "incomplete"}, indent=2) + "\n", encoding="utf-8")
         record = capture_case(case, profile, retrieval, coaching, retrieval_only=args.retrieval_only,
@@ -328,6 +338,8 @@ def main():
             break
         messages = []
         for number, question in enumerate(args.follow_up, start=1):
+            time.sleep(max(0, args.request_interval - (time.monotonic() - last_started)))
+            last_started = time.monotonic()
             messages.extend([
                 {"role": "user", "text": record["case"]["question"]},
                 {"role": "assistant", "text": record["answer"], "status": record["outcome"]},
