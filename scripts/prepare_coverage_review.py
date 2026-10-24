@@ -1,12 +1,13 @@
 """Prepare a local coverage audit and unlabelled review sheet; never query a model."""
 import argparse
 from collections import Counter
-from datetime import date
+from datetime import date, timedelta
 import hashlib
 import json
 from pathlib import Path
 
 from backend.services.retrieval import is_age_eligible
+from backend.services.age import add_months, age_details, current_date
 from scripts.evaluate_retrieval import query_age_context
 from scripts.index_rag import load_passages, validate_source_references
 
@@ -37,17 +38,24 @@ def prepare_review(passages, inventory):
     return cases
 
 
-def coverage_markdown(passages):
+def coverage_markdown(passages, evaluation_date=None):
+    evaluation_date = evaluation_date or current_date()
     lines = ["# Candidate reference coverage", "",
              "Counts show age eligibility and routine tags, not semantic relevance, quality or clinical approval.",
              "Age 0 uses 11 days as a newborn example; other rows use completed months.",
+             f"Evaluation date: {evaluation_date.isoformat()}. Ages use calendar dates, not average month lengths.",
              "Rows are selected checkpoints, not complete coverage of every day or month.", "",
              f"Total passages: {len(passages)}. Sources: {len({p['source_id'] for p in passages})}.", "",
              "| Age (months) | " + " | ".join(ROUTINES) + " |",
              "| --- | " + " | ".join("---" for _ in ROUTINES) + " |"]
     for months in AGES:
+        birth = (evaluation_date - timedelta(days=11) if months == 0
+                 else add_months(evaluation_date, -months))
+        days, completed, _ = age_details(birth, evaluation_date)
+        if completed != months or (months == 24 and add_months(birth, 24) != evaluation_date):
+            raise ValueError("Choose an evaluation date that represents each exact age checkpoint.")
         eligible = [p for p in passages if is_age_eligible(
-            p["source_age"], months, child_age_days=11 if months == 0 else round(months * 30.4375))]
+            p["source_age"], completed, child_age_days=days)]
         counts = [str(sum(routine in p.get("routines", []) for p in eligible)) for routine in ROUTINES]
         lines.append(f"| {months} | " + " | ".join(counts) + " |")
     domains = Counter(p.get("developmental_domain", "not classified in original corpus") for p in passages)
@@ -79,7 +87,8 @@ def main():
     targets = [args.output_dir / name for name in ("coverage.md", "question-review.json")]
     if any(path.exists() for path in targets):
         parser.error("Output already exists; choose a new --output-dir to preserve review work.")
-    targets[0].write_text(coverage_markdown(passages), encoding="utf-8")
+    evaluated = date.fromisoformat(inventory["evaluation_date"])
+    targets[0].write_text(coverage_markdown(passages, evaluated), encoding="utf-8")
     targets[1].write_text(json.dumps({
         "status": "labels_and_split_pending", "corpus_sha256": hashlib.sha256(corpus_path.read_bytes()).hexdigest(),
         "instructions": "Eligible IDs are not relevance labels. Read the corpus before assigning expected IDs and outcomes. No retrieval results have been examined by this script.",

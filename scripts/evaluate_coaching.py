@@ -199,7 +199,9 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
         record["supplied_evidence"] = [asdict(p) for p in evidence]
         if not evidence:
-            fallback = missing_evidence_response(case["question"], unresolved_follow_up=unresolved_follow_up)
+            # Match /coach: the permitted caregiver topic also informs a no-match
+            # response, so "what else?" is not mistaken for an unknown topic.
+            fallback = missing_evidence_response(query, unresolved_follow_up=unresolved_follow_up)
             record.update(outcome="no_evidence", answer=fallback.answer, response_kind=fallback.kind)
             return record
         if retrieval_only:
