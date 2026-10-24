@@ -521,12 +521,12 @@ Feedback accepts either historical Helpful/Not helpful values or a numeric scale
 1 Not helpful, 2 Slightly helpful, 3 Somewhat helpful, 4 Helpful, 5 Very helpful.
 Optional reasons are unclear, repeated advice, did not answer the message and not
 suited to the child's age. The existing account-scoped feedback endpoint and
-message storage are reused. Updates replace feedback and reset review status to
-pending. Historical booleans are not converted into numbers; aggregate those two
+message storage are reused. Updates replace feedback without creating an
+administrator review state for private messages. Historical booleans are not converted into numbers; aggregate those two
 scales separately. Ratings describe perceived helpfulness, not clinical accuracy.
-No automatic model training, cross-account reviewer report or feedback export is
-enabled. Reviewer authority and a consent/deletion policy for evaluation reuse
-remain outstanding under #99.
+The aggregate-only administrator overview is documented in the root README.
+It does not expose individual questions, answers, comments or source records.
+Private feedback is not exported for evaluation or used for automatic training.
 
 Local source/preparation checks passed before these application changes. For a
 targeted check of the response, feedback and evaluation changes, run:

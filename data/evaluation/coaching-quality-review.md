@@ -1105,3 +1105,31 @@ safety, Kenya applicability, findings, required correction and approval decision
 Use the existing 1–5 expert rubric for answers; caregiver helpfulness ratings are
 not expert scores. A rejected or corrected health item needs re-review. Approval
 of this sample does not approve the whole corpus or authorize activation.
+
+### Aggregate feedback improvement example
+
+This is a synthetic demonstration, not feedback from a real caregiver. Five
+synthetic accounts each selecting rating 2 and `did_not_answer` produce a 5–9
+category band through `summarize_feedback`. Four accounts or repeated ratings
+from one account do not produce a reportable group. No private conversation or
+free-text comment is available to the administrator.
+
+An administrator can investigate a category such as "Did not answer the message"
+using a separately written development question. The existing aq35 example,
+"What pretend play can we try together?", demonstrates the correction stage:
+
+| Stage | Recorded observation |
+| --- | --- |
+| Finding | The v4 answer offered ordinary toy-handover and ball play rather than pretend play. |
+| Correction | Focus the source selection and prompt on the requested activity type; do not silently substitute a different activity. |
+| Before | `coaching-focused-six-20261023/aq35.json`: ordinary play only, 1.194 service seconds. The raw capture is retained in the local archive described above. |
+| After | `eval/results/coaching-activity-six-20261023/aq35.json`: pretend dressing/story play with a soft toy; ordinary play is explicitly distinguished, 1.519 service seconds. |
+| Remaining finding | The revised answer still contains numbered citation markers despite the formatting instruction. It is not a perfect or clinically approved answer. |
+
+The recorded v4/v5 corpus fingerprints and six-case results above provide the
+configuration trail. This comparison establishes an observed correction on a
+development case, not a performance gain, an independently rated accuracy score
+or proof that real aggregate feedback caused that historical change. A new real
+investigation must record its own aggregate category, independently authored case,
+correction reference and before/after evidence. Private conversations must not be
+used as the investigation dataset.

@@ -567,3 +567,82 @@ These controls are not external-provider quota tracking or a billing guarantee.
 Fixed windows allow bursts around reset boundaries. Deleting account data also
 deletes its counters; these limits do not prevent account recreation or replace
 broader abuse protection.
+
+## Aggregate feedback administration
+
+An authorized account has a **Feedback overview** dialog in My Account. Ordinary
+caregiver accounts do not see this control. Backend authorization requires the
+boolean `feedback_summary_admin` custom claim in a verified Firebase token, in
+addition to the existing email verification and authenticator sign-in checks.
+There is no endpoint for granting permission or opening other accounts' chats.
+
+The overview contains numeric-rating bands, optional reason-category bands and
+separate Helpful/Not helpful bands. It never returns questions, answers,
+transcripts, free-text comments, names, birth dates, account IDs, individual
+timestamps or conversation links. It has no filters, exports, totals, averages
+or individual-record drill-down. Each account contributes only its latest
+eligible feedback. A bin with fewer than five distinct caregivers is hidden;
+larger bins show ranges such as 5–9, not exact counts. This is disclosure
+minimization, not a claim of formal differential privacy or clinical validation.
+
+Notice version `2026-10-24.1` explains this use. A contribution is eligible only
+when its account accepted the current notice and its recorded time is at or after
+acceptance. Old feedback is not repurposed automatically. An intentional edit after
+acceptance is a new contribution. Numeric ratings are never inferred from old
+boolean ratings. Private comments remain account-scoped and are not read by this
+report. The former per-message `review_status` field is no longer created or
+returned; historical fields need no migration and do not grant review access.
+
+The service projects only feedback rating, helpfulness, reason and recorded-time
+fields, plus message role. It recomputes from retained source records without
+storing or exporting private feedback. After an edit or completed deletion, the
+next summary reflects the remaining eligible contributions. It scans at most
+10,000 documents per collection group and 500 accounts, with a ten-second
+processing budget and bounded individual database calls. Failure, timeout or a
+limit produces an unavailable response, never partial counts or invented zeroes.
+At larger scale, use a separately reviewed aggregate pipeline rather than raising
+limits silently. No summary scan runs during coaching, so this adds no model calls
+or reference retrieval to caregiver requests.
+
+### Grant or revoke access
+
+Run these commands only on a trusted server with the existing Firebase Admin
+credentials. Replace `ACCOUNT_UID` with the intended account's Firebase UID.
+Preview does not connect to Firebase or change an account:
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.set_feedback_admin --uid ACCOUNT_UID --grant
+.\venv\Scripts\python.exe -m scripts.set_feedback_admin --uid ACCOUNT_UID --grant --apply
+```
+
+Revoke access with:
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.set_feedback_admin --uid ACCOUNT_UID --revoke --apply
+```
+
+The command preserves unrelated custom claims and revokes existing sign-in
+sessions. Sign in again after a successful change. If session revocation fails,
+retry the command; do not assume revocation is complete. No real account is
+promoted by setup or automated tests. Application permission does not grant cloud
+console access; protect production service credentials and cloud IAM separately.
+See [Firebase custom claims](https://firebase.google.com/docs/auth/admin/custom-claims)
+and [session revocation](https://firebase.google.com/docs/auth/admin/manage-sessions).
+
+### Improvement workflow without private chats
+
+1. Observe a sufficiently large aggregate reason category; a low rating alone
+   does not establish an incorrect answer.
+2. Open an improvement issue using only the category and a separately written
+   test question. Do not copy a caregiver's question, answer or comment.
+3. Reproduce the concern with the existing evaluation tools. Record the test
+   case, original sources, corpus fingerprint, actual model/prompt configuration
+   and evaluation split. Keep tuning separate from held-out evaluation.
+4. Review a source, retrieval or prompt correction and compare the same
+   development example before and after. Health changes require qualified review.
+5. Link the correction and evaluation evidence in the improvement issue, then
+   close that issue when its acceptance criteria are met. Do not mark an
+   individual private conversation reviewed or train automatically from ratings.
+
+A synthetic demonstration is documented in
+[the coaching evaluation review](data/evaluation/coaching-quality-review.md#aggregate-feedback-improvement-example).
