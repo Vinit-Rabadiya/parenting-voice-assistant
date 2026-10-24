@@ -184,6 +184,8 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         vaccination = inspect_vaccination(query)
         if vaccination is not None:
             record.update(outcome="vaccination_notice", answer=vaccination.answer, vaccination_country="KE")
+            if vaccination.source_url:
+                record["reference_sources"] = [{"title": vaccination.source_title, "url": vaccination.source_url}]
             return record
         assessment = professional_assessment_response(case["question"])
         if assessment is not None:
