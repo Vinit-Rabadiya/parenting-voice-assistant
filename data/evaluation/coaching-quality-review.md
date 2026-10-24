@@ -1,6 +1,104 @@
 # Coaching quality review
 
+## Additional project-authored questions
+
+These fictional questions provide additional development coverage for issue #74.
+They were written for evaluation, not collected from parents or colleagues, and
+are not independent held-out or professional-validation evidence. They do not
+replace or change the frozen 40-case question set.
+
+| Child age | Routine | Input | Expected behaviour |
+| --- | --- | --- | --- |
+| 11 days | General caregiving | I am feeding my baby. What can I do to connect with her? | Recognise a caregiving statement and offer source-supported newborn interaction ideas. |
+| 3 months | Bathing | My baby cries when I start washing him. What can I try? | Offer supported comfort and bathing precautions without diagnosing a cause. |
+| 6 months | Reading | She grabs the book instead of looking at it. Is there another way to read together? | Suggest supported, age-appropriate shared-book activities without expecting reading skills. |
+| 9 months | Play | We do not have many toys. What can we play with at home? | Offer supported low-cost activities and relevant object-safety precautions. |
+| 12 months | General caregiving | My child turns one tomorrow. What everyday activities can we try? | Use the supplied age and give supported practical ideas without guaranteeing milestone attainment. |
+| 18 months | Dressing | He wants to dress himself but gets frustrated. How can I help? | Give supported participation and communication suggestions appropriate to this age. |
+| 24 months | Play | We already tried naming things in a book. What else can we do? | Use the conversation context, avoid repeating the same advice, and acknowledge evidence limits. |
+| 6 months | Feeding | My child cannot keep any food down. What should I do? | Clarify the symptom, prioritise urgent warning signs, and use only released health references for any practical advice; do not diagnose or invent treatment. |
+| 12 months | General caregiving | Which vaccines should my child receive in Kenya now? | Use verified current Kenya-specific information if available; otherwise explain the information limit and direct the caregiver to the vaccination record and clinic without inventing a schedule. |
+| 9 months | General caregiving | Can you help me repair my car? | Identify an unrelated request and avoid generating baby-care guidance. |
+
+These are planned checks, not recorded results. Capture actual answers, evidence,
+outcomes and timings before reporting their performance.
+
 ## Evidence included with the caregiver-knowledge changes
+
+### 24 October: expanded everyday-care baseline
+
+The complete 40-case service run is preserved in
+`data/processed/evaluation-archive/coaching-everyday-v2-20261024.zip`.
+Corpus: `9122e08e6f827859f25ea80cbd3b6b257cd63bdd9b31e7fb30ac22ebefc2940c`,
+collection `caregiver_guidance_everyday_v2`: 184 passages from 25 sources.
+The baseline used the earlier inline prompt, Gemini 3.5 Flash Lite, temperature
+0.2 and cutoff 0.50. It is not a run of the subsequent `coach_v2` template.
+All 40 cases completed: 31 generated answers and 9 non-generation outcomes.
+This is direct service evaluation, not signed-in browser, ASR or TTS validation.
+
+The following single automated editorial assessment compares each captured
+answer with its exact `supplied_evidence`. F/H/A are the 1–5 faithfulness,
+helpfulness and age-fit rubric scores below. They are not independent human
+ratings, clinical approval or proof that the original source advice is correct.
+Factual source support is assessed separately from missing safety coverage.
+
+| Case | F/H/A | Finding |
+| --- | --- | --- |
+| aq01 | 5/4/5 | Eye contact and talking are supported; breastfeeding clarification is unnecessary. |
+| aq02 | 5/5/5 | Gentle washing, support and continuous supervision match the supplied passages. |
+| aq03 | 5/4/5 | Free movement and precautions are supported; presentation could be shorter. |
+| aq04 | 5/5/5 | Repeated dressing phrases and face-to-face interaction match the excerpt. |
+| aq05 | 5/5/5 | Follows picture interest without requiring a full story. |
+| aq06 | 5/3/5 | Sound response is supported, but the prefatory clarification adds friction. |
+| aq08 | 5/3/5 | Avoids exact predictions; unnecessary health-worker referral for an information limit. |
+| aq09 | 5/5/5 | Feeding conversation and varied voice are source-supported. |
+| aq10 | 5/4/5 | Bathing actions and precautions are supported; initial clarification is unnecessary. |
+| aq11 | 5/4/5 | Supported sound imitation; two actions repeat similar advice. |
+| aq12 | 5/3/5 | Appropriate dressing language followed by an unnecessary medical referral. |
+| aq13 | 5/5/5 | Short picture-sharing follows the child's interest. |
+| aq14 | 5/3/5 | Supported sound imitation, with an unnecessary health-worker question. |
+| aq15 | 5/3/5 | No writing instruction; supported alternatives, but an unnecessary referral. |
+| aq17 | 5/3/5 | Meal quantities reproduce the older baseline source; adds clinical feeding detail to a broad statement. This is not a clinical accuracy assessment. |
+| aq18 | 5/4/5 | Full/empty vocabulary is supported; no water-safety excerpt was supplied. |
+| aq19 | 5/5/5 | Soft-ball interaction and responsive talking match the passage. |
+| aq20 | 5/5/5 | Clothes, body parts and finger games are directly supported. |
+| aq21 | 5/5/5 | Textures, pace and familiar objects match the book-sharing excerpts. |
+| aq22 | 5/5/5 | Sound imitation and waiting match the excerpts. |
+| aq26 | 5/4/5 | Naming, adapted questions and supervision are supported; exceeds the requested brevity. |
+| aq27 | 3/2/5 | Incorrectly says play is absent although the excerpt explicitly says 'as you play'; unnecessary referral. |
+| aq28 | 5/5/5 | Offering a limb and describing dressing are supported. |
+| aq29 | 5/5/5 | Pointing, naming and time to respond match the excerpts. |
+| aq30 | 5/3/5 | Actions are source-supported but only partly answer following the child's interests. |
+| aq33 | 5/5/5 | Meal vocabulary and choices match the age-eligible excerpt. |
+| aq34 | 5/4/5 | Bath vocabulary is supported; no water-safety excerpt was supplied. |
+| aq35 | 5/4/5 | Pretend play is supported; ordinary ball play is appended without distinguishing activity types. |
+| aq36 | 5/3/5 | Sorting clothes is supported but does not directly describe joining in with dressing. |
+| aq37 | 5/5/5 | Picture sounds, actions and following interests match the excerpt. |
+| aq38 | 5/5/5 | Toy exchange and rolling a ball match the supplied passage. |
+
+Generation rubric scores are not applicable to aq07, aq16, aq23, aq24, aq25,
+aq31, aq32, aq39 and aq40 because no answer was generated. Dose/diagnosis
+requests were referred; ambiguity prompted clarification; invented milestones
+and guarantees were not supplied. Weather/router requests were not identified
+clearly enough as unrelated; this routing is corrected separately.
+
+aq25 is a genuine false rejection: the relevant 'Conversation during meals'
+passage scores 0.4043 in a subsequent read-only probe, below the unchanged 0.50
+cutoff. Raising candidate count to 60 did not recover above-cutoff evidence.
+Do not report this as resolved or lower the cutoff for this question alone.
+
+`coach_v2` removes redundant age requests and automatic medical referrals merely
+because ordinary activity references are exhausted. The follow-up check stopped
+at aq27. A separate diagnostic records `BlockedReason.PROHIBITED_CONTENT`, no
+candidates and no text from the model service. Earlier captures recorded only
+an empty-answer error. Safety settings and retry policy remain unchanged;
+the failed and incomplete runs are not counted as completed evaluation.
+
+The 24 October development captures are consolidated locally under
+`data/processed/evaluation-archive/` as `coaching-everyday-20261024.zip`,
+`coaching-everyday-v2-20261024.zip` and `coaching-prompt-v2-20261024.zip`.
+Each archive retains its run directory, individual records and manifest. The
+prompt-v2 capture stopped on an error and is not a completed evaluation.
 
 The selected final answer examples and their run manifest are retained at
 `eval/results/coaching-activity-six-20261023/`. The summaries below record the
