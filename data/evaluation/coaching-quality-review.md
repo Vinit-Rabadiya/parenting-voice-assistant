@@ -25,6 +25,64 @@ outcomes and timings before reporting their performance.
 
 ## Evidence included with the caregiver-knowledge changes
 
+### Named clarification correction — 24 October 2026
+
+The reported clarification, "what is full bath, top and tailing?", was reproduced
+with a fictional 14-day profile and the preceding bathing exchange. The previous
+query builder did not recognise named clarifications; the selected summary also
+omitted the source's term. Clarification handling now uses the previous caregiver
+topic when the requested term appears in the latest permitted answer. Assistant
+claims are not copied into the retrieval query or treated as factual evidence.
+The prompt requests plain-language definitions and avoids unnecessary final questions.
+
+The existing NHS source selection now preserves the definition from its bathing
+and top-and-tailing sections. The revised 184-passage collection is
+`caregiver_guidance_everyday_v3`, SHA256
+`956089a645fddbdca41d37c92495355d958e47942037a1f06f1ae17b0c2d009e`.
+Source refresh preserves passage IDs, age eligibility, routines and conditions;
+the original baseline and v2 collection remain unchanged.
+
+A live direct-service check returned the two definitions in 7.797 seconds
+(retrieval 1.496; generation 6.298), using Gemini 3.5 Flash Lite. Definition
+evidence scored 0.8545 with context and 0.6821 for the standalone clarification,
+both above the unchanged 0.50 cutoff. The returned definitions matched the supplied
+excerpts. The configured collection's 184 payloads matched the local release;
+new clinical candidates remain excluded. The initial development output was
+regenerated to preserve source order; its payload contents were unchanged.
+Unit/API and release checks cover this clarification, topic changes, chained
+follow-ups, source fingerprints and rejected scope changes. Full checks passed
+with 849 Python tests, 151 UI tests, seven audio tests, lint and build before
+the final source-order/idempotence refinement; all 64 targeted source/context
+checks passed afterward. A fresh in-memory reconstruction also matched the pinned
+revised candidate fingerprint, without creating intermediate files.
+This is backend verification, not confirmation of the final browser retry.
+
+### Application activation and bounded vaccination education
+
+On 24 October 2026, all 184 remote payloads in `caregiver_guidance_everyday_v2`
+matched the local corpus exactly. The application default and environment template
+now select that collection; the original collection remains available for rollback.
+The configured settings were checked in a fresh process. No candidate clinical
+records were included. Restarting an existing server is required to load settings.
+
+General vaccine-purpose and expected-effects responses use the original WHO and
+UNICEF sources recorded in `vaccination-source-review.json`. They return citations
+through the existing API/storage contract without a retrieval or generation call.
+Urgent checks run first; reported symptoms and individual decisions are referred.
+General education expires 90 days after its source check. Specific schedules are
+not inferred from older tables or programme announcements.
+
+Full configured verification passed: 836 Python tests, 151 frontend UI tests,
+seven audio tests, both linters and production build. The 103 vaccination,
+endpoint and evaluation-capture checks also passed after fixing their test dates
+independently of the calendar. These checks do not replace the final manual
+signed-in workflow or professional validation.
+
+The superseded 151-passage local release and two superseded captures were moved
+to the Windows Recycle Bin. The duplicate planning-only JSON was consolidated
+into the README and issue checklists. Source inputs, the current release,
+reconstruction tools and evidence supporting the recorded findings were retained.
+
 ### 24 October: expanded everyday-care baseline
 
 The complete 40-case service run is preserved in
@@ -100,16 +158,15 @@ plus the router request and its follow-up correctly classified as unrelated
 without generation. Service times for the generated responses range from 2.797
 to 7.869 seconds; the five-second evaluation pacing is excluded. These are
 individual service timings, not a voice-to-audio latency percentile.
-`coaching-empty-answer-diagnostic-20261024.zip` retains the block diagnostics;
-`coaching-prompt-v2-completion-20261024.zip` retains the earlier failed retry.
-All three archives are local under `data/processed/evaluation-archive/`.
+`coaching-empty-answer-diagnostic-20261024.zip` retains the block diagnostics.
+Both archives are local under `data/processed/evaluation-archive/`.
 
 Implementation verification: 826 Python tests, 151 frontend UI tests and seven
 audio tests passed, with both linters and the frontend production build.
 
 The 24 October development captures are consolidated locally under
-`data/processed/evaluation-archive/` as `coaching-everyday-20261024.zip`,
-`coaching-everyday-v2-20261024.zip` and `coaching-prompt-v2-20261024.zip`.
+`data/processed/evaluation-archive/` as `coaching-everyday-v2-20261024.zip`
+and `coaching-prompt-v2-20261024.zip`.
 Each archive retains its run directory, individual records and manifest. The
 prompt-v2 capture stopped on an error and is not a completed evaluation.
 
@@ -138,6 +195,14 @@ must not be counted as completed cases in it.
 
 ### TODO: final validation after implementation is complete
 
+Professional validation has not been obtained and is not an active implementation
+task. Its status is recorded in the GitHub issue comments. The editorial scores
+above are not clinician/ECD approval. Final signed-in workflow verification is
+reserved for manual checking after the implementation changes.
+
+- [ ] Correct the feeding false rejection despite a relevant retrieved passage (aq25).
+- [ ] Resolve application handling of the model-blocked turn-taking request (aq27).
+
 This is a tracked development TODO, not a scheduled notification. Do not close
 issue #78 or describe final validation as complete based on the initial four cases.
 
@@ -146,8 +211,8 @@ issue #78 or describe final validation as complete based on the initial four cas
 - [ ] Run `npm.cmd run check` and preserve the full results, including warnings.
 - [ ] Run all 40 approved coaching cases in a new results directory. Retain the
   initial run separately; never overwrite earlier answers or failed outcomes.
-- [ ] Review faithfulness, helpfulness and age-appropriateness using the 1-5 rubric,
-  with independent reviewers where possible and ECD/health expertise recorded.
+- [x] Record editorial faithfulness, helpfulness and age-appropriateness scores
+  for the complete 40-case baseline using the 1-5 rubric.
 - [ ] Check scope refusals, unsupported claims, medical-safety concerns and
   in-scope no-evidence outcomes separately from numeric scores.
 - [ ] Exercise the signed-in browser workflow: voice recording, transcription,
