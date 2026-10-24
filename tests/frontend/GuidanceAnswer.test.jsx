@@ -27,6 +27,17 @@ it("keeps historical boolean feedback without choosing a numeric equivalent", ()
   expect(screen.getByRole("button", { name: "Save rating" }).disabled).toBe(true);
 });
 
+it("lets a caregiver edit a saved numeric rating through the existing feedback path", async () => {
+  render(<GuidanceAnswer message={{ ...message, feedback: { rating: 2, reasons: ["unclear"] } }} conversationId="chat-1" />);
+  expect(screen.getByLabelText("Helpfulness rating").value).toBe("2");
+  fireEvent.change(screen.getByLabelText("Helpfulness rating"), { target: { value: "5" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
+  await waitFor(() => expect(sendFeedback).toHaveBeenCalledWith("answer-1", {
+    rating: 5, reasons: ["unclear"], comment: null, conversation_id: "chat-1",
+  }));
+  await screen.findByText(/your feedback was saved/);
+});
+
 it("shows an error and allows retry when feedback fails", async () => {
   sendFeedback.mockRejectedValueOnce(new Error("Please retry."));
   render(<GuidanceAnswer message={message} conversationId="chat-1" />);

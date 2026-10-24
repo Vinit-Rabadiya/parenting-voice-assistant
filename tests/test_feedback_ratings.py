@@ -15,7 +15,7 @@ def test_numeric_feedback_is_not_converted_to_a_boolean(rating):
     assert stored["rating"] == rating
     assert stored["helpful"] is None
     assert stored["comment"] == "Clear"
-    assert stored["review_status"] == "pending"
+    assert "review_status" not in stored
 
 
 @pytest.mark.parametrize("value", [0, 6, True, 3.5, "4"])
@@ -38,7 +38,7 @@ def test_historical_boolean_feedback_has_no_invented_numeric_rating():
     assert record.rating is None
 
 
-def test_replacement_feedback_is_pending_review():
+def test_replacement_feedback_does_not_create_private_review_metadata():
     stored = CaregiverDataService._feedback_data(None, None, rating=5)
-    assert stored["review_status"] == "pending"
+    assert "review_status" not in stored
     assert stored["reasons"] == []

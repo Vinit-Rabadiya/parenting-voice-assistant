@@ -495,3 +495,19 @@ def test_storage_feedback_only_updates_assistant_messages(transactional_storage,
     else:
         assert recorded_at is None
         transaction.update.assert_not_called()
+
+
+def test_numeric_feedback_edit_replaces_previous_values_without_private_review_state(transactional_storage):
+    service, transaction, reference, _ = transactional_storage
+    message = reference.collection.return_value.document.return_value
+    message.get.return_value.to_dict.return_value = {
+        "role": "assistant", "feedback": {"rating": 1, "reasons": ["unclear"], "review_status": "resolved"},
+    }
+    saved = service.save_message_feedback("account-a", "chat-1", "answer-1", None, None,
+                                         rating=5, reasons=[])
+    feedback = transaction.update.call_args.args[1]["feedback"]
+    assert feedback["rating"] == 5
+    assert feedback["reasons"] == []
+    assert feedback["comment"] is None
+    assert feedback["recorded_at"] == saved
+    assert "review_status" not in feedback
