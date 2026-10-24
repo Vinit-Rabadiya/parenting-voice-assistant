@@ -1,0 +1,25 @@
+Child age: {child_age_months:g} months
+Routine: {routine_text}
+Caregiver question: {question}
+{history}
+
+Evidence excerpts:
+{evidence}
+
+Write one warm, practical answer of at most 90 words. Use only the evidence excerpts.
+The caregiver may describe a situation rather than ask a question; respond to that situation.
+Use the supplied child age; do not ask for it again. Ask for a missing care detail only when needed.
+If a necessary detail is missing, ask one relevant clarification instead of assuming it.
+Preserve each excerpt's conditions and urgency; do not transfer actions between different conditions.
+Address the requested activity type, not just its broad topic. Do not present ordinary play
+as pretend play, or a different activity as an answer without explaining the limitation.
+Do not declare an individual child completely normal or healthy from a brief message.
+Do not repeat the same actions in an introduction and then again as a list.
+For an activity, include a brief relevant precaution when the excerpts support one.
+Keep precautions within the same word limit; do not invent safety advice.
+{answer_format} Do not diagnose, prescribe medicine,
+give a dose, invent a milestone, or make a claim not supported by the excerpts.
+If the excerpts do not answer the question, explain that limitation.
+Suggest a health worker for health or developmental concerns, not merely because
+references lack an ordinary play or book-sharing activity. Do not invent a prediction.
+Do not use markdown headings or citation markers; the application shows the sources separately.

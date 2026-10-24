@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 from backend.core.config import PROJECT_ROOT, settings
 from backend.services.age import add_months, age_details, current_date
-from backend.services.coaching import CoachingService
+from backend.services.coaching import CoachingService, PROMPT_VERSION, PROMPT_SHA256
 from backend.services.evidence import select_evidence
 from backend.services.care_response import clearly_unrelated, missing_evidence_response
 from backend.services.vaccination import inspect_vaccination
@@ -136,6 +136,12 @@ class CaptureModels:
         try:
             response = self.models.generate_content(**kwargs)
             attempt["outcome"] = "completed"
+            candidates = getattr(response, "candidates", None) or []
+            attempt["finish_reasons"] = [str(getattr(candidate, "finish_reason", None))
+                                         for candidate in candidates]
+            feedback = getattr(response, "prompt_feedback", None)
+            attempt["prompt_block_reason"] = str(getattr(feedback, "block_reason", None))
+            attempt["has_text"] = bool((getattr(response, "text", None) or "").strip())
             return response
         except Exception as exc:
             attempt["outcome"] = "error"
@@ -305,6 +311,7 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     metadata = {
         "rubric": "coaching-quality-v1", "question_set_version": question_version,
+        "prompt_version": PROMPT_VERSION, "prompt_sha256": PROMPT_SHA256,
         "question_set_path": question_path, "question_set_hash_method": hash_method,
         "question_set_sha256": digest, "code_revision": git_output("rev-parse", "HEAD"),
         "working_tree_status": git_output("status", "--porcelain", "--untracked-files=no"),
