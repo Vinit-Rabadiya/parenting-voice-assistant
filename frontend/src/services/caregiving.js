@@ -40,6 +40,8 @@ async function request(path, options = {}) {
 
 export const listChildren = (signal) => request("/children", { signal });
 export const getAccountUsage = (signal) => request("/me/usage", { signal, cache: "no-store" });
+export const getFeedbackAdminAccess = (signal) => request("/admin/feedback/access", { signal, cache: "no-store" });
+export const getFeedbackSummary = (signal) => request("/admin/feedback/summary", { signal, cache: "no-store" });
 export const getPrivacyConsent = (signal) => request("/privacy/consent", { signal });
 export const acceptPrivacyConsent = (version, signal) => request("/privacy/consent", {
   method: "POST", signal,

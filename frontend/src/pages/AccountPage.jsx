@@ -11,6 +11,7 @@ import {
 import QRCode from "qrcode";
 import AccountUsage from "../components/AccountUsage";
 import AccountConsent from "../components/AccountConsent";
+import AdminFeedbackSummary from "../components/AdminFeedbackSummary";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
 function AccountPage({ verificationEmailRequested, email, accountAccess, onDataDeleted }) {
   const { logout } = useAuth();
@@ -358,6 +359,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
       <p className="account-feedback" role="status">{message}</p>
       {accountAccess?.verified && <AccountUsage revision={dataDeleted} />}
       {accountAccess?.verified && <AccountConsent key={String(dataDeleted)} />}
+      {accountAccess?.verified && <AdminFeedbackSummary />}
       {accountAccess?.verified && <section className="account-card account-data" aria-labelledby="account-data-title">
         <div className="account-card-heading"><h2 id="account-data-title">Data and account</h2>
           <p>These actions permanently remove information and cannot be undone.</p></div>
