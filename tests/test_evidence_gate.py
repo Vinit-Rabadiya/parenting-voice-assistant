@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+from datetime import date
 from google.genai import errors as genai_errors
 
 import pytest
@@ -64,6 +65,26 @@ def test_vaccination_notice_skips_retrieval_generation_and_preserves_country(cli
     assert data.create_interaction.call_args.args[-1] == "vaccination_notice"
     assert data.create_interaction.call_args.kwargs["vaccination_country"] == "KE"
     assert "Select a vaccination country" not in response.json()["answer"]
+
+
+@pytest.mark.parametrize("question,domain", [
+    ("How do vaccines work?", "who.int"),
+    ("What side effects can vaccines have?", "unicef.org"),
+])
+def test_general_vaccine_education_returns_citation_without_model_call(client, services, question, domain, monkeypatch):
+    monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2026, 10, 24))
+    data, retrieval, coaching = services
+    response = client.post("/coach", json={"child_id": "child-1", "question": question})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "vaccination_notice"
+    assert body["vaccination_country"] == "KE"
+    assert len(body["citations"]) == 1
+    assert domain in body["citations"][0]["source_url"]
+    assert body["citations"][0]["pdf_page"] is None
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+    data.create_interaction.assert_called_once()
 
 
 def test_danger_sign_precedes_vaccination_notice(client, services):

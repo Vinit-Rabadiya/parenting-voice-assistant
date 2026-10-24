@@ -257,6 +257,31 @@ def test_follow_up_uses_server_history_for_retrieval_and_generation(client, coac
     assert data.save_conversation_turn.call_args.args[3] == "What else can I try?"
 
 
+def test_named_clarification_retrieves_definitions_using_permitted_caregiver_context(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    data.get_child.return_value.update(age_months=0.5, completed_months=0, age_days=14)
+    history = [
+        {"role": "user", "text": "I am bathing my baby."},
+        {"role": "assistant", "text": "Are you doing a full bath or top and tailing?", "status": "answered"},
+    ]
+    data.get_conversation.return_value = {**conversation(), "messages": history}
+    reference = RetrievedPassage("definition", "Top and tailing means washing selected areas outside a bath.",
+                                 "Top and tailing", "NHS", None, "https://www.nhs.uk/baby/bathing",
+                                 0.75, "0 to under 12 months", ["bathing"])
+    retrieval.retrieve.return_value = [reference]
+    coaching.generate.return_value = CoachingResult(reference.text, [reference])
+    question = "what is full bath, top and tailing?"
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert response.json()["answer"] == reference.text
+    assert response.json()["citations"][0]["passage_id"] == "definition"
+    assert retrieval.retrieve.call_args.args[0] == "I am bathing my baby.\nFollow-up: " + question
+    assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 14
+    assert coaching.generate.call_args.args[0] == question
+    data.save_conversation_turn.assert_called_once()
+
+
 def test_unresolved_follow_up_does_not_generate_arbitrary_guidance(client, coaching_dependencies):
     data, retrieval, coaching = coaching_dependencies
     response = client.post("/coach", json=coaching_payload("What else can I try?"))

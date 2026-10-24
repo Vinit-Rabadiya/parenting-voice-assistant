@@ -103,6 +103,18 @@ def test_capture_records_provider_block_without_retry_or_invented_answer():
     models.generate_content.assert_called_once()
 
 
+def test_capture_records_general_vaccine_source_without_model_call(monkeypatch):
+    monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2026, 10, 24))
+    case, _, retrieval, coaching, models = setup_case()
+    case["question"] = "How do vaccines work?"
+    record = capture_case(case, profile_dates(date(2026, 10, 24), 0), retrieval, coaching)
+    assert record["outcome"] == "vaccination_notice"
+    assert "who.int" in record["reference_sources"][0]["url"]
+    assert record["answer"]
+    retrieval.retrieve.assert_not_called()
+    models.generate_content.assert_not_called()
+
+
 def test_no_evidence_does_not_generate():
     case, _, retrieval, coaching, models = setup_case(score=0.0)
     record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)
