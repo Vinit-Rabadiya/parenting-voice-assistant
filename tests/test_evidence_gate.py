@@ -13,6 +13,32 @@ from backend.services.response_safety import SAFE_RESPONSE
 from backend.services.input_safety import ESCALATION_MESSAGE
 
 
+@pytest.mark.parametrize("question", ["", "  ", "a", None, {}, "a" * 1201])
+def test_invalid_question_is_rejected_before_processing(client, services, question):
+    data, retrieval, coaching = services
+    response = client.post("/coach", json={"child_id": "child-1", "question": question})
+    assert response.status_code == 422
+    data.get_child.assert_not_called()
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_coaching_requires_authentication(client, services):
+    data, retrieval, coaching = services
+    app.dependency_overrides.pop(require_authenticated_user)
+    response = client.post("/coach", json={"child_id": "child-1", "question": "Play ideas"})
+    assert response.status_code == 401
+    data.get_child.assert_not_called()
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_question_whitespace_is_trimmed():
+    from backend.schemas.coaching import CoachingRequest
+
+    assert CoachingRequest(child_id="child-1", question="  Play ideas  ").question == "Play ideas"
+
+
 def passage(score: float, text: str = "Talk with your baby during feeding.") -> RetrievedPassage:
     return RetrievedPassage("p1", text, "Feeding conversation", "Reference", 1,
                             "https://example.test/reference", score, "6-8 months", ["feeding"])

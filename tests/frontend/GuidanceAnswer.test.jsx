@@ -1,12 +1,57 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import GuidanceAnswer from "../../frontend/src/components/GuidanceAnswer";
 import { sendFeedback } from "../../frontend/src/services/caregiving";
 
 vi.mock("../../frontend/src/services/caregiving", () => ({ sendFeedback: vi.fn() }));
 const message = { id: "answer-1", text: "Talk softly.", status: "answered", citations: [], processing_seconds: 1 };
-beforeEach(() => { vi.resetAllMocks(); sendFeedback.mockResolvedValue({}); });
-afterEach(cleanup);
+beforeEach(() => {
+  vi.resetAllMocks(); sendFeedback.mockResolvedValue({});
+  vi.stubGlobal("speechSynthesis", { speak: vi.fn(), cancel: vi.fn() });
+  vi.stubGlobal("SpeechSynthesisUtterance", function(text) { this.text = text; });
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+it("keeps the answer readable when browser audio is unavailable", () => {
+  vi.stubGlobal("speechSynthesis", undefined);
+  render(<GuidanceAnswer message={message} />);
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  expect(screen.getByText(/Audio playback is unavailable/)).toBeTruthy();
+  expect(screen.getByText(message.text)).toBeTruthy();
+});
+
+it("shows playback errors and lets Listen retry without losing text", () => {
+  render(<GuidanceAnswer message={message} />);
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  const utterance = window.speechSynthesis.speak.mock.calls[0][0];
+  expect(utterance.text).toBe(message.text);
+  act(() => utterance.onerror({ error: "network" }));
+  expect(screen.getByText(/Audio could not be played/)).toBeTruthy();
+  expect(screen.getByText(message.text)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  expect(screen.queryByText(/Audio could not be played/)).toBeNull();
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(2);
+});
+
+it("handles synchronous audio failures", () => {
+  window.speechSynthesis.speak.mockImplementation(() => { throw new Error("Unavailable"); });
+  render(<GuidanceAnswer message={message} />);
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  expect(screen.getByText(/Audio could not be played/)).toBeTruthy();
+  expect(screen.getByText(message.text)).toBeTruthy();
+});
+
+it("detaches playback callbacks when stopped or removed", () => {
+  const { unmount } = render(<GuidanceAnswer message={message} />);
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  const first = window.speechSynthesis.speak.mock.calls[0][0];
+  fireEvent.click(screen.getByRole("button", { name: "Stop audio" }));
+  expect(first.onerror).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  const second = window.speechSynthesis.speak.mock.calls[1][0];
+  unmount();
+  expect(second.onerror).toBeNull();
+});
 
 it("saves a numeric rating and reasons without inventing a boolean value", async () => {
   render(<GuidanceAnswer message={message} childName="Baby" conversationId="chat-1" />);

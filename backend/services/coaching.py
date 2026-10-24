@@ -71,6 +71,9 @@ class CoachingService:
 
     def generate(self, question: str, child_age_months: float, routine: str | None, passages: list[RetrievedPassage],
                  *, conversation_context: list[dict[str, str]] | None = None) -> CoachingResult:
+        if not isinstance(question, str) or not 2 <= len(question.strip()) <= 1200:
+            raise ValueError("Enter a question between 2 and 1200 characters.")
+        question = question.strip()
         if not passages:
             return CoachingResult(
                 answer="I do not have suitable guidance for that question yet. Please ask a health worker or early-childhood professional for help.",
