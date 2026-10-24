@@ -53,6 +53,8 @@ def test_coaching_service_includes_only_retrieved_passages_in_prompt():
     assert "do not invent safety advice" in client.models.request["contents"]
     assert "at most 90 words" in client.models.request["contents"]
     assert "Address the requested activity type" in client.models.request["contents"]
+    assert "Use the supplied child age; do not ask for it again" in client.models.request["contents"]
+    assert "not merely because" in client.models.request["contents"]
 
 
 def test_coaching_service_returns_a_safe_message_when_no_passage_matches():
