@@ -741,3 +741,56 @@ Start with `extract_text()` and `extraction_mode="layout"`, then read “Why Tex
 is hard.” The distinction explains why page text is preserved for review before selecting
 passages: a PDF describes positioned drawing/text operations, not reliable paragraph or
 table structure.
+
+## Reference validation checkpoint: 24 October 2026
+
+The current candidate audit is [coverage.md](../eval/review/caregiver-coverage/coverage.md):
+273 passages from 55 sources, including 122 passages blocked for health review.
+The original 106 passages now have content-based, non-exclusive domain annotations
+in `data/passage-domain-review.json`. The annotation file pins the original corpus
+hash and includes an anchor from each selected passage. It does not modify source
+text, frozen evaluation labels or the application collection.
+
+Fourteen same-source containment pairs identify combined activities and their
+standalone communication selections. They are retained: removing one without
+reviewing age eligibility and the surrounding activity would discard information
+or invalidate earlier evaluation. The report also identifies missing source check
+dates and computes overdue publisher review dates at the chosen audit date.
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.prepare_coverage_review --corpus-dir data/processed/practical-care-activity-candidates --domain-review data/passage-domain-review.json --evaluation-date 2026-10-24 --audit-only
+.\venv\Scripts\python.exe -m scripts.inspect_relevance_scores --results eval/coverage-v1/development-routines-results.json --compare 0.40 0.45 0.50 0.55 0.60
+```
+
+The first command prints an audit without creating question labels or overwriting
+an existing review. The second compares recorded development scores; it neither
+selects a threshold nor reads held-out results. Its interpretation and measured
+trade-offs are in `data/evaluation/coverage-development-review.md`.
+
+### Separation of review content from normal chat
+
+`RetrievalService` excludes candidate records, records blocked for health review,
+and records requiring clinical review from normal requests. The existing live
+corpus continues through the existing retrieval and evidence-gate path.
+Changing a collection setting alone does not approve review-only records.
+
+Evaluation of unapproved material requires both a separate `--collection` and
+`--allow-candidate-content` in `scripts.evaluate_retrieval` or
+`scripts.evaluate_coaching`. Add that flag to the separate-collection evaluation
+commands above when reproducing candidate experiments. It cannot be used with
+the configured application collection. Evaluation manifests record the flag;
+age and routine filters still apply. Review mode is not a frontend option,
+clinical approval mechanism or permission to publish candidate answers.
+
+### Source currency
+
+The NHS formula-preparation and young-child sleep pages were checked on
+24 October 2026 and still show review-due dates of 31 August 2026 and
+31 March 2026 respectively. They remain flagged; availability is not approval.
+Original URLs and applicability restrictions are retained with the candidates.
+
+The [Kenya Ministry of Health programme announcement](https://www.health.go.ke/node/1955)
+identifies routine typhoid vaccination at nine months. That specific update does
+not establish a complete current national schedule. The source-review record is
+`data/evaluation/vaccination-source-review.json`. Vaccine education remains
+disabled until current schedule reconciliation and qualified review are recorded.

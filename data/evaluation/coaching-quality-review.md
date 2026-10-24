@@ -1133,3 +1133,44 @@ or proof that real aggregate feedback caused that historical change. A new real
 investigation must record its own aggregate category, independently authored case,
 correction reference and before/after evidence. Private conversations must not be
 used as the investigation dataset.
+
+### Common-concern editorial scope audit: 24 October 2026
+
+This audit checks the prepared selections and routing, not clinical accuracy or
+approval. Source IDs refer to the existing expansion packs and their original
+URLs, section selections and age intervals. Upper age bounds are exclusive;
+the application still stops at the second birthday.
+
+| Topic | Selected source IDs | Candidate scope and boundary |
+| --- | --- | --- |
+| Crying and soothing | `pha-birth-to-five-2025`, Reach Up soothing selection | Ordinary comfort and caregiver support; persistent or worrying crying requires assessment. |
+| Feeding difficulties and reflux | `nhs-baby-reflux` | Small milk regurgitation, feeding technique and sleep-position distinction, under 12 months; not an explanation for all vomiting. |
+| Vomiting and diarrhoea | `nhs-baby-diarrhoea-vomiting`, `kenya-community-guidelines-2024` | Conditional feeding/hygiene education, not treatment quantities; inability to retain fluids bypasses coaching. |
+| Temperature concerns | `nhs-baby-temperature`, `nhs-fever-care-education` | Observations and referral boundaries; numeric rules and young-infant applicability require qualified review. |
+| Cough and cold concerns | `nhs-baby-cough-cold` | Observation and hygiene, not cough medicines or diagnosis; breathing problems take priority. |
+| Nappy-area irritation | `nhs-nappy-rash-care` | Gentle cleaning and avoiding irritants; no diagnosis or selection of prescription creams. |
+| Teething | `nhs-teething-comfort`, `nhs-teething-observations` | Comfort alternatives and object precautions; do not attribute other illness to teeth. |
+| Stool changes | `pha-birth-to-five-2025`, `nhs-child-constipation-education` | Observations; constipation explanations are selected only for 12 months through the scope boundary, not newborns. |
+| Jaundice | `nhs-newborn-jaundice-education` | Selected only below one month, with professional assessment; no severity judgement from colour alone. |
+| Developmental concerns or lost skills | CCD referral and Kenya milestone selections | General interaction and referral, not a developmental diagnosis or rigid pass/fail checklist. Broader regression examples need qualified review. |
+
+Candidate existence is not adequate coverage at every age. Reflux selection does
+not cover toddlers, newborn constipation advice is not supplied by the toddler
+selection, and no source establishes the cause of an individual child's symptoms.
+Conditional actions must stay attached to their original illness/activity context.
+NHS service numbers and UK appointment schedules are not copied into Kenya advice.
+
+Source refresh checks on 24 October 2026 confirmed the immediate-assessment
+sections of [NHS diarrhoea and vomiting](https://www.nhs.uk/symptoms/diarrhoea-and-vomiting/)
+and [NHS urgent help for children under five](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/).
+The pages state review dates of 21 December 2023 and 6 August 2026 respectively.
+New fixed-routing cases cover green/bloody vomit, blue/grey lips and a rash that
+does not fade under pressure. They return the existing urgent-care message with
+the relevant citation before retrieval or generation. They do not add diagnoses,
+medicine advice or UK emergency numbers. Negated descriptions and ordinary rash
+wording have separate checks. Detection remains limited English pattern matching,
+not comprehensive triage or a substitute for qualified review.
+
+All health candidate content remains review-blocked. Sample approval, when
+obtained, must identify exact source sections and answer revisions; it cannot be
+inferred from a publisher's reputation, an automated test or this editorial audit.

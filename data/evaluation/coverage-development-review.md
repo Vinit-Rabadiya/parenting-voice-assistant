@@ -124,3 +124,47 @@ builds. Existing corpus files, labels and evaluation splits are not regenerated:
 doing so would invalidate the pinned baseline fingerprint. The application collection
 remains unchanged. A final label pool needs independent review; do not rewrite this
 one after seeing results and then report the revised scores as an unbiased improvement.
+
+## Recorded-score threshold comparison: 24 October 2026
+
+Input: `eval/coverage-v1/development-routines-results.json`, the existing 36-case
+development run against the routine-corrected 187-passage collection. The original
+report, labels, split and rankings are unchanged. These are not new network
+measurements or results for the 273-passage candidate corpus.
+
+| Cutoff | Answerable: labelled evidence accepted | Answerable: no evidence accepted | Answerable: only unlabelled evidence accepted | Unsupported: accepted | Unsupported: rejected |
+| --- | --- | --- | --- | --- | --- |
+| 0.40 | 33 | 0 | 1 | 1 | 1 |
+| 0.45 | 32 | 0 | 2 | 1 | 1 |
+| 0.50 | 29 | 2 | 3 | 0 | 2 |
+| 0.55 | 23 | 8 | 3 | 0 | 2 |
+| 0.60 | 17 | 12 | 5 | 0 | 2 |
+
+At 0.50, cv12 and cv35 receive no evidence. Cases cv14, cv21 and cv32 accept
+passages outside their positive label pool. This last category is a review flag,
+not proof that every accepted passage is irrelevant: the editorial label pool
+is incomplete. It also prevents counting a high-scoring non-answer as success.
+
+Lower cutoffs recover some labelled evidence but admit one unsupported example;
+higher cutoffs reject more answerable requests. The two unsupported examples
+are too few to establish a reliable false-acceptance rate. Recorded scores are
+rounded and cannot replace evaluation of a pinned current corpus.
+
+Decision: retain the application's provisional 0.50 cutoff. This comparison is
+development evidence, not final calibration or held-out validation. The tool
+rejects held-out or unidentified splits for cutoff comparison. Independent labels,
+current-corpus evaluation and final outcome review are required for a release claim.
+
+### Implementation verification
+
+Commits `e01978c`, `18fd6ac` and `2e9e484` contain the retrieval safeguards,
+audit tools/domain annotations and regression tests respectively. Full configured
+checks passed: 803 Python tests, 151 frontend tests, 7 audio tests, both linters
+and the frontend production build.
+
+Two read-only feeding-reference probes at six months, using exact age 183 days,
+returned three passages and three above-cutoff evidence passages in each mode:
+3.016 seconds for application retrieval and 1.711 seconds for explicit candidate
+evaluation in `caregiver_guidance_activity_review_v5`. These are individual
+network observations, not repeated latency benchmarks, generated-answer timings
+or signed-in browser validation. No generation request or collection write was made.

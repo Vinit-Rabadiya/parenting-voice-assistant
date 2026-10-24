@@ -1,5 +1,5 @@
 {
-  "checked_on": "2026-10-22",
+  "checked_on": "2026-10-24",
   "country": "KE",
   "status": "schedule_not_reconciled_not_approved",
   "sources": [
@@ -14,7 +14,7 @@
       "url": "https://www.health.go.ke/node/1955",
       "published_on": "2025-07-07",
       "event_on": "2025-07-05",
-      "finding": "Later programme announcement; confirms a change after the older guideline. A campaign announcement cannot establish the complete current routine schedule."
+      "finding": "Official announcement explicitly identifies routine typhoid conjugate vaccination at nine months. This is evidence of a programme update, not a complete current schedule. The publisher search record was checked on 24 October 2026; direct page retrieval timed out. No complete-schedule approval is inferred."
     },
     {
       "title": "WHO: Vaccines and immunization: What is vaccination?",
@@ -32,6 +32,8 @@
     "proposed_owner": "designated content maintainer; assignment pending",
     "proposed_interval_days": 90,
     "additional_trigger": "official programme change, safety notice or identified source conflict",
-    "status": "proposed_not_implemented"
+    "status": "owner_assignment_pending",
+    "audit_command": "python -m scripts.prepare_coverage_review --corpus-dir data/processed/practical-care-activity-candidates --domain-review data/passage-domain-review.json --evaluation-date 2026-10-24 --audit-only",
+    "implemented_check": "The offline audit computes publisher review-due flags at the supplied evaluation date. It does not re-fetch sources, approve content, assign a reviewer or activate a collection."
   }
 }
