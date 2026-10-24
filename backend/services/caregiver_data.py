@@ -265,10 +265,11 @@ class CaregiverDataService:
         from backend.schemas.coaching import FeedbackValues
 
         # Validate at the storage boundary too; do not infer numeric ratings from
-        # historical boolean feedback. Replacing feedback resets prior review.
+        # historical boolean feedback. There is no administrator review of
+        # individual private feedback records.
         value = FeedbackValues(helpful=helpful, rating=rating, reasons=reasons or [], comment=comment)
         return {**value.model_dump(), "comment": comment.strip() if comment else None,
-                "review_status": "pending", "recorded_at": datetime.now(timezone.utc)}
+                "recorded_at": datetime.now(timezone.utc)}
 
     def delete_child(self, uid: str, child_id: str) -> bool:
         # Query only this user's interactions; recursive deletion includes future subcollections.

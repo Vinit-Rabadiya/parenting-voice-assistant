@@ -69,7 +69,6 @@ class FeedbackRequest(FeedbackValues):
 
 class FeedbackRecord(FeedbackValues):
     recorded_at: datetime
-    review_status: Literal["pending", "reviewed", "resolved"] = "pending"
 
 
 class FeedbackResponse(BaseModel):
