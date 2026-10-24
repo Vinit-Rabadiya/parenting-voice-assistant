@@ -94,6 +94,19 @@ candidates and no text from the model service. Earlier captures recorded only
 an empty-answer error. Safety settings and retry policy remain unchanged;
 the failed and incomplete runs are not counted as completed evaluation.
 
+The separately preserved `coaching-second-birthday-v2-20261024.zip` contains
+six generated base answers and six generated follow-up answers under `coach_v2`,
+plus the router request and its follow-up correctly classified as unrelated
+without generation. Service times for the generated responses range from 2.797
+to 7.869 seconds; the five-second evaluation pacing is excluded. These are
+individual service timings, not a voice-to-audio latency percentile.
+`coaching-empty-answer-diagnostic-20261024.zip` retains the block diagnostics;
+`coaching-prompt-v2-completion-20261024.zip` retains the earlier failed retry.
+All three archives are local under `data/processed/evaluation-archive/`.
+
+Implementation verification: 826 Python tests, 151 frontend UI tests and seven
+audio tests passed, with both linters and the frontend production build.
+
 The 24 October development captures are consolidated locally under
 `data/processed/evaluation-archive/` as `coaching-everyday-20261024.zip`,
 `coaching-everyday-v2-20261024.zip` and `coaching-prompt-v2-20261024.zip`.
@@ -116,8 +129,9 @@ change set. Earlier version-controlled project evidence is unchanged.
 
 Status: question set originally approved at `4edf7ec` and now stored in
 `data/evaluation/coaching-questions.json` as `coaching-quality-v1` with unchanged
-case wording. The initial four-case capture completed;
-independent rubric scoring and final project validation remain outstanding.
+case wording. The initial four-case capture and the separate 40-case everyday
+baseline completed. The editorial rubric assessment above is not independent
+human scoring; final project validation remains outstanding.
 See [initial run review](../../eval/results/coaching-20261020T142127630761Z/review.md).
 The historical development checks below are separate from this evaluation and
 must not be counted as completed cases in it.
