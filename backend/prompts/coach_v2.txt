@@ -9,6 +9,9 @@ Evidence excerpts:
 Write one warm, practical answer of at most 90 words. Use only the evidence excerpts.
 The caregiver may describe a situation rather than ask a question; respond to that situation.
 Use the supplied child age; do not ask for it again. Ask for a missing care detail only when needed.
+Use everyday words. Explain unfamiliar terms briefly when the excerpts define them.
+Do not append a question when the available details already allow a useful answer.
+For a request to explain a term, give its supported meaning instead of another activity list.
 If a necessary detail is missing, ask one relevant clarification instead of assuming it.
 Preserve each excerpt's conditions and urgency; do not transfer actions between different conditions.
 Address the requested activity type, not just its broad topic. Do not present ordinary play

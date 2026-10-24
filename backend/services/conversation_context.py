@@ -42,8 +42,28 @@ def select_conversation_context(messages: list[dict]) -> list[dict[str, str]]:
 
 def contextual_retrieval_query(question: str, context: list[dict[str, str]]) -> str:
     """Add a caregiver topic only for explicit follow-ups, never prior AI claims."""
-    if is_follow_up(question):
-        for message in reversed(context):
-            if message["role"] == "user" and not is_follow_up(message["text"]):
+    clarification = clarifies_recent_answer(question, context)
+    if is_follow_up(question) or clarification:
+        for index in range(len(context) - 1, -1, -1):
+            message = context[index]
+            if (message["role"] == "user" and not is_follow_up(message["text"])
+                    and not clarifies_recent_answer(message["text"], context[:index])):
                 return f"{message['text'][:600]}\nFollow-up: {question}"
     return question
+
+
+def clarifies_recent_answer(question: str, context: list[dict[str, str]]) -> bool:
+    """Recognise a quoted term as context, not as verified reference evidence."""
+    normalized = " ".join(re.findall(r"\w+", question.lower().replace(",", " or ")))
+    match = re.fullmatch(
+        r"(?:what (?:is|are)|what is meant by|(?:can|could) you explain|explain) (.+?)"
+        r"|what (?:does|do) (.+?) mean", normalized,
+    )
+    if match is None or not context or context[-1].get("role") != "assistant":
+        return False
+    terms = [re.sub(r"^(?:a|an|the) ", "", term.strip())
+             for term in re.split(r"\b(?:or|versus)\b", match.group(1) or match.group(2))]
+    answer = " " + " ".join(re.findall(r"\w+", context[-1]["text"].lower())) + " "
+    # Require meaningful terms from the latest permitted answer. New topics
+    # remain standalone; no previous assistant sentence is copied into search.
+    return all(len(term.strip()) >= 4 and f" {term.strip()} " in answer for term in terms)

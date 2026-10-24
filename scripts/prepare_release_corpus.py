@@ -8,8 +8,37 @@ from pathlib import Path
 from backend.services.age import current_date
 from scripts.index_rag import load_passages, validate_source_references
 from scripts.prepare_coverage_review import coverage_markdown
+from scripts.build_reference_expansion import compile_expansion, fingerprint, replace_source_revisions
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def revise_source(candidate, manifest, pack, revision, original_ids):
+    """Refresh wording only; preserve passage identity, scope and clinical gates."""
+    if fingerprint(pack) != revision["pack_sha256"]:
+        raise ValueError("Source revision differs from its pinned review.")
+    sid = revision["source_id"]
+    old = {p["passage_id"]: p for p in candidate if p["source_id"] == sid}
+    if (not old or set(old) & original_ids
+            or any(p.get("clinical_review_required") or p.get("release_status") == "blocked_pending_health_review"
+                   for p in old.values())):
+        raise ValueError("Source revision cannot change the baseline or blocked clinical content.")
+    sources = [s for s in pack["sources"] if s["source_id"] == sid]
+    if len(sources) != 1:
+        raise ValueError("Source revision requires one known source.")
+    selected_pack = {**pack, "sources": sources, "replacement_sources": [sid]}
+    retained, retained_manifest, _ = replace_source_revisions(selected_pack, candidate, manifest)
+    revised, updated_manifest, _ = compile_expansion(selected_pack, retained, retained_manifest)
+    updated = {p["passage_id"]: p for p in revised if p["source_id"] == sid}
+    fields = ("source_age", "source_url", "developmental_domain", "routines", "applicability_conditions")
+    if (set(updated) != set(old) or any(
+            p.get("clinical_review_required") or p.get("release_status") == "blocked_pending_health_review"
+            or any(p.get(field) != old[pid].get(field) for field in fields)
+            for pid, p in updated.items())):
+        raise ValueError("Source wording revision changed its identity, age, conditions or topic scope.")
+    source_entries = {s["source_id"]: s for s in updated_manifest["sources"]}
+    return ([updated.get(p["passage_id"], p) for p in candidate],
+            {**manifest, "sources": [source_entries[s["source_id"]] for s in manifest["sources"]]})
 
 
 def select_release_passages(candidate, original, plan, *, evaluated):
@@ -87,18 +116,35 @@ def main():
     parser.add_argument("--candidate-dir", type=Path, default=ROOT / "data/processed/practical-care-activity-candidates")
     parser.add_argument("--base", type=Path, default=ROOT / "data/processed/rag/passages.jsonl")
     parser.add_argument("--review", type=Path, default=ROOT / "data/everyday-release-review.json")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "data/processed/everyday-release-v1")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "data/processed/everyday-release-v3")
     args = parser.parse_args()
     try:
         plan = json.loads(args.review.read_text(encoding="utf-8"))
         candidate_path = args.candidate_dir / "passages.jsonl"
-        for path, field in ((args.base, "base_corpus_sha256"), (candidate_path, "candidate_corpus_sha256")):
-            if hashlib.sha256(path.read_bytes()).hexdigest() != plan[field]:
-                raise ValueError("Corpus revision differs from the editorial review.")
+        if hashlib.sha256(args.base.read_bytes()).hexdigest() != plan["base_corpus_sha256"]:
+            raise ValueError("Base corpus revision differs from the editorial review.")
         candidate = load_passages(candidate_path)
+        input_sha256 = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+        if (input_sha256 != plan["candidate_corpus_sha256"]
+                and fingerprint(candidate) != plan.get("revised_candidate_fingerprint")):
+            raise ValueError("Candidate corpus revision differs from the editorial review.")
         validate_source_references(candidate, args.candidate_dir / "sources.json")
-        selected = select_release_passages(candidate, load_passages(args.base), plan, evaluated=current_date())
         sources = json.loads((args.candidate_dir / "sources.json").read_text(encoding="utf-8"))
+        original = load_passages(args.base)
+        checked_sources = {check["source_id"] for check in plan["source_checks"]}
+        for revision in plan.get("source_revisions", []):
+            if revision["source_id"] not in checked_sources:
+                raise ValueError("Source revision requires an explicit source check.")
+            pack_path = (ROOT / revision["pack"]).resolve()
+            if not pack_path.is_relative_to(ROOT):
+                raise ValueError("Source revision pack must be inside the project.")
+            pack = json.loads(pack_path.read_text(encoding="utf-8"))
+            candidate, sources = revise_source(candidate, sources, pack, revision,
+                                                {p["passage_id"] for p in original})
+        if (plan.get("revised_candidate_fingerprint")
+                and fingerprint(candidate) != plan["revised_candidate_fingerprint"]):
+            raise ValueError("Revised candidate differs from its pinned review.")
+        selected = select_release_passages(candidate, original, plan, evaluated=current_date())
         used = {p["source_id"] for p in selected}
         sources["sources"] = [s for s in sources["sources"] if s["source_id"] in used]
         if args.output_dir.exists():
@@ -112,8 +158,10 @@ def main():
                   "passage_count": len(selected), "source_count": len(used),
                   "corpus_sha256": hashlib.sha256(text.encode()).hexdigest(),
                   "base_corpus_sha256": plan["base_corpus_sha256"],
-                  "candidate_corpus_sha256": plan["candidate_corpus_sha256"],
+                  "candidate_corpus_sha256": input_sha256,
+                  "effective_candidate_fingerprint": fingerprint(candidate),
                   "review_sha256": hashlib.sha256(args.review.read_bytes()).hexdigest(),
+                  "source_revisions": plan.get("source_revisions", []),
                   "nonclinical_scope_corrections": sum(len(c["passage_ids"]) for c in plan.get("nonclinical_scope_corrections", [])),
                   "health_candidates_activated": False}
         (args.output_dir / "preparation-report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
