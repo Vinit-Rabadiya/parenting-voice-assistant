@@ -4,6 +4,47 @@ import pytest
 from backend.services.retrieval import RetrievalService, is_age_eligible
 
 
+@pytest.mark.parametrize("metadata", [
+    {"review_status": "candidate_not_expert_validated"},
+    {"release_status": "blocked_pending_health_review"},
+    {"clinical_review_required": True},
+    {"clinical_review_required": "false"},
+    {"clinical_review_required": 0},
+])
+def test_chat_retrieval_excludes_unapproved_candidate_metadata(metadata):
+    point = MagicMock(id="p1", score=0.8, payload={
+        "passage_id": "p1", "text": "Unapproved reference.",
+        "source_age": {"min_months": 0, "max_months_exclusive": 12}, **metadata,
+    })
+    client = MagicMock()
+    client.query_points.return_value.points = [point]
+    assert RetrievalService(client=client).retrieve("feeding", 6) == []
+    review = RetrievalService(client=client, collection_name="separate-review", allow_candidate_content=True)
+    assert review.retrieve("feeding", 6)[0].passage_id == "p1"
+
+
+def test_candidate_evaluation_cannot_use_the_application_collection():
+    from backend.core.config import settings
+
+    with pytest.raises(ValueError, match="separate evaluation collection"):
+        RetrievalService(collection_name=settings.QDRANT_COLLECTION, allow_candidate_content=True)
+    with pytest.raises(ValueError, match="boolean"):
+        RetrievalService(collection_name="review", allow_candidate_content="false")
+
+
+def test_candidate_evaluation_still_enforces_age_and_routine_filters():
+    point = MagicMock(id="p1", score=0.8, payload={
+        "passage_id": "p1", "text": "Review-only reference.", "routines": ["play"],
+        "source_age": {"min_months": 6, "max_months_exclusive": 12},
+        "review_status": "candidate_not_expert_validated",
+    })
+    client = MagicMock()
+    client.query_points.return_value.points = [point]
+    service = RetrievalService(client=client, collection_name="separate-review", allow_candidate_content=True)
+    assert service.retrieve("feeding", 3) == []
+    assert service.retrieve("feeding", 6, "feeding") == []
+
+
 @pytest.mark.parametrize("source_age", [
     None, [], "6-8 months", {}, {"label": "unknown"},
     {"minimum_age": 0, "maximum_age": 24},

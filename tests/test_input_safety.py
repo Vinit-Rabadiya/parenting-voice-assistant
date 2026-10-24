@@ -24,6 +24,27 @@ def test_smart_apostrophes_and_capitalization():
 
 
 @pytest.mark.parametrize("question", [
+    "My baby has green vomit.", "My baby is vomiting blood.",
+    "My child's vomit looks green.", "My baby has blood in her vomit.",
+    "My baby's lips have turned blue.", "My baby has grey lips.",
+    "My baby has a rash that does not fade when I press it.",
+])
+def test_additional_source_backed_danger_reports(question):
+    decision = inspect_input(question, 6)
+    assert decision.escalate
+    assert decision.citations
+
+
+@pytest.mark.parametrize("question", [
+    "My baby has no green vomit.", "My baby is not vomiting blood.",
+    "My baby's lips are not blue.", "My baby has no grey lips.",
+    "My baby has a rash that fades when pressed.", "My baby has green clothes.",
+])
+def test_additional_rules_do_not_escalate_denied_or_unrelated_descriptions(question):
+    assert not inspect_input(question, 6).escalate
+
+
+@pytest.mark.parametrize("question", [
     "My baby is not having a seizure.",
     "My child does not have a fever.",
     "My baby is not feeding poorly.",

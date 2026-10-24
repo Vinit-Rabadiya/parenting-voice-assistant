@@ -197,11 +197,15 @@ def test_out_of_scope_profile_never_reaches_retrieval_or_generation(client, serv
     data.create_interaction.assert_not_called()
 
 
-def test_danger_report_bypasses_retrieval_and_generation(client, services, caplog):
+@pytest.mark.parametrize("question,expected_page", [
+    ("My baby cannot breathe.", 45), ("My baby has green vomit.", None),
+    ("My baby's lips have turned blue.", None),
+    ("My baby has a rash that does not fade when I press it.", None),
+])
+def test_danger_report_bypasses_retrieval_and_generation(client, services, caplog, question, expected_page):
     import logging
 
     data, retrieval, coaching = services
-    question = "My baby cannot breathe."
     with caplog.at_level(logging.INFO, logger="uvicorn.error.coaching_timing"):
         response = client.post("/coach", json={"child_id": "child-1", "question": question})
     body = response.json()
@@ -209,7 +213,8 @@ def test_danger_report_bypasses_retrieval_and_generation(client, services, caplo
     assert body["status"] == "escalated"
     assert body["safety"] == "escalate"
     assert body["answer"] == ESCALATION_MESSAGE
-    assert body["citations"][0]["pdf_page"] == 45
+    assert body["citations"][0]["pdf_page"] == expected_page
+    assert body["citations"][0]["source_url"].startswith("https://")
     retrieval.retrieve.assert_not_called()
     coaching.generate.assert_not_called()
     assert data.create_interaction.call_args.args[-1] == "escalated"
