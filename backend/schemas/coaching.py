@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class CitationSchema(BaseModel):
@@ -21,6 +21,11 @@ class CoachingRequest(BaseModel):
     routine: str | None = Field(default=None, max_length=40)
     support_country: Literal["KE"] | None = None
     vaccination_country: Literal["KE"] = "KE"
+
+    @field_validator("question", mode="before")
+    @classmethod
+    def trim_question(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
 
 class SupportResource(BaseModel):
