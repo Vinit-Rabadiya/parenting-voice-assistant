@@ -128,10 +128,17 @@ class RetrievalService:
         api_key: str | None = None,
         collection_name: str | None = None,
         client: QdrantClient | None = None,
+        *,
+        allow_candidate_content: bool = False,
     ):
         self.url = (url or settings.QDRANT_URL or "").strip()
         self.api_key = (api_key or settings.QDRANT_API_KEY or "").strip()
         self.collection_name = collection_name or settings.QDRANT_COLLECTION
+        if type(allow_candidate_content) is not bool:
+            raise ValueError("allow_candidate_content must be a boolean.")
+        if allow_candidate_content and self.collection_name == settings.QDRANT_COLLECTION:
+            raise ValueError("Candidate content is restricted to a separate evaluation collection.")
+        self.allow_candidate_content = allow_candidate_content
         self._client = client
 
     @property
@@ -191,6 +198,15 @@ class RetrievalService:
 
         for point in results.points:
             payload = point.payload or {}
+            # A collection configuration change must not silently publish review-only
+            # candidates. Only explicit evaluation instances may inspect these records.
+            if not self.allow_candidate_content and (
+                payload.get("review_status") == "candidate_not_expert_validated"
+                or payload.get("release_status") == "blocked_pending_health_review"
+                or (payload.get("clinical_review_required") is not None
+                    and payload.get("clinical_review_required") is not False)
+            ):
+                continue
             source_age = payload.get("source_age", {})
 
             # exclude passages outside the child's developmental age.

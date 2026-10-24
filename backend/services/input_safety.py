@@ -37,6 +37,13 @@ FEVER = {
     "source_url": "https://www.nhs.uk/symptoms/fever-in-children/",
     "title": "Urgent advice: under three months with a temperature of 38C or higher",
 }
+URGENT_ILLNESS = {
+    "passage_id": "safety-nhs-urgent-child-illness",
+    "source_title": "NHS: When to get urgent medical help for babies and children under 5",
+    "pdf_page": None,
+    "source_url": "https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/",
+    "title": "Immediate assessment: blue or grey lips and a rash that does not fade under pressure",
+}
 CELSIUS = re.compile(r"(?<![\w.,])(?P<value>\d{2}(?:[.,]\d+)?)\s*(?:(?:°|degrees?)\s*)?(?:celsius|c)\b")
 
 
@@ -55,6 +62,9 @@ def reported_high_infant_temperature(text: str) -> bool:
 
 # Keep a source per category rather than attributing every rule to a single excerpt.
 RULES = (
+    ("abnormal_vomit", r"\b(?:(?:green|yellow-green|bloody) vomit|(?:vomit|vomiting|throwing up) (?:is |looks |looks like )?(?:green|yellow-green|blood)|blood in (?:(?:his|her|their|the) )?vomit)\b", VOMITING),
+    ("blue_grey_lips", r"\b(?:(?:blue|grey|gray) (?:lips|tongue)|(?:lips|tongue) (?:are|look|turned|have turned) (?:blue|grey|gray))\b", URGENT_ILLNESS),
+    ("non_fading_rash", r"\brash (?:that )?(?:does not|doesn't|will not|won't) fade (?:when (?:i |you )?press(?:ed)?|under pressure)\b", URGENT_ILLNESS),
     ("cannot_keep_fluids", r"\b(?:cannot|can't|cant|unable to) keep (?:any |even |any of )?(?:the |their |his |her )?(?:fluids?|liquids?|water|milk|feeds?) (?:down|in)\b", VOMITING),
     ("breathing", r"\b(?:can(?:not|'t) breathe|not breathing(?!\s+fast\b)|stopped breathing|struggling to breathe|difficulty breathing|difficult breathing|breathing (?:very )?fast|fast breathing|gasping)\b", KENYA),
     ("not_feeding", r"\b(?:(?:cannot|can't|unable to|will not|won't|not able to) (?:drink|feed|breastfeed)|not (?:feeding|drinking|breastfeeding)(?!\s+poorly\b)|(?:feeding|drinking|breastfeeding) poorly)\b", KENYA),
