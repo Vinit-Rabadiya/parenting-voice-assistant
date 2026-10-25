@@ -9,6 +9,7 @@ import AuthPage from "./pages/AuthPage";
 import LandingPage from "./pages/LandingPage";
 import { Navbar } from "./components/Navbar";
 import useAccountAccess from "./hooks/useAccountAccess";
+import { stopGuidanceAudio } from "./hooks/useGuidanceAudio";
 
 function MainContent() {
   const { user, checkingAuth, signupResult, setSignupResult } = useAuth();
@@ -63,7 +64,7 @@ function MainContent() {
         onHome={() => setScreen("home")}
         onLogin={() => setScreen("login")}
         onSignup={() => setScreen("signup")}
-        onAccount={() => { window.speechSynthesis?.cancel(); setScreen("account"); }}
+        onAccount={() => { stopGuidanceAudio(); setScreen("account"); }}
       />
       {(user || screen === "home") && (
       <main className="landing-shell" hidden={screen !== "home"} key={`workspace-${userId}-${dataRevision}`}>

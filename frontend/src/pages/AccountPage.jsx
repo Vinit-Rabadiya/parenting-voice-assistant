@@ -17,6 +17,7 @@ import AccountUsage from "../components/AccountUsage";
 import AccountConsent from "../components/AccountConsent";
 import AdminFeedbackSummary from "../components/AdminFeedbackSummary";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
+import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
 function AccountPage({ verificationEmailRequested, email, accountAccess, onDataDeleted }) {
   const { logout, user } = useAuth();
   // remember this screen's progress, messages, and account setup details.
@@ -45,7 +46,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     setBusy(true); setMessage("");
     try {
       await deleteMyData();
-      window.speechSynthesis?.cancel();
+      stopGuidanceAudio();
       setDataDeleted(true);
       onDataDeleted?.();
       setMessage("Your saved app data was deleted. Your account is still active. Review the privacy notice again before adding profiles or requesting guidance.");
@@ -62,7 +63,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     setMessage("");
     try {
       await deleteAccount();
-      window.speechSynthesis?.cancel();
+      stopGuidanceAudio();
       await logout();
     } catch (error) {
       setMessage(error.message || "Account deletion could not finish. Please try again.");

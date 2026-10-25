@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createConversation, deleteConversation, getConversation, listConversations, requestCoaching } from "../services/caregiving";
+import { stopGuidanceAudio } from "./useGuidanceAudio";
 
 export default function useConversations(childId, onBusyChange) {
   const [conversations, setConversations] = useState([]);
@@ -15,6 +16,7 @@ export default function useConversations(childId, onBusyChange) {
   const locked = useRef(false);
   const coachingRequest = useRef(null);
   const [generating, setGenerating] = useState(false);
+  const [newAnswerId, setNewAnswerId] = useState(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -27,7 +29,7 @@ export default function useConversations(childId, onBusyChange) {
       setMoreConversations(items.length === 30);
     }).catch((cause) => active && setHistoryError(controller.signal.aborted ? "History took too long to load. Please retry." : cause.message))
       .finally(() => { clearTimeout(timer); if (active) setLoading(false); });
-    return () => { active = false; clearTimeout(timer); controller.abort(); mounted.current = false; coachingRequest.current?.abort(); window.speechSynthesis?.cancel(); };
+    return () => { active = false; clearTimeout(timer); controller.abort(); mounted.current = false; coachingRequest.current?.abort(); stopGuidanceAudio(); };
   }, [childId]);
 
   async function perform(action) {
@@ -44,12 +46,12 @@ export default function useConversations(childId, onBusyChange) {
 
   function newChat() {
     if (locked.current) return;
-    window.speechSynthesis?.cancel();
+    stopGuidanceAudio(); setNewAnswerId(null);
     setConversationId(null); setMessages([]); setMoreMessages(false); setError("");
   }
 
   function open(id) {
-    window.speechSynthesis?.cancel();
+    stopGuidanceAudio(); setNewAnswerId(null);
     return perform(async () => {
       const item = await getConversation(id);
       if (!mounted.current) return;
@@ -62,6 +64,7 @@ export default function useConversations(childId, onBusyChange) {
     return perform(async () => {
       const controller = new AbortController();
       coachingRequest.current = controller;
+      setNewAnswerId(null);
       setGenerating(true);
       const localId = crypto.randomUUID();
       const questionId = `question-${localId}`;
@@ -70,13 +73,16 @@ export default function useConversations(childId, onBusyChange) {
         let id = conversationId;
         if (!id) {
           const item = await createConversation(childId, { signal: controller.signal });
+          controller.signal.throwIfAborted();
           if (!mounted.current) return;
           id = item.id; setConversationId(id); setConversations((items) => [item, ...items]);
         }
         controller.signal.throwIfAborted();
         const response = await requestCoaching({ child_id: childId, conversation_id: id,
           question, routine: routine || null, support_country: supportCountry || null }, { signal: controller.signal });
+        controller.signal.throwIfAborted();
         if (!mounted.current) return;
+        setNewAnswerId(response.message_id || localId);
         setMessages((items) => [...items.map((item) => item.id === questionId ? { ...item, delivery: "sent" } : item),
           { ...response, id: response.message_id || localId, message_id: response.message_id ?? null,
             role: "assistant", text: response.answer },
@@ -100,7 +106,7 @@ export default function useConversations(childId, onBusyChange) {
 
   function remove(id) {
     if (!id || locked.current || !window.confirm("Delete this conversation and its messages and feedback? This cannot be undone.")) return;
-    if (id === conversationId) window.speechSynthesis?.cancel();
+    if (id === conversationId) { stopGuidanceAudio(); setNewAnswerId(null); }
     return perform(async () => {
       await deleteConversation(id);
       if (!mounted.current) return;
@@ -139,7 +145,7 @@ export default function useConversations(childId, onBusyChange) {
     coachingRequest.current.abort();
   }
 
-  return { conversations, conversationId, messages, busy, generating,
+  return { conversations, conversationId, messages, busy, generating, newAnswerId,
     cancelGeneration, loading, error, historyError,
     moreConversations, moreMessages, newChat, open, submit, remove, loadOlderMessages, loadOlderConversations };
 }

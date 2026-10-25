@@ -4,6 +4,7 @@ import useTranscription from "../hooks/useTranscription";
 import { useEffect, useState } from "react";
 import MicrophoneButton from "./MicrophoneButton";
 import "./MicrophoneControls.css";
+import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
 
 export default function MicrophoneControls({ onTranscriptChange, compact = false, disabled = false, onCaptureStateChange }) {
   const { status, error, start, stop, recording, pause, resume, cancel } = useMicrophone();
@@ -75,6 +76,7 @@ export default function MicrophoneControls({ onTranscriptChange, compact = false
         onClick={() => {
           if (recordingNow || paused) stop();
           else {
+            stopGuidanceAudio();
             setCancelled(false);
             setFeedbackRevision((value) => value + 1);
             transcription.cancel();

@@ -6,6 +6,7 @@ import MicrophoneControls from "./MicrophoneControls";
 import useConversations from "../hooks/useConversations";
 import PrivacyConsent from "./PrivacyConsent";
 import ChatLoading from "./ChatLoading";
+import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
 
 function ConversationListItem({ conversation, active, disabled, onOpen, onDelete, workspaceActive }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -73,12 +74,22 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const threadRef = useRef(null);
+  const lastScrollTarget = useRef(null);
   const composerRef = useRef(null);
   const lastMessageId = chat.messages.at(-1)?.id;
   useEffect(() => {
     const thread = threadRef.current;
-    if (thread) thread.scrollTop = thread.scrollHeight;
-  }, [chat.conversationId, lastMessageId]);
+    if (!thread || !isActive) return;
+    const target = Array.from(thread.children).find((item) => item.dataset.messageId === lastMessageId);
+    if (!target || target === lastScrollTarget.current) return;
+    lastScrollTarget.current = target;
+    // Move only the chat scroller to this message, never the whole page's end.
+    const top = Math.max(0, thread.scrollTop + target.getBoundingClientRect().top
+      - thread.getBoundingClientRect().top - thread.clientTop - 12);
+    const behavior = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth";
+    if (thread.scrollTo) thread.scrollTo({ top, behavior });
+    else thread.scrollTop = top;
+  }, [chat.conversationId, lastMessageId, isActive]);
   useEffect(() => {
     const input = composerRef.current;
     if (!input) return;
@@ -89,7 +100,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
   async function submit(event) {
     event.preventDefault();
     if (readOnly || chat.busy || voiceBusy || chat.loading || question.trim().length < 2 || question.length > 1200) return;
-    window.speechSynthesis?.cancel();
+    stopGuidanceAudio();
     const message = question.trim();
     setQuestion("");
     await chat.submit(message, routine, supportCountry);
@@ -126,12 +137,13 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
       <section className="conversation-thread" aria-labelledby="thread-title" ref={threadRef} tabIndex={0}>
         {chat.moreMessages && <button type="button" disabled={chat.busy} onClick={chat.loadOlderMessages}>Load earlier messages</button>}
         {chat.messages.map((message) => message.role === "user"
-          ? <article className="caregiver-message" key={message.id}><h3>You</h3><p>{message.text}</p>
+          ? <article className="caregiver-message" data-message-id={message.id} key={message.id}><h3>You</h3><p>{message.text}</p>
               {message.delivery === "cancelled" && <small role="status">Request cancelled. Stopped waiting for guidance.</small>}
               {message.delivery === "limited" && <small role="status">Request limit reached. No new guidance was generated.</small>}
               {message.delivery === "unconfirmed" && <small>Answer not confirmed. This message is shown locally; reopen the conversation to check saved history.</small>}
             </article>
           : <GuidanceAnswer key={message.id} message={message} childName={child.name} allowFeedback={!readOnly}
+              fresh={message.id === chat.newAnswerId} active={isActive && !chat.generating && !voiceBusy}
               conversationId={message.conversation_id === null ? null : chat.conversationId} />)}
         {!chat.messages.length && <div className="chat-welcome"><h3>What are you doing with your baby today?</h3>
           <p>Describe the moment, or ask for guidance.</p></div>}
@@ -156,7 +168,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
               </select>
               <label htmlFor="support-country">Support resources location (optional)</label>
               <select id="support-country" value={supportCountry} onChange={(event) => {
-                window.speechSynthesis?.cancel(); setSupportCountry(event.target.value);
+                stopGuidanceAudio(); setSupportCountry(event.target.value);
               }}><option value="">Not selected / other country</option><option value="KE">Kenya</option></select>
             </div>
           </details>
@@ -188,7 +200,7 @@ function Workspace({ processingAllowed, isActive }) {
   const [child, setChild] = useState(null);
   const [busy, setBusy] = useState(false);
   const selectChild = useCallback((nextChild) => {
-    window.speechSynthesis?.cancel(); setBusy(false); setChild(nextChild);
+    stopGuidanceAudio(); setBusy(false); setChild(nextChild);
   }, []);
   const profileControls = <ChildProfiles selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} isActive={isActive} />;
   return <div className="guidance-workspace">

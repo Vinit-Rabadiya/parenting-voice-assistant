@@ -48,6 +48,12 @@ main.landing-shell {
   background: var(--code-bg);
 }
 .guidance-text { font-size: 18px; line-height: 1.65; white-space: pre-wrap; }
+.guidance-text p { margin: 0 0 8px; }
+.guidance-word--pending { visibility: hidden; }
+.guidance-text ul, .guidance-text ol { padding-left: 24px; }
+.answer-actions { position: relative; flex-wrap: wrap; }
+.audio-help { display: flex; align-items: center; gap: 8px; max-width: min(320px, 100%); padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--code-bg); color: var(--text-h); font-size: 12px; box-shadow: var(--shadow); }
+.audio-help button { flex-shrink: 0; }
 .guidance-meta { color: var(--text); font-size: 13px; }
 .guidance-answer a { color: var(--accent); }
 .feedback { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
@@ -113,6 +119,7 @@ main.landing-shell:not([hidden]):has(.landing-page--chat) { width: 100%; max-wid
 .conversation-thread .guidance-text { font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .conversation-thread .guidance-meta { font-size: 12px; }
 .conversation-thread .guidance-answer ul { margin: 2px 0; padding-left: 20px; font-size: 12px; line-height: 1.45; }
+.conversation-thread .guidance-text ul, .conversation-thread .guidance-text ol { font-size: inherit; line-height: inherit; }
 .conversation-thread .answer-actions { justify-content: flex-start; gap: 6px; }
 .conversation-thread .answer-actions button, .conversation-thread .feedback button { min-height: 36px; padding: 6px 10px; font-size: 12px; }
 .conversation-thread .feedback { margin-top: 6px; padding-top: 8px; }
