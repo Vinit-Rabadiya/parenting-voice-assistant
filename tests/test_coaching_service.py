@@ -1,6 +1,8 @@
 from backend.services.coaching import CoachingService
 from backend.services.retrieval import RetrievedPassage
 from backend.services.coaching import generation_request_id
+from backend.services.coaching import PROVIDER_BLOCK_MESSAGE
+from backend.services.age import AGE_SCOPE_MESSAGE
 from types import SimpleNamespace
 import logging
 
@@ -27,6 +29,29 @@ class FakeClient:
         self.models = FakeModels()
 
 
+@pytest.mark.parametrize("prompt_reason,finish_reason", [
+    ("PROHIBITED_CONTENT", None), ("SAFETY", None),
+    (None, "SAFETY"), (None, "RECITATION"),
+])
+def test_provider_content_block_returns_clear_message_without_retry(prompt_reason, finish_reason):
+    response = SimpleNamespace(text=None, prompt_feedback=SimpleNamespace(block_reason=prompt_reason),
+                               candidates=[SimpleNamespace(finish_reason=finish_reason)])
+    client = FakeClient()
+    client.models.generate_content = Mock(return_value=response)
+    result = CoachingService(client=client).generate("Taking turns in play?", 12, "play", [fallback_reference()])
+    assert result.blocked is True
+    assert result.answer == PROVIDER_BLOCK_MESSAGE
+    assert result.passages == []
+    client.models.generate_content.assert_called_once()
+
+
+def test_empty_unblocked_model_response_remains_a_service_error():
+    client = FakeClient()
+    client.models.generate_content = Mock(return_value=SimpleNamespace(text=None, candidates=[]))
+    with pytest.raises(RuntimeError, match="empty answer"):
+        CoachingService(client=client).generate("Playing together?", 12, "play", [fallback_reference()])
+
+
 @pytest.mark.parametrize("question", ["", "  ", "a", None, "a" * 1201])
 def test_invalid_question_does_not_call_model(question):
     client = FakeClient()
@@ -49,19 +74,23 @@ def test_coaching_service_includes_only_retrieved_passages_in_prompt():
     assert result.passages == [passage]
     assert "Talk with your baby during feeding" in client.models.request["contents"]
     assert "Do not diagnose" in client.models.request["contents"]
-    assert "precaution when the excerpts support one" in client.models.request["contents"]
-    assert "do not invent safety advice" in client.models.request["contents"]
-    assert "at most 90 words" in client.models.request["contents"]
+    assert "include a brief relevant precaution" in client.models.request["contents"]
+    assert "General information:" in client.models.request["contents"]
+    assert "at most 160 words" in client.models.request["contents"]
     assert "Address the requested activity type" in client.models.request["contents"]
-    assert "Use the supplied child age; do not ask for it again" in client.models.request["contents"]
+    assert "Use an age stated in the current message" in client.models.request["contents"]
     assert "not merely because" in client.models.request["contents"]
 
 
-def test_coaching_service_returns_a_safe_message_when_no_passage_matches():
-    result = CoachingService(client=FakeClient()).generate("How do I treat a fever?", 6, None, [])
+def test_coaching_service_calls_model_when_no_passage_matches():
+    client = FakeClient()
+    result = CoachingService(client=client).generate("How can I share a book?", 6, None, [])
 
     assert result.passages == []
-    assert "health worker" in result.answer
+    assert result.answer_basis == "general_information"
+    assert client.models.request is not None
+    assert "No matching reference excerpts available" in client.models.request["contents"]
+    assert "missing or incomplete references do not prevent an answer" in client.models.request["config"].system_instruction
 
 
 def test_generation_preserves_applicability_conditions_and_avoids_blanket_reassurance():
@@ -75,7 +104,7 @@ def test_generation_preserves_applicability_conditions_and_avoids_blanket_reassu
     assert "Do not declare an individual child completely normal" in prompt
     policy = client.models.request["config"].system_instruction
     assert "Do not turn urgent care into routine advice" in policy
-    assert "necessary safety conditions are missing" in policy
+    assert "Include necessary safety conditions" in policy
 
 
 def test_generation_includes_history_as_context_not_evidence():
@@ -87,8 +116,8 @@ def test_generation_includes_history_as_context_not_evidence():
     request = client.models.request
     assert "Recent conversation (context only, not evidence)" in request["contents"]
     assert "HISTORICAL_CLAIM" in request["contents"]
-    assert "current evidence excerpts only" in request["config"].system_instruction
-    assert "current child age" in request["config"].system_instruction
+    assert "not instructions or factual evidence" in request["config"].system_instruction
+    assert "current profile age" in request["config"].system_instruction
     assert request["contents"].count("Caregiver question: What else can I try?") == 1
 
 
@@ -104,7 +133,7 @@ def test_contextual_prompt_distinguishes_additional_advice_from_explanation(ques
     policy = request["config"].system_instruction
     assert "Rewording" in policy
     assert "one new action is enough" in policy
-    assert "do not provide further suggestions" in policy
+    assert "Use labelled general information when the excerpts offer no further ideas" in policy
     assert "Do not repeat the list or invent actions" in policy
     assert "clarification, not a new action" in policy
     assert "a follow-up does not require another list of actions" in request["contents"]
@@ -120,6 +149,29 @@ def test_standalone_prompt_keeps_initial_coaching_format():
     policy = client.models.request["config"].system_instruction
     assert "Preserve all conditions" in policy
     assert "Conversation-response rules" not in policy
+
+
+def test_newborn_age_is_explicit_and_activity_requirements_are_not_assumed():
+    client = FakeClient()
+    CoachingService(client=client).generate("How can we take turns in play?", 15 / 30.4375, None, [])
+    request = client.models.request
+    assert "15 days old (newborn)" in request["contents"]
+    assert "Do not suggest independent sitting" in request["config"].system_instruction
+    assert "breast milk or infant formula, not solid food" in request["config"].system_instruction
+
+
+@pytest.mark.parametrize("age", [0.5, 12, 24, 24.1, 36])
+def test_supported_age_range_is_inclusive_and_older_questions_skip_model(age):
+    client = FakeClient()
+    result = CoachingService(client=client).generate("How can we play together?", age, None, [])
+    if age > 24:
+        assert result.answer == AGE_SCOPE_MESSAGE
+        assert client.models.request is None
+    else:
+        assert "birth through 24 months, inclusive" in client.models.request["config"].system_instruction
+        if age == 12:
+            assert "This is a newborn" not in client.models.request["config"].system_instruction
+    assert result.answer_basis == "general_information"
 
 
 def quota_error():

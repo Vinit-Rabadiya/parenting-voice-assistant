@@ -108,6 +108,7 @@ def corpus_api(corpus_collection, monkeypatch):
     data.create_interaction.return_value = "local-interaction"
     coaching.generate.side_effect = lambda question, months, routine, evidence: CoachingResult(
         "Local test guidance.", evidence,
+        answer_basis="reference_assisted" if evidence else "general_information",
     )
     monkeypatch.setattr(caregiver_data, "current_date", lambda: TODAY)
     monkeypatch.setattr(settings, "RETRIEVAL_MIN_SCORE", 0.50)
@@ -154,11 +155,14 @@ def test_coaching_api_uses_real_corpus_with_server_calculated_age(client, corpus
     pytest.param(date(2024, 10, 19), id="day-after-second-birthday"),
     pytest.param(date(2024, 4, 20), id="thirty-months"),
 ])
-def test_coaching_api_blocks_out_of_scope_before_real_corpus_search(client, corpus_api, birth_date):
+def test_coaching_api_declines_older_children_before_corpus_search(client, corpus_api, birth_date):
     data, coaching, adapter, _ = corpus_api
     data.get_child.return_value = stored_profile(birth_date)
     response = client.post("/coach", json={"child_id": "local-child", "question": "Play ideas"})
-    assert response.status_code == 422
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_evidence"
+    assert response.json()["response_kind"] == "age_out_of_scope"
     assert adapter.calls == []
     coaching.generate.assert_not_called()
-    data.create_interaction.assert_not_called()
+    data.create_interaction.assert_called_once()
+    assert response.json()["citations"] == []

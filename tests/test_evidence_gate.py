@@ -8,6 +8,7 @@ from backend.api.dependencies import get_caregiver_data_service, get_coaching_se
 from backend.core.security import require_authenticated_user
 from backend.main import app
 from backend.services.coaching import CoachingResult
+from backend.services.coaching import PROVIDER_BLOCK_MESSAGE
 from backend.services.evidence import select_evidence
 from backend.services.retrieval import RetrievedPassage
 from backend.services.response_safety import SAFE_RESPONSE
@@ -49,6 +50,18 @@ def test_gate_keeps_boundary_and_rejects_invalid_or_empty_evidence():
     accepted = passage(0.50)
     assert select_evidence([passage(0.49), passage(float("nan")), passage(float("inf")),
                             passage(0.9, " "), accepted], 0.50) == [accepted]
+
+
+def test_provider_content_block_is_stored_as_clear_chat_response_without_citations(client, services):
+    data, retrieval, coaching = services
+    retrieval.retrieve.return_value = [passage(0.8)]
+    coaching.generate.return_value = CoachingResult(PROVIDER_BLOCK_MESSAGE, [], blocked=True)
+    response = client.post("/coach", json={"child_id": "child-1", "question": "Taking turns in play?"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "safety_blocked"
+    assert response.json()["answer"] == PROVIDER_BLOCK_MESSAGE
+    assert response.json()["citations"] == []
+    assert data.create_interaction.call_args.args[-1] == "safety_blocked"
 
 
 @pytest.mark.parametrize("country", [None, "KE"])
@@ -112,6 +125,8 @@ def services(monkeypatch):
     data, retrieval, coaching = MagicMock(), MagicMock(), MagicMock()
     data.get_child.return_value = {"age_months": 6.0, "completed_months": 6, "age_days": 183, "in_scope": True}
     data.create_interaction.return_value = "interaction-1"
+    coaching.generate.return_value = CoachingResult("General information: Talk gently with your child.", [],
+                                                    answer_basis="general_information")
     overrides = app.dependency_overrides.copy()
     app.dependency_overrides.update({
         require_authenticated_user: lambda: {"uid": "user-1"},
@@ -125,15 +140,18 @@ def services(monkeypatch):
 
 
 @pytest.mark.parametrize("scores", [[], [0.49], [0.20, 0.48]])
-def test_no_evidence_skips_generation_and_saves_outcome(client, services, scores):
+def test_no_evidence_still_generates_and_saves_general_information(client, services, scores):
     data, retrieval, coaching = services
     retrieval.retrieve.return_value = [passage(score) for score in scores]
-    response = client.post("/coach", json={"child_id": "child-1", "question": "Unsupported question"})
+    response = client.post("/coach", json={"child_id": "child-1", "question": "How can I encourage communication at mealtime?"})
     assert response.status_code == 200
-    assert response.json()["status"] == "no_evidence"
+    assert response.json()["status"] == "answered"
+    assert response.json()["answer_basis"] == "general_information"
+    assert response.json()["reference_status"] == "no_match"
     assert response.json()["citations"] == []
-    coaching.generate.assert_not_called()
-    assert data.create_interaction.call_args.args[-1] == "no_evidence"
+    assert coaching.generate.call_args.args[-1] == []
+    assert data.create_interaction.call_args.args[-1] == "answered"
+    assert data.create_interaction.call_args.kwargs["answer_basis"] == "general_information"
 
 
 def test_only_eligible_evidence_reaches_generation(client, services):
@@ -149,9 +167,7 @@ def test_only_eligible_evidence_reaches_generation(client, services):
 
 
 @pytest.mark.parametrize("question,kind", [
-    ("I am feeding my baby", "insufficient_references"),
-    ("My baby has a rash", "professional_referral"),
-    ("What should I do?", "clarification"),
+    ("What else can I try?", "clarification"),
     ("car repair", "unrelated"),
     ("the child cant keep any food", "professional_referral"),
 ])
@@ -173,9 +189,11 @@ def test_retrieval_failure_is_not_a_no_evidence_response(client, services):
     _, retrieval, coaching = services
     retrieval.retrieve.side_effect = TimeoutError("Connection timed out")
     response = client.post("/coach", json={"child_id": "child-1", "question": "Play ideas"})
-    assert response.status_code == 502
-    assert "status" not in response.json()
-    coaching.generate.assert_not_called()
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert response.json()["reference_status"] == "unavailable"
+    assert response.json()["answer_basis"] == "general_information"
+    coaching.generate.assert_called_once()
 
 
 @pytest.mark.parametrize("answer,unknown_source", [
@@ -207,15 +225,42 @@ def test_output_safety_replaces_answer_before_storage_and_delivery(client, servi
     assert "PRIVATE_QUESTION" not in caplog.text
 
 
-def test_out_of_scope_profile_never_reaches_retrieval_or_generation(client, services):
+@pytest.mark.parametrize("question", ["Play ideas", "How do vaccines work?"])
+def test_older_profile_receives_age_notice_without_retrieval_or_generation(client, services, question):
     data, retrieval, coaching = services
     data.get_child.return_value = {"age_months": 24.1, "completed_months": 24,
                                    "age_days": 732, "in_scope": False}
-    response = client.post("/coach", json={"child_id": "child-1", "question": "Play ideas"})
-    assert response.status_code == 422
+    retrieval.retrieve.return_value = []
+    response = client.post("/coach", json={"child_id": "child-1", "question": question})
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_evidence"
+    assert response.json()["response_kind"] == "age_out_of_scope"
     retrieval.retrieve.assert_not_called()
     coaching.generate.assert_not_called()
-    data.create_interaction.assert_not_called()
+    data.create_interaction.assert_called_once()
+
+
+def test_explicit_older_age_does_not_generate_using_younger_profile(client, services):
+    _, retrieval, coaching = services
+    retrieval.retrieve.return_value = []
+    response = client.post("/coach", json={"child_id": "child-1", "question": "How can I support my 3-year-old's language?"})
+    assert response.status_code == 200
+    assert response.json()["child_age_months"] == 36
+    assert response.json()["response_kind"] == "age_out_of_scope"
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+@pytest.mark.parametrize("age", [12, 24])
+def test_explicit_in_range_age_overrides_profile_and_allows_general_information(client, services, age):
+    _, retrieval, coaching = services
+    retrieval.retrieve.return_value = []
+    response = client.post("/coach", json={"child_id": "child-1", "question": f"How can I support my {age}-month-old's language?"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert response.json()["child_age_months"] == age
+    assert retrieval.retrieve.call_args.args[1] == age
+    assert coaching.generate.call_args.args[1] == age
 
 
 @pytest.mark.parametrize("question,expected_page", [
@@ -364,10 +409,10 @@ def test_retrieval_unavailable_does_not_claim_gemini_is_busy(client, services):
         503, {"error": {"message": "Retrieval failure"}},
     )
     response = client.post("/coach", json={"child_id": "child-1", "question": "Feeding ideas"})
-    assert response.status_code == 502
-    assert "busy" not in response.json()["detail"]
-    coaching.generate.assert_not_called()
-    data.create_interaction.assert_not_called()
+    assert response.status_code == 200
+    assert response.json()["reference_status"] == "unavailable"
+    coaching.generate.assert_called_once()
+    data.create_interaction.assert_called_once()
 
 
 def test_gemini_quota_error_returns_limit_message_without_saving_answer(client, services):

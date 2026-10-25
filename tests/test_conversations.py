@@ -188,6 +188,8 @@ def coaching_dependencies(history_service):
     history_service.save_conversation_turn.return_value = "answer-1"
     history_service.create_interaction.return_value = "interaction-1"
     retrieval.retrieve.return_value = []
+    coaching.generate.return_value = CoachingResult("General information: Play together gently.", [],
+                                                    answer_basis="general_information")
     app.dependency_overrides[get_retrieval_service] = lambda: retrieval
     app.dependency_overrides[get_coaching_service] = lambda: coaching
     yield history_service, retrieval, coaching
@@ -208,11 +210,13 @@ def test_coaching_saves_conversation_instead_of_duplicate_interaction(client, co
     assert body["message_id"] == "answer-1"
     assert body["interaction_id"] is None
     data.create_interaction.assert_not_called()
-    coaching.generate.assert_not_called()
+    coaching.generate.assert_called_once()
     args = data.save_conversation_turn.call_args.args
     assert args[:5] == ("account-a", "chat-1", "child-1", "Play ideas", None)
     assert args[5]["text"] == body["answer"]
-    assert args[5]["status"] == "no_evidence"
+    assert args[5]["status"] == "answered"
+    assert args[5]["answer_basis"] == "general_information"
+    assert args[5]["reference_status"] == "no_match"
 
 
 def test_coaching_without_conversation_preserves_existing_storage(client, coaching_dependencies):
@@ -255,6 +259,21 @@ def test_follow_up_uses_server_history_for_retrieval_and_generation(client, coac
         {"role": "user", "text": history[0]["text"]}, {"role": "assistant", "text": history[1]["text"]},
     ]
     assert data.save_conversation_turn.call_args.args[3] == "What else can I try?"
+
+
+def test_follow_up_preserves_explicit_subject_age_instead_of_different_profile_age(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    data.get_conversation.return_value = {**conversation(), "messages": [
+        {"role": "user", "text": "How can I play with my 3-year-old?"},
+        {"role": "assistant", "text": "Try simple pretend play.", "status": "answered"},
+    ]}
+    response = client.post("/coach", json=coaching_payload("What else can I try?"))
+    assert response.status_code == 200
+    assert response.json()["child_age_months"] == 36
+    assert response.json()["response_kind"] == "age_out_of_scope"
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+    assert data.save_conversation_turn.call_args.args[5]["child_age_months"] == 36
 
 
 def test_named_clarification_retrieves_definitions_using_permitted_caregiver_context(client, coaching_dependencies):

@@ -182,7 +182,7 @@ it("shows saved sources in a collapsed disclosure and includes a privacy notice"
   render(<GuidanceWorkspace />);
   await selectProfile();
   fireEvent.click(screen.getByRole("button", { name: "Feeding conversation" }));
-  const summary = await screen.findByText("Sources used (1)");
+  const summary = await screen.findByText("References consulted (1)");
   expect(summary.closest("details").open).toBe(false);
   fireEvent.click(summary);
   expect(summary.closest("details").open).toBe(true);

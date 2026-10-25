@@ -5,6 +5,13 @@ import { sendFeedback } from "../../frontend/src/services/caregiving";
 
 vi.mock("../../frontend/src/services/caregiving", () => ({ sendFeedback: vi.fn() }));
 const message = { id: "answer-1", text: "Talk softly.", status: "answered", citations: [], processing_seconds: 1 };
+
+it("labels saved general information and a reference outage without claiming source support", () => {
+  render(<GuidanceAnswer message={{ ...message, answer_basis: "general_information", reference_status: "unavailable" }} />);
+  expect(screen.getByText(/not verified against reference documents/)).toBeTruthy();
+  expect(screen.getByText(/Reference search is temporarily unavailable/)).toBeTruthy();
+  expect(screen.queryByText(/References consulted/)).toBeNull();
+});
 beforeEach(() => {
   vi.resetAllMocks(); sendFeedback.mockResolvedValue({});
   vi.stubGlobal("speechSynthesis", { speak: vi.fn(), cancel: vi.fn() });
@@ -95,6 +102,7 @@ it("shows an error and allows retry when feedback fails", async () => {
 it.each([
   ["clarification", "Tell me a little more"], ["unrelated", "Baby-care topics only"],
   ["professional_referral", "Professional advice needed"], ["insufficient_references", "More information needed"],
+  ["age_out_of_scope", "Supported age range"],
 ])("labels the %s outcome without claiming guidance was generated", (kind, heading) => {
   render(<GuidanceAnswer message={{ ...message, status: "no_evidence", response_kind: kind }} />);
   expect(screen.getByRole("heading", { name: heading })).toBeTruthy();

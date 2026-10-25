@@ -19,6 +19,7 @@ def reference():
     ("Your baby has pneumonia.", "diagnostic_claim"),
     ("Your child is 5 years old.", "conflicting_age_claim"),
     ("Talk softly [9].", "invalid_citation_marker"),
+    ("Talk softly [1, 9].", "invalid_citation_marker"),
     ("Read https://untrusted.example/advice", "model_generated_link"),
     (" ", "empty_answer"),
     ("Do not give medicine. Give antibiotics instead.", "medication_instruction"),
@@ -62,11 +63,16 @@ def test_matching_id_with_modified_url_is_not_trusted():
     assert "invalid_source_provenance" in inspect_response("Talk softly.", [altered], [passage], 6).reasons
 
 
-def test_unknown_passage_and_out_of_scope_age_are_blocked():
+def test_unknown_passage_is_blocked_for_older_children_too():
     passage = reference()
     decision = inspect_response("Talk softly.", [replace(passage, passage_id="unknown")], [passage], 25)
     assert "invalid_source_provenance" in decision.reasons
     assert "profile_out_of_scope" in decision.reasons
+
+
+def test_general_information_can_pass_without_source_cards():
+    assert not inspect_response("General information: Read a picture book together.", [], [], 12).blocked
+    assert inspect_response("Give 5 mg of medicine.", [], [], 36).blocked
 
 
 def test_known_conservative_measurement_rule_is_explicit():
@@ -86,6 +92,7 @@ def test_age_claim_in_years_is_compared_in_months():
     passage = reference()
     assert not inspect_response("Your child is 2 years old.", [passage], [passage], 24).blocked
     assert "conflicting_age_claim" in inspect_response("Your child is 2 years old.", [passage], [passage], 6).reasons
+    assert "conflicting_age_claim" in inspect_response("Your child is 25 months old.", [passage], [passage], 24).reasons
 
 
 def test_numbered_reference_must_also_have_a_returned_source_card():
