@@ -18,8 +18,11 @@ references, and listen to the answer.
 - Qdrant retrieval from 184 selected source-linked passages and Gemini-generated guidance,
   with labelled general information when references are missing or incomplete.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
-- Browser speech playback with Listen/replay and Stop controls.
-- Stored interactions and Helpful/Not helpful or 1–5 helpfulness ratings, with optional reasons and comments.
+- New answers reveal progressively after generation, with one Listen/Stop audio control
+  and an automatic playback attempt after the text finishes appearing.
+- Stored interactions and 1–5 helpfulness ratings, with optional reasons and comments
+  submitted together through one Save feedback action. Historical Helpful/Not helpful
+  records remain readable.
 - Responsive interface with light and dark theme support.
 
 The application supports developmental caregiver-child interaction. It is not
@@ -66,8 +69,17 @@ dose decisions remain outside scope. Published release notes retain their origin
 4. Select an optional routine and click **Get guidance**.
 5. The backend loads the child's stored birth date, calculates age, retrieves
    reference passages, and sends the question, age, routine, and passages to Gemini.
-6. The answer and references appear on the page. Use **Listen** for spoken playback
-   and submit feedback if desired.
+6. The chat scrolls to the new answer. Its text appears progressively after the complete
+   response arrives; reduced-motion preferences skip the animation. Audio attempts to
+   start afterward. Use **Listen** if the browser blocks automatic playback, or the same
+   button to stop or replay it. Saved answers do not replay automatically.
+7. Review the references and submit feedback if desired.
+
+The existing coaching model interprets clear spelling mistakes and informal follow-ups
+in context, without a separate correction request. Original messages remain in history;
+names, ages, dates, quantities and other important details are not automatically rewritten.
+Ambiguous wording that changes the activity or safety needs a brief clarification.
+Topic and age limits still apply.
 
 ```mermaid
 flowchart TD
