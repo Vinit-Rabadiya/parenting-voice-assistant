@@ -60,6 +60,17 @@ it("does not repeat confirmed access checks when the window regains focus", asyn
   expect(getCurrentAccount).toHaveBeenCalledTimes(1);
 });
 
+it("rechecks cached access when account security changes", async () => {
+  getCurrentAccount.mockResolvedValueOnce({ uid: "one" }).mockRejectedValueOnce(
+    Object.assign(new Error("Complete authenticator login first."), { accessStatus: "verification_required" }));
+  const user = { uid: "one" };
+  const { result } = renderHook(() => useAccountAccess(user));
+  await waitFor(() => expect(result.current.verified).toBe(true));
+  await act(async () => { window.dispatchEvent(new Event("account-security-changed")); });
+  await waitFor(() => expect(result.current.verified).toBe(false));
+  expect(result.current.status).toBe("verification_required");
+});
+
 it("times out even if the pending operation ignores cancellation", async () => {
   vi.useFakeTimers();
   let approve;

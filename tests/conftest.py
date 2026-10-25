@@ -51,6 +51,7 @@ def client(mock_firebase_app):
     from backend.api.consent import require_processing_consent
     from backend.api.dependencies import get_usage_control_service
     from backend.services.usage import UsageDecision
+    from backend.core.security import get_account_security_service
 
     # Existing feature tests assume consent is already granted. Consent tests
     # explicitly remove this override to exercise the actual access policy.
@@ -61,6 +62,9 @@ def client(mock_firebase_app):
     usage = MagicMock()
     usage.consume.return_value = UsageDecision(True)
     app.dependency_overrides[get_usage_control_service] = lambda: usage
+    security = MagicMock()
+    security.read.return_value = {"mfa_enabled": False, "mfa_required": False}
+    app.dependency_overrides[get_account_security_service] = lambda: security
     try:
         with patch("backend.main.SpeechService"):
             with TestClient(app) as test_client:

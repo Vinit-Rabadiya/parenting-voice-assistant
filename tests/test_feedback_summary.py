@@ -156,7 +156,12 @@ def claims(permission=False):
 
 @pytest.fixture
 def admin_storage(client):
+    from backend.core.security import get_account_security_service
+
     previous = app.dependency_overrides.copy()
+    client.app.dependency_overrides[get_account_security_service]().read.return_value = {
+        "mfa_enabled": True, "mfa_required": False,
+    }
     service = MagicMock()
     app.dependency_overrides[get_caregiver_data_service] = lambda: service
     try:
