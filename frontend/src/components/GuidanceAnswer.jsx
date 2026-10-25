@@ -26,14 +26,13 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
     ["did_not_answer", "Did not answer my message"], ["not_age_appropriate", "Not suited to my child's age"],
   ];
 
-  async function recordFeedback(helpful, numericRating = null) {
-    if (!targetId || saving) return;
+  async function recordFeedback() {
+    if (!targetId || saving || !rating) return;
     setSaving(true);
     try {
-      await sendFeedback(targetId, { ...(numericRating === null ? { helpful } : { rating: numericRating }),
+      await sendFeedback(targetId, { rating: Number(rating),
         reasons, comment: feedbackComment || null,
         ...(message.interaction_id ? {} : { conversation_id: conversationId }) });
-      if (numericRating === null) setRating("");
       setFeedbackStatus("Thanks — your feedback was saved.");
     } catch (cause) { setFeedbackStatus(cause.message); }
     finally { setSaving(false); }
@@ -108,9 +107,7 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         </fieldset>
         </details>
         <label htmlFor={commentId}>Optional comment<input id={commentId} maxLength="500" value={feedbackComment} onChange={(event) => { setFeedbackComment(event.target.value); setFeedbackStatus(""); }} /></label>
-        <button type="button" disabled={saving || !rating} onClick={() => recordFeedback(null, Number(rating))}>Save rating</button>
-        <button type="button" disabled={saving} onClick={() => recordFeedback(true)}>Helpful</button>
-        <button type="button" disabled={saving} onClick={() => recordFeedback(false)}>Not helpful</button>
+        <button type="button" disabled={saving || !rating} onClick={recordFeedback}>{saving ? "Saving feedback…" : "Save feedback"}</button>
         <p role="status">{feedbackStatus}</p></div>}
     </section>);
 }
