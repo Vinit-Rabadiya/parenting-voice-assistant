@@ -29,6 +29,36 @@ class FakeClient:
         self.models = FakeModels()
 
 
+def test_contextual_typo_understanding_preserves_original_details_in_one_generation_call():
+    client = FakeClient()
+    client.models.generate_content = Mock(return_value=FakeResponse())
+    question = "Amani is 12 months, 8.5 kg. How cn I imprve communcation at feedng?"
+    context = [{"role": "user", "text": "We are sharing a picture book."},
+               {"role": "assistant", "text": "Name the pictures and pause."}]
+    CoachingService(client=client).generate(question, 12, "feeding", [], conversation_context=context)
+    client.models.generate_content.assert_called_once()
+    request = client.models.generate_content.call_args.kwargs
+    assert question in request["contents"]
+    assert "sharing a picture book" in request["contents"]
+    policy = request["config"].system_instruction
+    assert "Do not silently alter names, places, numeric values" in policy
+    assert "ask a brief clarification" in policy
+    assert "Potential reports of harm must not be silently corrected" in policy
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("My baby Amani is 12 months and 8.5 kg. How cn we play?", 12),
+    ("my baby amani is 12 months and 8.5 kg. How cn we play?", 12),
+    ("Our child called Amani is 24 months. Play ideas?", 24),
+    ("My baby Amani is 25 months. Play ideas?", 25),
+    ("My baby is feeding 120 ml. Play ideas?", None),
+])
+def test_explicit_named_child_ages_preserve_numbers(question, expected):
+    from backend.services.age import message_age_months
+
+    assert message_age_months(question) == expected
+
+
 @pytest.mark.parametrize("prompt_reason,finish_reason", [
     ("PROHIBITED_CONTENT", None), ("SAFETY", None),
     (None, "SAFETY"), (None, "RECITATION"),

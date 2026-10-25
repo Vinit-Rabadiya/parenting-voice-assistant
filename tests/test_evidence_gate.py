@@ -41,6 +41,20 @@ def test_question_whitespace_is_trimmed():
     assert CoachingRequest(child_id="child-1", question="  Play ideas  ").question == "Play ideas"
 
 
+@pytest.mark.parametrize("question,kind", [
+    ("I am batting my baby.", "clarification"),
+    ("I wnt to lern coding but dnt knw wer to start", "unrelated"),
+])
+def test_input_interpretation_keeps_safety_and_topic_boundaries(client, services, question, kind):
+    data, retrieval, coaching = services
+    response = client.post("/coach", json={"child_id": "child-1", "question": question})
+    assert response.status_code == 200
+    assert response.json()["response_kind"] == kind
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+    assert data.create_interaction.call_args.args[2] == question
+
+
 def passage(score: float, text: str = "Talk with your baby during feeding.") -> RetrievedPassage:
     return RetrievedPassage("p1", text, "Feeding conversation", "Reference", 1,
                             "https://example.test/reference", score, "6-8 months", ["feeding"])
