@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { StrictMode } from "react";
 import GuidanceAnswer from "../../frontend/src/components/GuidanceAnswer";
 import { sendFeedback } from "../../frontend/src/services/caregiving";
 
@@ -17,7 +18,7 @@ beforeEach(() => {
   vi.stubGlobal("speechSynthesis", { speak: vi.fn(), cancel: vi.fn() });
   vi.stubGlobal("SpeechSynthesisUtterance", function(text) { this.text = text; });
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 it("keeps the answer readable when browser audio is unavailable", () => {
   vi.stubGlobal("speechSynthesis", undefined);
@@ -60,14 +61,163 @@ it("detaches playback callbacks when stopped or removed", () => {
   expect(second.onerror).toBeNull();
 });
 
+it("reveals a complete new reply before speaking it, once across rerenders", async () => {
+  vi.useFakeTimers();
+  const view = render(<StrictMode><GuidanceAnswer message={message} fresh /></StrictMode>);
+  const text = view.container.querySelector(".guidance-text");
+  expect(text.getAttribute("aria-busy")).toBe("true");
+  expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(90); });
+  expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1600); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(text.getAttribute("aria-busy")).toBe("false");
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+  expect(window.speechSynthesis.speak.mock.calls[0][0].text).toBe(message.text);
+  view.rerender(<StrictMode><GuidanceAnswer message={{ ...message }} fresh /></StrictMode>);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+  expect(screen.getAllByRole("button", { name: /Listen|Stop audio/ })).toHaveLength(1);
+});
+
+it("allows stopping during preparation and does not automatically restart", async () => {
+  vi.useFakeTimers();
+  render(<GuidanceAnswer message={message} fresh />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1800); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(screen.getByText("Preparing audio…")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Stop audio" }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
+  expect(screen.queryByText("Preparing audio…")).toBeNull();
+});
+
+it("finishes revealing a long reply promptly and clears resources if removed mid-animation", async () => {
+  vi.useFakeTimers();
+  const text = Array.from({ length: 40 }, () => "Talk gently and watch your baby's cues.").join("\n\n");
+  const view = render(<GuidanceAnswer message={{ ...message, text }} fresh />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+  expect(view.container.querySelector(".guidance-word--pending")).toBeTruthy();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1400); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(view.container.querySelector(".guidance-word--pending")).toBeNull();
+  expect(window.speechSynthesis.speak.mock.calls[0][0].text).toBe(text);
+  view.unmount();
+  const second = render(<GuidanceAnswer message={{ ...message, id: "another-answer", text }} fresh />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+  second.unmount();
+  await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it("returns to Listen when speech ends and supports manual replay", () => {
+  render(<GuidanceAnswer message={message} />);
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  const speech = window.speechSynthesis.speak.mock.calls[0][0];
+  act(() => speech.onstart());
+  expect(screen.getByRole("button", { name: "Stop audio" })).toBeTruthy();
+  act(() => speech.onend());
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(2);
+});
+
+it("handles an utterance mute or interruption without claiming to know device volume", () => {
+  render(<GuidanceAnswer message={message} />);
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  const speech = window.speechSynthesis.speak.mock.calls[0][0];
+  speech.volume = 0;
+  act(() => speech.onstart());
+  expect(screen.getByText(/Audio is muted/)).toBeTruthy();
+  expect(screen.getByText("Can't hear the guidance? Check your device volume.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  act(() => window.speechSynthesis.speak.mock.calls[1][0].onerror({ error: "interrupted" }));
+  expect(screen.getByText(/Audio was interrupted/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
+});
+
+it("offers manual playback when autoplay is blocked and dismisses volume help after five seconds", async () => {
+  vi.useFakeTimers();
+  render(<GuidanceAnswer message={message} />);
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  act(() => window.speechSynthesis.speak.mock.calls[0][0].onerror({ error: "not-allowed" }));
+  expect(screen.getByText(/Playback was blocked/)).toBeTruthy();
+  expect(screen.getByText("Can't hear the guidance? Check your device volume.")).toBeTruthy();
+  await act(async () => { await vi.advanceTimersByTimeAsync(4999); });
+  expect(screen.getByRole("button", { name: "Dismiss audio help" })).toBeTruthy();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(screen.queryByRole("button", { name: "Dismiss audio help" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+});
+
+it("lets volume help be dismissed and recovers from a silent audio engine", async () => {
+  vi.useFakeTimers();
+  render(<GuidanceAnswer message={message} />);
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
+  expect(screen.getByText(/Audio did not start/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss audio help" }));
+  expect(screen.queryByText("Can't hear the guidance? Check your device volume.")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(2);
+});
+
+it("stops an older answer before playing another and ignores stale callbacks", () => {
+  const view = render(<><GuidanceAnswer message={message} /><GuidanceAnswer message={{ ...message, id: "answer-2", text: "Sing gently." }} /></>);
+  fireEvent.click(screen.getAllByRole("button", { name: "Listen" })[0]);
+  const first = window.speechSynthesis.speak.mock.calls[0][0];
+  const staleEnd = first.onend;
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  expect(first.onend).toBeNull();
+  act(() => staleEnd());
+  expect(screen.getAllByRole("button", { name: "Stop audio" })).toHaveLength(1);
+  view.unmount();
+  expect(window.speechSynthesis.speak.mock.calls[1][0].onstart).toBeNull();
+});
+
+it("cancels pending presentation on navigation and never autoplays saved replies", async () => {
+  vi.useFakeTimers();
+  const view = render(<GuidanceAnswer message={message} fresh />);
+  view.rerender(<GuidanceAnswer message={message} fresh active={false} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  view.rerender(<GuidanceAnswer message={message} fresh />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
+  view.unmount();
+  render(<GuidanceAnswer message={message} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
+  expect(screen.getByText(message.text)).toBeTruthy();
+});
+
+it("respects reduced motion, preserves formatted content and never executes markup", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("matchMedia", () => ({ matches: true }));
+  const text = "### Try this\n\n- **Talk** gently.\n- See [a guide](https://example.test/guide).\n<script>alert(1)</script>";
+  const view = render(<GuidanceAnswer message={{ ...message, text }} fresh />);
+  expect(view.container.querySelector(".guidance-word--pending")).toBeNull();
+  expect(screen.getByRole("heading", { name: "Try this" })).toBeTruthy();
+  expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  expect(screen.getByRole("link", { name: "a guide" }).href).toBe("https://example.test/guide");
+  expect(view.container.querySelector("script")).toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(window.speechSynthesis.speak.mock.calls[0][0].text).toBe(text);
+});
+
 it("saves a numeric rating and reasons without inventing a boolean value", async () => {
   render(<GuidanceAnswer message={message} childName="Baby" conversationId="chat-1" />);
   fireEvent.change(screen.getByLabelText("Helpfulness rating"), { target: { value: "2" } });
   fireEvent.click(screen.getByText("Add an optional reason"));
   fireEvent.click(screen.getByLabelText("Repeated advice"));
-  fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
+  fireEvent.change(screen.getByLabelText("Optional comment"), { target: { value: "The same idea was repeated." } });
+  expect(screen.queryByRole("button", { name: "Helpful" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Not helpful" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Save feedback" }));
   await waitFor(() => expect(sendFeedback).toHaveBeenCalledWith("answer-1", {
-    rating: 2, reasons: ["repeated_advice"], comment: null, conversation_id: "chat-1",
+    rating: 2, reasons: ["repeated_advice"], comment: "The same idea was repeated.", conversation_id: "chat-1",
   }));
   expect(sendFeedback.mock.calls[0][1]).not.toHaveProperty("helpful");
   await screen.findByText(/your feedback was saved/);
@@ -76,14 +226,14 @@ it("saves a numeric rating and reasons without inventing a boolean value", async
 it("keeps historical boolean feedback without choosing a numeric equivalent", () => {
   render(<GuidanceAnswer message={{ ...message, feedback: { helpful: true } }} conversationId="chat-1" />);
   expect(screen.getByLabelText("Helpfulness rating").value).toBe("");
-  expect(screen.getByRole("button", { name: "Save rating" }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Save feedback" }).disabled).toBe(true);
 });
 
 it("lets a caregiver edit a saved numeric rating through the existing feedback path", async () => {
   render(<GuidanceAnswer message={{ ...message, feedback: { rating: 2, reasons: ["unclear"] } }} conversationId="chat-1" />);
   expect(screen.getByLabelText("Helpfulness rating").value).toBe("2");
   fireEvent.change(screen.getByLabelText("Helpfulness rating"), { target: { value: "5" } });
-  fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save feedback" }));
   await waitFor(() => expect(sendFeedback).toHaveBeenCalledWith("answer-1", {
     rating: 5, reasons: ["unclear"], comment: null, conversation_id: "chat-1",
   }));
@@ -94,9 +244,9 @@ it("shows an error and allows retry when feedback fails", async () => {
   sendFeedback.mockRejectedValueOnce(new Error("Please retry."));
   render(<GuidanceAnswer message={message} conversationId="chat-1" />);
   fireEvent.change(screen.getByLabelText("Helpfulness rating"), { target: { value: "5" } });
-  fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save feedback" }));
   await screen.findByText("Please retry.");
-  expect(screen.getByRole("button", { name: "Save rating" }).disabled).toBe(false);
+  expect(screen.getByRole("button", { name: "Save feedback" }).disabled).toBe(false);
 });
 
 it.each([
