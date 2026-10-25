@@ -241,12 +241,13 @@ class CaregiverDataService:
             document.update(update)
         return self.get_child(uid, child_id)
 
-    def create_interaction(self, uid: str, child_id: str, question: str, routine: str | None, answer: str, citations: list[dict], status: str = "answered", *, vaccination_country: str | None = None, response_kind: str | None = None) -> str:
+    def create_interaction(self, uid: str, child_id: str, question: str, routine: str | None, answer: str, citations: list[dict], status: str = "answered", *, vaccination_country: str | None = None, response_kind: str | None = None, answer_basis: str | None = None, reference_status: str | None = None) -> str:
         document = self._interactions(uid).document()
         document.set({"child_id": child_id, "question": question, "routine": routine,
                       "answer": answer, "citations": citations, "status": status,
                       **({"vaccination_country": vaccination_country} if vaccination_country else {}),
                       **({"response_kind": response_kind} if response_kind else {}),
+                      **({"answer_basis": answer_basis, "reference_status": reference_status} if answer_basis else {}),
                       "created_at": firestore.SERVER_TIMESTAMP})
         return document.id
 

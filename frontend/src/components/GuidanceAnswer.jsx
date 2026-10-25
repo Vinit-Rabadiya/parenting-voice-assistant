@@ -90,6 +90,7 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         : result.status === "safety_blocked" ? "Guidance could not be provided"
         : result.status === "vaccination_notice" ? "Vaccination information"
         : result.response_kind === "clarification" ? "Tell me a little more"
+        : result.response_kind === "age_out_of_scope" ? "Supported age range"
         : result.response_kind === "unrelated" ? "Baby-care topics only"
         : result.response_kind === "professional_referral" ? "Professional advice needed"
         : result.response_kind === "insufficient_references" ? "More information needed"
@@ -105,7 +106,10 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         ? "No AI-generated vaccination advice was provided."
         : result.status === "no_evidence"
         ? `Processed in ${result.processing_seconds.toFixed(2)} seconds. No coaching answer was generated.`
-        : `Prepared in ${result.processing_seconds.toFixed(2)} seconds using age-aware reference material.`}</p>
+        : result.answer_basis === "general_information"
+        ? `Prepared in ${result.processing_seconds.toFixed(2)} seconds. General information; not verified against reference documents.`
+        : `Prepared in ${result.processing_seconds.toFixed(2)} seconds with reference support. Any supplemental information is labelled in the answer.`}</p>
+      {result.reference_status === "unavailable" && <p className="guidance-meta">Reference search is temporarily unavailable. This answer uses general information.</p>}
       <div className="answer-actions"><button type="button" onClick={() => speak(result.answer)}>Listen</button><button type="button" onClick={stopAudio}>Stop audio</button></div>
       {audioError && <p className="guidance-meta" role="status">{audioError}</p>}
       {result.status === "vaccination_notice" && result.vaccination_country && <p className="guidance-meta">
@@ -120,7 +124,7 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
           <p>Resource information checked: {resource.verified_on}</p>
         </li>)}</ul>
       </section>}
-      {result.citations.length > 0 && <details className="answer-sources"><summary>Sources used ({result.citations.length})</summary><ul>{result.citations.map((citation) => <li key={citation.passage_id}><a href={citation.source_url} target="_blank" rel="noreferrer">{citation.source_title}{citation.pdf_page != null ? `, page ${citation.pdf_page}` : ""}: {citation.title}</a></li>)}</ul></details>}
+      {result.citations.length > 0 && <details className="answer-sources"><summary>References consulted ({result.citations.length})</summary><ul>{result.citations.map((citation) => <li key={citation.passage_id}><a href={citation.source_url} target="_blank" rel="noreferrer">{citation.source_title}{citation.pdf_page != null ? `, page ${citation.pdf_page}` : ""}: {citation.title}</a></li>)}</ul></details>}
       {targetId && <div className="feedback"><p>Was this helpful?</p>
         <label htmlFor={ratingId}>Helpfulness rating</label>
         <select id={ratingId} value={rating} disabled={saving} onChange={(event) => { setRating(event.target.value); setFeedbackStatus(""); }}>

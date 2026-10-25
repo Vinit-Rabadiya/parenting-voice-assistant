@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import re
 
+from backend.services.age import AGE_SCOPE_MESSAGE
 
 @dataclass(frozen=True)
 class CareResponse:
@@ -63,17 +64,14 @@ def professional_assessment_response(message: str) -> CareResponse | None:
     return None
 
 
-def missing_evidence_response(message: str, *, unresolved_follow_up: bool = False) -> CareResponse:
-    """Provide a next step without generating unsupported factual advice."""
+def conversation_boundary_response(message: str, *, unresolved_follow_up: bool = False,
+                                   child_age_months: float | None = None,
+                                   outside_age_range: bool = False) -> CareResponse | None:
+    """Apply age/topic boundaries or clarify a missing topic; otherwise generate."""
+    if outside_age_range or (child_age_months is not None and child_age_months > 24):
+        return CareResponse("age_out_of_scope", AGE_SCOPE_MESSAGE)
     if unresolved_follow_up:
         return CareResponse("clarification", "What would you like more help with? Describe the baby-care situation so I can look for relevant information.")
-    assessment = professional_assessment_response(message)
-    if assessment is not None:
-        return assessment
     if clearly_unrelated(message):
-        return CareResponse("unrelated", "This chat supports baby care from birth through the second birthday. I cannot help with that topic here.")
-    if HEALTH_CONCERN.search(message):
-        return CareResponse("professional_referral", "I do not have sufficient reference information to advise on this concern. Please contact a health professional for an assessment. Missing information does not mean it is safe to wait; seek urgent care if your baby seems seriously unwell.")
-    if BABY_TOPIC.search(message):
-        return CareResponse("insufficient_references", "This is a baby-care topic, but I could not find enough relevant information in the available references. Describe what you would like help with in this situation. For a health or development concern, contact a health professional.")
-    return CareResponse("clarification", "Could you describe the baby-care situation and what you would like help with? I could not find enough relevant information to answer this message.")
+        return CareResponse("unrelated", "This chat supports baby care, child development and parenting. I cannot help with that topic here.")
+    return None

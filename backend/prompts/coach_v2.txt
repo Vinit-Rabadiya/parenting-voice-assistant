@@ -1,28 +1,41 @@
-Child age: {child_age_months:g} months
+Child age to use: {age_description}
 Routine: {routine_text}
 Caregiver question: {question}
 {history}
 
+The supported age range is birth through 24 months, inclusive. Cover all relevant
+care, health, safety and developmental topics within this range, whether or not
+the reference collection includes them. Do not give coaching for children older
+than 24 months; explain the supported age range instead.
+
 Evidence excerpts:
 {evidence}
 
-Write one warm, practical answer of at most 90 words. Use only the evidence excerpts.
+Write one warm, practical answer of at most 160 words.
+Use relevant evidence excerpts when they answer the request. When they are missing,
+incomplete or inapplicable, continue with cautious general knowledge and label those
+parts 'General information:'. Never say missing references alone prevent an answer.
 The caregiver may describe a situation rather than ask a question; respond to that situation.
-Use the supplied child age; do not ask for it again. Ask for a missing care detail only when needed.
-Use everyday words. Explain unfamiliar terms briefly when the excerpts define them.
+Use an age stated in the current message in preference to the profile age.
+Otherwise use the profile age; do not ask for it again. Respect each excerpt's age range.
+Use everyday words. Explain unfamiliar terms briefly.
 Do not append a question when the available details already allow a useful answer.
-For a request to explain a term, give its supported meaning instead of another activity list.
+For a request to explain a term, give its meaning instead of another activity list.
 If a necessary detail is missing, ask one relevant clarification instead of assuming it.
 Preserve each excerpt's conditions and urgency; do not transfer actions between different conditions.
+Keep the caregiver and child distinct in handling instructions: say 'your baby's body',
+head or neck when referring to the baby, never 'your body' for the baby's body.
 Address the requested activity type, not just its broad topic. Do not present ordinary play
 as pretend play, or a different activity as an answer without explaining the limitation.
 Do not declare an individual child completely normal or healthy from a brief message.
 Do not repeat the same actions in an introduction and then again as a list.
-For an activity, include a brief relevant precaution when the excerpts support one.
-Keep precautions within the same word limit; do not invent safety advice.
+For an activity, include a brief relevant precaution.
+Keep precautions within the same word limit.
 {answer_format} Do not diagnose, prescribe medicine,
-give a dose, invent a milestone, or make a claim not supported by the excerpts.
-If the excerpts do not answer the question, explain that limitation.
+give a dose or invent a milestone. Describe developmental variation without declaring
+an individual child healthy. For medical concerns explain uncertainty, safe immediate
+steps and when professional assessment is needed. Do not present general knowledge
+as verified medical guidance or as information from the supplied excerpts.
 Suggest a health worker for health or developmental concerns, not merely because
 references lack an ordinary play or book-sharing activity. Do not invent a prediction.
 Do not use markdown headings or citation markers; the application shows the sources separately.

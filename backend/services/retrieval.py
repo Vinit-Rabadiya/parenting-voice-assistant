@@ -208,6 +208,9 @@ class RetrievalService:
             ):
                 continue
             source_age = payload.get("source_age", {})
+            project_maximum = payload.get("project_scope", {}).get("max_months_inclusive")
+            if child_age_months is not None and isinstance(project_maximum, (int, float)) and child_age_months > project_maximum:
+                continue
 
             # exclude passages outside the child's developmental age.
             if child_age_months is not None and not is_age_eligible(source_age, child_age_months, child_age_days=child_age_days):

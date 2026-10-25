@@ -2,6 +2,33 @@
 
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
+import re
+from math import isfinite
+
+
+AGE_SCOPE_MESSAGE = (
+    "This service provides baby-care guidance for children from birth through 24 months. "
+    "Please ask about a child within this age range."
+)
+
+
+MESSAGE_AGE = re.compile(
+    r"\b(?:(?:(?:my|our|the|a)\s+(?:baby|child|infant|toddler)\s+(?:is\s+|aged?\s+|turning\s+)?|"
+    r"(?:aged?|at)\s+)(\d+(?:\.\d+)?)\s*[- ]?(days?|weeks?|months?|years?)\b|"
+    r"(\d+(?:\.\d+)?)\s*[- ]?(days?|weeks?|months?|years?)\s*[- ]old\b)", re.I,
+)
+
+
+def message_age_months(message: str) -> float | None:
+    """Use a single explicit child age; leave ambiguous ages to clarification."""
+    ages = set()
+    for match in MESSAGE_AGE.finditer(message):
+        number, unit = (match.group(1), match.group(2)) if match.group(1) else (match.group(3), match.group(4))
+        scale = {"day": 1 / 30.4375, "week": 7 / 30.4375, "month": 1, "year": 12}[unit.lower().rstrip("s")]
+        months = float(number) * scale
+        if isfinite(months):
+            ages.add(months)
+    return ages.pop() if len(ages) == 1 else None
 
 
 def current_date() -> date:

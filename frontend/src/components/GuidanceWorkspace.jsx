@@ -88,7 +88,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
 
   async function submit(event) {
     event.preventDefault();
-    if (readOnly || chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200) return;
+    if (readOnly || chat.busy || voiceBusy || chat.loading || question.trim().length < 2 || question.length > 1200) return;
     window.speechSynthesis?.cancel();
     const message = question.trim();
     setQuestion("");
@@ -138,7 +138,6 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
         {chat.generating && <p className="guidance-loading" role="status"><span className="guidance-spinner" aria-hidden="true" />Preparing guidance…</p>}
       </section>
       {readOnly ? <p className="chat-composer">Read-only access: you can review or delete existing data. Accept the notice above to request coaching.</p> : <section className="question-panel chat-composer" aria-label="Message composer">
-        {child.in_scope === false && <p role="status">This profile is outside the coaching age range. Saved conversations remain available.</p>}
         <form onSubmit={submit}>
           <label className="visually-hidden" htmlFor="caregiver-question">Question</label>
           <textarea ref={composerRef} id="caregiver-question" rows="1" value={question} readOnly={voiceBusy} maxLength={1200}
@@ -166,7 +165,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
               onCaptureStateChange={setVoiceBusy} disabled={chat.busy} />}
             {chat.generating ? <button type="button" className="send-message" aria-label="Stop waiting" title="Stop waiting" onClick={chat.cancelGeneration}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1" /></svg>
-            </button> : <button type="submit" className="send-message" aria-label="Get guidance" title="Send message" disabled={chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200}>
+            </button> : <button type="submit" className="send-message" aria-label="Get guidance" title="Send message" disabled={chat.busy || voiceBusy || chat.loading || question.trim().length < 2 || question.length > 1200}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5m-6 6 6-6 6 6" /></svg>
             </button>}
           </div>

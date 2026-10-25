@@ -64,18 +64,20 @@ function validateCoachingResponse(value) {
     catch { return false; }
   };
   const statuses = ["answered", "no_evidence", "safety_blocked", "escalated", "crisis_support", "caregiver_support", "vaccination_notice"];
-  const kinds = ["clarification", "unrelated", "professional_referral", "insufficient_references"];
+  const kinds = ["clarification", "unrelated", "professional_referral", "insufficient_references", "age_out_of_scope"];
   const valid = object(value) && text(value.answer) && statuses.includes(value.status)
     && ["not_flagged", "escalate"].includes(value.safety)
     && number(value.processing_seconds) && number(value.child_age_months)
     && (value.status !== "answered" || value.child_age_months <= 24)
+    && (value.answer_basis == null || ["reference_assisted", "general_information"].includes(value.answer_basis))
+    && (value.reference_status == null || ["matched", "no_match", "unavailable"].includes(value.reference_status))
     && id(value.interaction_id) && id(value.conversation_id) && id(value.message_id)
     && (value.response_kind == null || kinds.includes(value.response_kind))
     && (value.vaccination_country == null || value.vaccination_country === "KE")
     && Array.isArray(value.citations) && value.citations.every(item => object(item)
       && text(item.passage_id) && text(item.source_title) && text(item.title) && link(item.source_url)
       && (item.pdf_page === null || (Number.isInteger(item.pdf_page) && item.pdf_page > 0)))
-    && (value.status !== "answered" || value.citations.length > 0)
+    && (value.status !== "answered" || value.citations.length > 0 || value.answer_basis === "general_information")
     && (value.support_resources === undefined || (Array.isArray(value.support_resources)
       && value.support_resources.every(item => object(item) && text(item.label) && text(item.service)
         && item.country === "KE" && text(item.availability) && text(item.verified_on)
