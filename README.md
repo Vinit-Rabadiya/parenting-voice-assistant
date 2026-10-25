@@ -10,12 +10,13 @@ references, and listen to the answer.
 
 ## Features
 
-- Email/password and Google sign-in, email verification, and TOTP authenticator access.
+- Email/password and Google sign-in, email verification, and optional TOTP MFA with backup authenticators.
 - Child profiles with create, edit, and switch controls, birth date, calculated age,
   baseline milestone display, and optional additional milestones.
 - English voice recording up to 30 seconds, transcription after Stop, and editable text.
 - Typed questions and optional routine context such as feeding, bathing, and play.
-- Qdrant retrieval from 184 selected source-linked passages and Gemini-generated guidance.
+- Qdrant retrieval from 184 selected source-linked passages and Gemini-generated guidance,
+  with labelled general information when references are missing or incomplete.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
 - Browser speech playback with Listen/replay and Stop controls.
 - Stored interactions and Helpful/Not helpful or 1–5 helpfulness ratings, with optional reasons and comments.
@@ -29,7 +30,9 @@ claim. See [scope and availability](RELEASE.md#scope-and-availability).
 ## Planned baby-care coverage
 
 The next scope expands beyond developmental activities to source-backed everyday
-baby-care support for Kenya, from birth through the second birthday. Planned topics
+baby-care support for Kenya. The reference collection primarily covers birth through
+the second birthday. Questions about children older than 24 months receive an
+age-range notice instead of coaching. Planned topics
 include feeding and nutrition, sleep, hygiene and clothing, crying and bonding,
 growth and routine care, development and learning, vaccination, common concerns,
 safety, outings/travel and childcare transitions. English remains the supported language.
@@ -42,11 +45,11 @@ explanations and expected-effects information have WHO/UNICEF source links.
 Current Kenya schedules, catch-up decisions and individual reactions are not
 calculated in chat; these requests receive a clinic referral or source limitation.
 
-Relevant baby-care statements and follow-ups should receive supported guidance,
-a useful clarification, an honest reference limitation or an appropriate referral.
-Unrelated questions should receive a distinct out-of-scope response. Missing
-references must not trigger invented advice. This response handling is implemented,
-but reference coverage is not exhaustive.
+Relevant baby-care statements and follow-ups use references when applicable and
+label supplemental model knowledge as general information. Missing references or
+a reference-service outage do not by themselves stop generation. General information
+is not verified medical guidance. Unrelated requests are declined; urgent reports
+and individual diagnosis or dose requests retain separate safety handling.
 
 The topic inventory is listed above; task checklists are maintained in GitHub.
 Reference work is
@@ -57,7 +60,7 @@ dose decisions remain outside scope. Published release notes retain their origin
 
 ## How it works
 
-1. Sign in with a verified email and complete the authenticator challenge.
+1. Sign in with a verified email. Complete the authenticator challenge if MFA is enabled or required.
 2. Add or select a child profile.
 3. Type a question, or record speech and review the transcript.
 4. Select an optional routine and click **Get guidance**.
@@ -221,8 +224,39 @@ To inspect TOTP configuration without changing it:
 node --env-file=.env scripts/check-firebase-auth.mjs
 ```
 
-On first use, verify your email and enroll an authenticator in **My Account**.
-After enrollment, sign out and sign in using the authenticator code.
+Email verification is required. Google sign-in uses Firebase's verified-email status;
+the application never marks an email verified based only on the provider name.
+MFA is optional for ordinary accounts. In **My Account**, enable an authenticator,
+add a backup on a separate device, or turn MFA off after confirming sign-in.
+If enrollment requires another sign-in check, complete it in account settings.
+
+`AUTH_REQUIRE_MFA=false` is the default. Set it to `true` to require MFA globally.
+The server-issued `mfa_required=true` claim and the `feedback_summary_admin=true`
+administrator role also require MFA. Required MFA cannot be disabled through account
+settings or bypassed by unenrolling directly with the provider. Protected application
+data remains inaccessible until the required MFA sign-in is complete. Security
+settings remain available for setup after verified first-factor sign-in.
+
+Disabling MFA removes enrolled factors and invalidates existing sessions. Firebase
+remains responsible for validating credentials; the backend verifies token validity,
+revocation, current factor enrollment and applicable policy. Keep the deployed site
+on HTTPS and restrict Firebase authorized domains to the deployed application.
+
+For a lost authenticator, choose the backup in the sign-in challenge. If all factors
+are lost, an administrator must independently verify account ownership before using
+the recovery tool on a trusted workstation with Firebase Admin credentials:
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.reset_account_mfa --uid ACCOUNT_UID
+.\venv\Scripts\python.exe -m scripts.reset_account_mfa --uid ACCOUNT_UID --apply --identity-verified
+```
+
+The first command previews the operation. Recovery resets factors and revokes
+sessions without removing mandatory MFA policy; affected accounts must enroll again
+before accessing protected data. A password reset alone does not remove MFA.
+The backend uses the Identity Platform administration API for enrollment status and
+removal because the Python Admin SDK does not expose TOTP management. The service
+account needs `firebaseauth.users.get` and `firebaseauth.users.update` permissions.
 
 ### 4. Prepare the reference index
 
@@ -279,14 +313,16 @@ proxy is not included in the static build.
 
 ## API overview
 
-Protected endpoints require `Authorization: Bearer <Firebase ID token>`, verified
-email, and a login completed with TOTP. Backend routes are also mounted under
+Protected endpoints require `Authorization: Bearer <Firebase ID token>` and verified
+email. TOTP is required when enrolled or enforced by policy. Backend routes are also mounted under
 `/api/v1`. See the generated API documentation for request/response schemas.
 
 | Method | Route | Purpose |
 |---|---|---|
 | GET | `/health/live` | Public liveness check |
 | GET | `/me` | Verify account access |
+| GET | `/me/security` | Read MFA status and policy for the current verified account |
+| POST | `/me/security/mfa/disable` | Disable optional MFA after a recent full sign-in |
 | GET | `/children` | List the authenticated user's profiles |
 | POST | `/children` | Create a profile with name, date_of_birth, and optional milestones |
 | PATCH | `/children/{child_id}` | Update an owned profile |
@@ -339,16 +375,15 @@ search wording. No additional language-model rewrite call is used, and follow-up
 without a usable topic do not generate arbitrary guidance. Context is limited to
 the selected conversation, not other chats or child profiles.
 For requests for more ideas, the generation instructions distinguish new actions
-from reworded or rearranged earlier advice. If the current references provide no
-additional supported actions, the answer should acknowledge that instead of
-filling another list. Requests for explanation may clarify a previous suggestion
+from reworded or rearranged earlier advice. When references offer no further ideas,
+the answer can use clearly labelled general information. Requests for explanation may clarify a previous suggestion
 without presenting it as new advice. These are prompt-level controls and require
 live response evaluation; automated prompt tests do not establish semantic novelty.
 
 ## Data handling
 
 Firebase manages sign-in credentials. FastAPI verifies token validity and revocation,
-email verification, and TOTP status before serving protected requests.
+email verification, current MFA enrollment and security policy before serving protected requests.
 
 Profiles are stored under `users/{uid}/children/{id}`. New conversation messages,
 references, timestamps, and feedback are stored under
@@ -464,7 +499,7 @@ are separate from the existing automated coverage.
 | Guidance generation fails | Qdrant/Gemini configuration, model access, quotas, and backend diagnostic messages |
 | Coaching service temporarily busy (503) | Gemini reported service unavailability. Retry later; the application does not add automatic retries. |
 | Coaching service request limit reached (429) | Check the configured project's Gemini quota and usage. Wait for the limit to reset or review the account plan before retrying. |
-| Guidance could not be provided (`safety_blocked`) | A generated answer matched an output guardrail. Only a replacement message is returned and stored; no source cards support the withheld answer. |
+| Guidance could not be provided (`safety_blocked`) | The model service blocked a response or an answer matched an output guardrail. Only a clear replacement message is returned and stored, without supporting source cards. |
 | Frontend reports connection refused | Backend is ready on port 8000 and both development servers are running |
 | Microphone is unavailable | Site permission, supported browser, and localhost or HTTPS |
 | Port 8000 is occupied | Stop the earlier backend process before starting another instance |
