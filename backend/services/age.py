@@ -13,7 +13,9 @@ AGE_SCOPE_MESSAGE = (
 
 
 MESSAGE_AGE = re.compile(
-    r"\b(?:(?:(?:my|our|the|a)\s+(?:baby|child|infant|toddler)\s+(?:is\s+|aged?\s+|turning\s+)?|"
+    r"\b(?:(?:(?:my|our|the|a)\s+(?:baby|child|infant|toddler)"
+    r"(?:\s+(?:(?:named|called)\s+)?[^\W\d_][\w'’-]*(?:\s+[^\W\d_][\w'’-]*){0,2}?(?=\s+(?:is|aged?|turning)\s))?"
+    r"\s+(?:is\s+|aged?\s+|turning\s+)?|"
     r"(?:aged?|at)\s+)(\d+(?:\.\d+)?)\s*[- ]?(days?|weeks?|months?|years?)\b|"
     r"(\d+(?:\.\d+)?)\s*[- ]?(days?|weeks?|months?|years?)\s*[- ]old\b)", re.I,
 )

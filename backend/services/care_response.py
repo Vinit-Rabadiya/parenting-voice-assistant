@@ -24,7 +24,7 @@ HEALTH_CONCERN = re.compile(
 # that a request is unrelated. A baby-care term takes precedence in mixed text.
 UNRELATED = re.compile(
     r"\b(?:repair (?:my |a |the )?car|fix (?:my |a |the )?car|car repair|fix (?:my |a |the )?engine|"
-    r"stock prices?|cryptocurrency|weather forecast|"
+    r"stock prices?|cryptocurrency|weather forecast|coding|programming|"
     r"(?:fix|repair|configure|reset) (?:my |a |the )?(?:internet(?: router)?|router|wi-?fi)|"
     r"write (?:me )?(?:python|javascript) code)\b", re.I)
 FOOD_RETENTION = re.compile(
@@ -70,6 +70,10 @@ def conversation_boundary_response(message: str, *, unresolved_follow_up: bool =
     """Apply age/topic boundaries or clarify a missing topic; otherwise generate."""
     if outside_age_range or (child_age_months is not None and child_age_months > 24):
         return CareResponse("age_out_of_scope", AGE_SCOPE_MESSAGE)
+    # A real verb suggesting harm is not a safe automatic spelling correction.
+    # Ordinary spelling/grammar interpretation remains with the contextual model.
+    if re.search(r"\bbatting\s+(?:my|our|the|a)\s+(?:baby|child|infant)\b", message, re.I):
+        return CareResponse("clarification", "Do you mean bathing your baby, or something else? Please clarify the action so I can give suitable guidance.")
     if unresolved_follow_up:
         return CareResponse("clarification", "What would you like more help with? Describe the baby-care situation so I can look for relevant information.")
     if clearly_unrelated(message):
