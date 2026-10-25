@@ -5,6 +5,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 import logging
 import json
+import hashlib
+from pathlib import Path
 import time
 from uuid import uuid4
 
@@ -17,6 +19,9 @@ from backend.services.retrieval import RetrievedPassage
 
 generation_request_id = ContextVar("generation_request_id", default=None)
 timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
+PROMPT_VERSION = "coach_v2"
+PROMPT_TEMPLATE = (Path(__file__).resolve().parents[1] / "prompts/coach_v2.txt").read_text(encoding="utf-8")
+PROMPT_SHA256 = hashlib.sha256(PROMPT_TEMPLATE.encode()).hexdigest()
 
 
 @contextmanager
@@ -93,28 +98,9 @@ class CoachingService:
             "Respond to the current request in plain language. Follow the conversation-response rules; "
             "a follow-up does not require another list of actions."
         ) if conversation_context else "Give 2 to 4 short actions in plain language."
-        prompt = f"""Child age: {child_age_months:g} months
-Routine: {routine_text}
-Caregiver question: {question}
-{history}
-
-Evidence excerpts:
-{evidence}
-
-Write one warm, practical answer of at most 90 words. Use only the evidence excerpts.
-The caregiver may describe a situation rather than ask a question; respond to that situation.
-If a necessary detail is missing, ask one relevant clarification instead of assuming it.
-Preserve each excerpt's conditions and urgency; do not transfer actions between different conditions.
-Address the requested activity type, not just its broad topic. Do not present ordinary play
-as pretend play, or a different activity as an answer without explaining the limitation.
-Do not declare an individual child completely normal or healthy from a brief message.
-Do not repeat the same actions in an introduction and then again as a list.
-For an activity, include a brief relevant precaution when the excerpts support one.
-Keep precautions within the same word limit; do not invent safety advice.
-{answer_format} Do not diagnose, prescribe medicine,
-give a dose, invent a milestone, or make a claim not supported by the excerpts.
-If the excerpts do not answer the question, say so and suggest contacting a health worker.
-Do not use markdown headings or citation markers; the application shows the sources separately."""
+        prompt = PROMPT_TEMPLATE.format(child_age_months=child_age_months, routine_text=routine_text,
+                                        question=question, history=history, evidence=evidence,
+                                        answer_format=answer_format)
         generation_config = types.GenerateContentConfig(
             temperature=0.2,
             system_instruction=(

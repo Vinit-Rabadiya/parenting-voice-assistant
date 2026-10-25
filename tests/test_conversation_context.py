@@ -65,3 +65,31 @@ def test_new_topic_is_not_expanded_and_follow_ups_can_find_an_earlier_topic():
 
 def test_follow_up_without_an_anchor_remains_unchanged():
     assert contextual_retrieval_query("What else can I try?", []) == "What else can I try?"
+
+
+@pytest.mark.parametrize("question", [
+    "what is full bath, top and tailing?", "What does top and tailing mean?",
+    "Can you explain a full bath?", "What is top-and-tailing?",
+])
+def test_named_clarification_keeps_caregiver_topic_without_copying_assistant_claims(question):
+    context = select_conversation_context(pair(
+        "I am bathing my baby.",
+        "Are you doing a full bath or top and tailing? UNVERIFIED_CLAIM",
+    ))
+    query = contextual_retrieval_query(question, context)
+    assert query == f"I am bathing my baby.\nFollow-up: {question}"
+    assert "UNVERIFIED_CLAIM" not in query
+
+
+def test_new_named_topic_and_missing_context_are_not_borrowed_clarifications():
+    context = select_conversation_context(pair("I am bathing my baby.", "Use a full bath or top and tailing."))
+    assert contextual_retrieval_query("What is a vaccine?", context) == "What is a vaccine?"
+    assert contextual_retrieval_query("What does top and tailing mean?", []) == "What does top and tailing mean?"
+
+
+def test_generic_follow_up_after_named_clarification_keeps_original_topic():
+    context = select_conversation_context(
+        pair("I am bathing my baby.", "A full bath or top and tailing are different.")
+        + pair("What does top and tailing mean?", "Wash selected areas outside the bath.")
+    )
+    assert contextual_retrieval_query("Tell me more", context).startswith("I am bathing my baby.")

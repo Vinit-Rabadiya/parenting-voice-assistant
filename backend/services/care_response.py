@@ -23,7 +23,9 @@ HEALTH_CONCERN = re.compile(
 # that a request is unrelated. A baby-care term takes precedence in mixed text.
 UNRELATED = re.compile(
     r"\b(?:repair (?:my |a |the )?car|fix (?:my |a |the )?car|car repair|fix (?:my |a |the )?engine|"
-    r"stock prices?|cryptocurrency|write (?:me )?(?:python|javascript) code)\b", re.I)
+    r"stock prices?|cryptocurrency|weather forecast|"
+    r"(?:fix|repair|configure|reset) (?:my |a |the )?(?:internet(?: router)?|router|wi-?fi)|"
+    r"write (?:me )?(?:python|javascript) code)\b", re.I)
 FOOD_RETENTION = re.compile(
     r"\b(?:cannot|can't|cant|unable to) keep (?:any |even |any of )?(?:the |their |his |her )?"
     r"(?:food|feeds?|milk|fluids?|liquids?|water)(?: down| in)?\b", re.I)

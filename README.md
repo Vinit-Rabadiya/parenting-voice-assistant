@@ -15,7 +15,7 @@ references, and listen to the answer.
   baseline milestone display, and optional additional milestones.
 - English voice recording up to 30 seconds, transcription after Stop, and editable text.
 - Typed questions and optional routine context such as feeding, bathing, and play.
-- Qdrant retrieval from 106 selected source-linked passages and Gemini-generated guidance.
+- Qdrant retrieval from 184 selected source-linked passages and Gemini-generated guidance.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
 - Browser speech playback with Listen/replay and Stop controls.
 - Stored interactions and Helpful/Not helpful or 1–5 helpfulness ratings, with optional reasons and comments.
@@ -35,18 +35,21 @@ growth and routine care, development and learning, vaccination, common concerns,
 safety, outings/travel and childcare transitions. English remains the supported language.
 
 This is a development plan, not a claim that all these topics are available in the
-published release. The original live reference collection remains separate from the
-187-passage candidate corpus. Vaccination currently returns Kenya-specific notices
-and referrals; reviewed vaccine education and schedules are not enabled.
+published release. The current branch uses the source-checked 184-passage everyday
+collection; the original 106-passage collection remains available for rollback.
+The larger candidate corpus is separate and is not activated. General vaccination
+explanations and expected-effects information have WHO/UNICEF source links.
+Current Kenya schedules, catch-up decisions and individual reactions are not
+calculated in chat; these requests receive a clinic referral or source limitation.
 
 Relevant baby-care statements and follow-ups should receive supported guidance,
 a useful clarification, an honest reference limitation or an appropriate referral.
 Unrelated questions should receive a distinct out-of-scope response. Missing
-references must not trigger invented advice. This broader response handling is
-planned work, not a guarantee of the current system.
+references must not trigger invented advice. This response handling is implemented,
+but reference coverage is not exhaustive.
 
-The topic inventory and completion requirements are in
-[the baby-care coverage plan](data/baby-care-coverage-plan.json). Reference work is
+The topic inventory is listed above; task checklists are maintained in GitHub.
+Reference work is
 tracked in #76, vaccination in #100, common concerns in #102, and evaluation and
 qualified review in #74, #78 and #79. Statements, follow-ups and helpful no-evidence
 responses are tracked separately in #103. Medical diagnosis, prescribing and individualized
@@ -153,7 +156,7 @@ FIREBASE_ADMIN_KEY_PATH=.secrets/firebase-admin.json
 STT_MODEL=tiny.en
 QDRANT_URL=https://your-cluster-url.qdrant.io
 QDRANT_API_KEY=your-qdrant-api-key
-QDRANT_COLLECTION=caregiver_guidance_minilm_v1
+QDRANT_COLLECTION=caregiver_guidance_everyday_v3
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.5-flash-lite
 GEMINI_FALLBACK_MODEL=gemini-3.8-flash
@@ -227,19 +230,26 @@ The source inventory is in `data/sources.json`. Obtain the matching PDFs and pla
 them in `data/raw/pdfs/` using the filenames in that inventory. Source documents,
 generated passages, and local credentials are not included in the repository.
 
-For a new index, run:
+An existing populated `caregiver_guidance_everyday_v3` collection can be used
+without rebuilding. The 184-record collection was checked against its local
+release fingerprint before activation. Restart the backend after changing
+`QDRANT_COLLECTION`; an explicit value in `.env` overrides the default.
+To roll back, set `QDRANT_COLLECTION=caregiver_guidance_minilm_v1` and restart.
+Neither activation nor rollback deletes a collection.
+
+For a new original 106-passage baseline index, run:
 
 ```powershell
 .\venv\Scripts\python.exe -m scripts.prepare_rag_data
 .\venv\Scripts\python.exe -m scripts.build_rag_passages
-.\venv\Scripts\python.exe -m scripts.create_qdrant_collection
-.\venv\Scripts\python.exe -m scripts.index_rag --upload
+.\venv\Scripts\python.exe -m scripts.create_qdrant_collection --collection caregiver_guidance_minilm_v1
+.\venv\Scripts\python.exe -m scripts.index_rag --collection caregiver_guidance_minilm_v1 --upload
 ```
 
-The final command writes to the configured Qdrant collection. An existing populated
-index can be used without rebuilding it. See [data/README.md](data/README.md) for
-source provenance and extraction details; current selections are maintained in
-`data/passage-selections.json`.
+These baseline commands do not build the expanded release. See
+[the everyday release instructions](data/README.md#current-everyday-release)
+for the selected release preparation and upload; do not upload the baseline into
+the everyday collection. Original selections remain in `data/passage-selections.json`.
 
 ### 5. Start the application
 
@@ -639,7 +649,8 @@ and [session revocation](https://firebase.google.com/docs/auth/admin/manage-sess
    case, original sources, corpus fingerprint, actual model/prompt configuration
    and evaluation split. Keep tuning separate from held-out evaluation.
 4. Review a source, retrieval or prompt correction and compare the same
-   development example before and after. Health changes require qualified review.
+   development example before and after. Do not describe source checks or automated
+   evaluation as professional validation; that review has not been obtained.
 5. Link the correction and evaluation evidence in the improvement issue, then
    close that issue when its acceptance criteria are met. Do not mark an
    individual private conversation reviewed or train automatically from ratings.

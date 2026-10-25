@@ -125,6 +125,53 @@ def test_status_distinguishes_relevance_miss_from_age_isolation():
     assert "PASS" not in result_status(result)
 
 
+def threshold_report():
+    return {"configuration": {"split": "development"}, "queries": [
+        {"id": "supported", "expected_outcome": "answer", "expected_passage_ids": ["right"],
+         "retrieved": [{"passage_id": "wrong", "score": 0.8}, {"passage_id": "right", "score": 0.45}]},
+        {"id": "unsupported", "expected_outcome": "no_evidence", "expected_passage_ids": [],
+         "retrieved": [{"passage_id": "other", "score": 0.42}]},
+    ]}
+
+
+def test_threshold_comparison_separates_a_match_from_labelled_relevance():
+    from scripts.inspect_relevance_scores import compare_thresholds
+
+    low, high = compare_thresholds(threshold_report(), [0.4, 0.5])["comparisons"]
+    assert low["supported_with_labelled_evidence"] == 1
+    assert low["unsupported_accepted"] == 1
+    assert high["supported_without_labelled_evidence"] == 1
+    assert high["supported_with_labelled_evidence"] == 0
+    assert high["unsupported_rejected"] == 1
+
+
+@pytest.mark.parametrize("threshold", [float("nan"), float("inf"), -0.1, 1.1, True])
+def test_threshold_comparison_rejects_invalid_cutoffs(threshold):
+    from scripts.inspect_relevance_scores import compare_thresholds
+
+    with pytest.raises(ValueError):
+        compare_thresholds(threshold_report(), [threshold])
+
+
+def test_threshold_comparison_rejects_held_out_or_unidentified_splits():
+    from scripts.inspect_relevance_scores import compare_thresholds
+
+    for split in ("held_out", None):
+        report = threshold_report()
+        report["configuration"]["split"] = split
+        with pytest.raises(ValueError, match="development-only"):
+            compare_thresholds(report, [0.5])
+
+
+def test_threshold_comparison_rejects_nonfinite_recorded_scores():
+    from scripts.inspect_relevance_scores import compare_thresholds
+
+    report = threshold_report()
+    report["queries"][0]["retrieved"][0]["score"] = float("nan")
+    with pytest.raises(ValueError, match="finite numbers"):
+        compare_thresholds(report, [0.5])
+
+
 @pytest.mark.parametrize("score,rejected", [(0.2, True), (0.8, False)])
 def test_no_evidence_cases_measure_gate_not_raw_candidate_count(evaluation_case, monkeypatch, score, rejected):
     from backend.core.config import settings

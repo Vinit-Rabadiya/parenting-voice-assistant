@@ -1,5 +1,5 @@
 {
-  "checked_on": "2026-10-22",
+  "checked_on": "2026-10-24",
   "country": "KE",
   "status": "schedule_not_reconciled_not_approved",
   "sources": [
@@ -14,24 +14,46 @@
       "url": "https://www.health.go.ke/node/1955",
       "published_on": "2025-07-07",
       "event_on": "2025-07-05",
-      "finding": "Later programme announcement; confirms a change after the older guideline. A campaign announcement cannot establish the complete current routine schedule."
+      "finding": "Official announcement explicitly identifies routine typhoid conjugate vaccination at nine months. This is evidence of a programme update, not a complete current schedule. The publisher search record was checked on 24 October 2026; direct page retrieval timed out. No complete-schedule approval is inferred."
     },
     {
       "title": "WHO: Vaccines and immunization: What is vaccination?",
       "url": "https://www.who.int/news-room/questions-and-answers/item/vaccines-and-immunization-what-is-vaccination",
       "published_on": "2025-10-22",
       "finding": "General education, vaccination records and professional advice; not a Kenya-specific schedule."
+    },
+    {
+      "title": "Kenya Department of Family Health: immunisation schedule",
+      "url": "https://familyhealth.go.ke/vision-mission-and-mandate-2/",
+      "finding": "Official page still lists one IPV dose and a two-dose rotavirus schedule, without later typhoid or malaria programme updates. It cannot be treated as the complete current schedule."
+    },
+    {
+      "title": "WHO Kenya Annual Report 2025",
+      "url": "https://www.afro.who.int/sites/default/files/2026-04/WHO%20Kenya%20Annual%20Report%202025.pdf",
+      "publication_year": 2026,
+      "finding": "Publisher search excerpt describes second IPV and routine typhoid conjugate vaccine at nine months, plus malaria programme expansion and product transition. These updates conflict with the incomplete older official table; they do not resolve every current age, product or regional eligibility. The full report was not downloaded in this check."
     }
   ],
   "remaining": [
     "Obtain and reconcile a current complete official Kenya schedule and later updates, including applicable regional eligibility.",
-    "Review vaccine purposes, expected side effects, age restrictions and professional-referral language with a qualified health reviewer.",
-    "Record approval and effective/review dates before permitting educational answers or schedule retrieval."
+    "Verify specific vaccine names, purposes and age restrictions against applicable sources before adding vaccine-specific answers.",
+    "Record effective/review dates before permitting schedule retrieval."
   ],
+  "enabled_general_education": {
+    "checked_on": "2026-10-24",
+    "review_interval_days": 90,
+    "purpose_source": "https://www.who.int/news-room/questions-and-answers/item/vaccines-and-immunization-what-is-vaccination",
+    "expected_effects_source": "https://www.unicef.org/parenting/health/parents-frequently-asked-questions-vaccines",
+    "finding": "Original publisher pages were opened and selected sections checked. General immune-system education and temporary injection-site soreness/mild fever are separated from assessment of an individual child. No medicines, personal due dates, catch-up calculations or national schedule are supplied. Original source links are returned with the response and retained through the existing storage path.",
+    "implementation": "backend/services/vaccination.py; source-check expiry is enforced before general education. Urgent handling and individual-assessment routing run first."
+  },
+  "validation_note": "Professional validation has not been obtained. It is not an active implementation task; no source check, automated test or editorial assessment is described as clinical approval.",
   "refresh_policy": {
-    "proposed_owner": "designated content maintainer; assignment pending",
-    "proposed_interval_days": 90,
+    "owner_role": "project maintainer",
+    "interval_days": 90,
     "additional_trigger": "official programme change, safety notice or identified source conflict",
-    "status": "proposed_not_implemented"
+    "status": "manual_source_refresh_required_before_publication",
+    "audit_command": "python -m scripts.prepare_coverage_review --corpus-dir data/processed/practical-care-activity-candidates --domain-review data/passage-domain-review.json --evaluation-date 2026-10-24 --audit-only",
+    "implemented_check": "The offline audit computes publisher review-due flags at the supplied evaluation date. It does not re-fetch sources, approve content, assign a reviewer or activate a collection."
   }
 }

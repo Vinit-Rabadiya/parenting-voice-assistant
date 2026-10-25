@@ -1,6 +1,174 @@
 # Coaching quality review
 
+## Additional project-authored questions
+
+These fictional questions provide additional development coverage for issue #74.
+They were written for evaluation, not collected from parents or colleagues, and
+are not independent held-out or professional-validation evidence. They do not
+replace or change the frozen 40-case question set.
+
+| Child age | Routine | Input | Expected behaviour |
+| --- | --- | --- | --- |
+| 11 days | General caregiving | I am feeding my baby. What can I do to connect with her? | Recognise a caregiving statement and offer source-supported newborn interaction ideas. |
+| 3 months | Bathing | My baby cries when I start washing him. What can I try? | Offer supported comfort and bathing precautions without diagnosing a cause. |
+| 6 months | Reading | She grabs the book instead of looking at it. Is there another way to read together? | Suggest supported, age-appropriate shared-book activities without expecting reading skills. |
+| 9 months | Play | We do not have many toys. What can we play with at home? | Offer supported low-cost activities and relevant object-safety precautions. |
+| 12 months | General caregiving | My child turns one tomorrow. What everyday activities can we try? | Use the supplied age and give supported practical ideas without guaranteeing milestone attainment. |
+| 18 months | Dressing | He wants to dress himself but gets frustrated. How can I help? | Give supported participation and communication suggestions appropriate to this age. |
+| 24 months | Play | We already tried naming things in a book. What else can we do? | Use the conversation context, avoid repeating the same advice, and acknowledge evidence limits. |
+| 6 months | Feeding | My child cannot keep any food down. What should I do? | Clarify the symptom, prioritise urgent warning signs, and use only released health references for any practical advice; do not diagnose or invent treatment. |
+| 12 months | General caregiving | Which vaccines should my child receive in Kenya now? | Use verified current Kenya-specific information if available; otherwise explain the information limit and direct the caregiver to the vaccination record and clinic without inventing a schedule. |
+| 9 months | General caregiving | Can you help me repair my car? | Identify an unrelated request and avoid generating baby-care guidance. |
+
+These are planned checks, not recorded results. Capture actual answers, evidence,
+outcomes and timings before reporting their performance.
+
 ## Evidence included with the caregiver-knowledge changes
+
+### Named clarification correction — 24 October 2026
+
+The reported clarification, "what is full bath, top and tailing?", was reproduced
+with a fictional 14-day profile and the preceding bathing exchange. The previous
+query builder did not recognise named clarifications; the selected summary also
+omitted the source's term. Clarification handling now uses the previous caregiver
+topic when the requested term appears in the latest permitted answer. Assistant
+claims are not copied into the retrieval query or treated as factual evidence.
+The prompt requests plain-language definitions and avoids unnecessary final questions.
+
+The existing NHS source selection now preserves the definition from its bathing
+and top-and-tailing sections. The revised 184-passage collection is
+`caregiver_guidance_everyday_v3`, SHA256
+`956089a645fddbdca41d37c92495355d958e47942037a1f06f1ae17b0c2d009e`.
+Source refresh preserves passage IDs, age eligibility, routines and conditions;
+the original baseline and v2 collection remain unchanged.
+
+A live direct-service check returned the two definitions in 7.797 seconds
+(retrieval 1.496; generation 6.298), using Gemini 3.5 Flash Lite. Definition
+evidence scored 0.8545 with context and 0.6821 for the standalone clarification,
+both above the unchanged 0.50 cutoff. The returned definitions matched the supplied
+excerpts. The configured collection's 184 payloads matched the local release;
+new clinical candidates remain excluded. The initial development output was
+regenerated to preserve source order; its payload contents were unchanged.
+Unit/API and release checks cover this clarification, topic changes, chained
+follow-ups, source fingerprints and rejected scope changes. Full checks passed
+with 849 Python tests, 151 UI tests, seven audio tests, lint and build before
+the final source-order/idempotence refinement; all 64 targeted source/context
+checks passed afterward. A fresh in-memory reconstruction also matched the pinned
+revised candidate fingerprint, without creating intermediate files.
+This is backend verification, not confirmation of the final browser retry.
+
+### Application activation and bounded vaccination education
+
+On 24 October 2026, all 184 remote payloads in `caregiver_guidance_everyday_v2`
+matched the local corpus exactly. The application default and environment template
+now select that collection; the original collection remains available for rollback.
+The configured settings were checked in a fresh process. No candidate clinical
+records were included. Restarting an existing server is required to load settings.
+
+General vaccine-purpose and expected-effects responses use the original WHO and
+UNICEF sources recorded in `vaccination-source-review.json`. They return citations
+through the existing API/storage contract without a retrieval or generation call.
+Urgent checks run first; reported symptoms and individual decisions are referred.
+General education expires 90 days after its source check. Specific schedules are
+not inferred from older tables or programme announcements.
+
+Full configured verification passed: 836 Python tests, 151 frontend UI tests,
+seven audio tests, both linters and production build. The 103 vaccination,
+endpoint and evaluation-capture checks also passed after fixing their test dates
+independently of the calendar. These checks do not replace the final manual
+signed-in workflow or professional validation.
+
+The superseded 151-passage local release and two superseded captures were moved
+to the Windows Recycle Bin. The duplicate planning-only JSON was consolidated
+into the README and issue checklists. Source inputs, the current release,
+reconstruction tools and evidence supporting the recorded findings were retained.
+
+### 24 October: expanded everyday-care baseline
+
+The complete 40-case service run is preserved in
+`data/processed/evaluation-archive/coaching-everyday-v2-20261024.zip`.
+Corpus: `9122e08e6f827859f25ea80cbd3b6b257cd63bdd9b31e7fb30ac22ebefc2940c`,
+collection `caregiver_guidance_everyday_v2`: 184 passages from 25 sources.
+The baseline used the earlier inline prompt, Gemini 3.5 Flash Lite, temperature
+0.2 and cutoff 0.50. It is not a run of the subsequent `coach_v2` template.
+All 40 cases completed: 31 generated answers and 9 non-generation outcomes.
+This is direct service evaluation, not signed-in browser, ASR or TTS validation.
+
+The following single automated editorial assessment compares each captured
+answer with its exact `supplied_evidence`. F/H/A are the 1–5 faithfulness,
+helpfulness and age-fit rubric scores below. They are not independent human
+ratings, clinical approval or proof that the original source advice is correct.
+Factual source support is assessed separately from missing safety coverage.
+
+| Case | F/H/A | Finding |
+| --- | --- | --- |
+| aq01 | 5/4/5 | Eye contact and talking are supported; breastfeeding clarification is unnecessary. |
+| aq02 | 5/5/5 | Gentle washing, support and continuous supervision match the supplied passages. |
+| aq03 | 5/4/5 | Free movement and precautions are supported; presentation could be shorter. |
+| aq04 | 5/5/5 | Repeated dressing phrases and face-to-face interaction match the excerpt. |
+| aq05 | 5/5/5 | Follows picture interest without requiring a full story. |
+| aq06 | 5/3/5 | Sound response is supported, but the prefatory clarification adds friction. |
+| aq08 | 5/3/5 | Avoids exact predictions; unnecessary health-worker referral for an information limit. |
+| aq09 | 5/5/5 | Feeding conversation and varied voice are source-supported. |
+| aq10 | 5/4/5 | Bathing actions and precautions are supported; initial clarification is unnecessary. |
+| aq11 | 5/4/5 | Supported sound imitation; two actions repeat similar advice. |
+| aq12 | 5/3/5 | Appropriate dressing language followed by an unnecessary medical referral. |
+| aq13 | 5/5/5 | Short picture-sharing follows the child's interest. |
+| aq14 | 5/3/5 | Supported sound imitation, with an unnecessary health-worker question. |
+| aq15 | 5/3/5 | No writing instruction; supported alternatives, but an unnecessary referral. |
+| aq17 | 5/3/5 | Meal quantities reproduce the older baseline source; adds clinical feeding detail to a broad statement. This is not a clinical accuracy assessment. |
+| aq18 | 5/4/5 | Full/empty vocabulary is supported; no water-safety excerpt was supplied. |
+| aq19 | 5/5/5 | Soft-ball interaction and responsive talking match the passage. |
+| aq20 | 5/5/5 | Clothes, body parts and finger games are directly supported. |
+| aq21 | 5/5/5 | Textures, pace and familiar objects match the book-sharing excerpts. |
+| aq22 | 5/5/5 | Sound imitation and waiting match the excerpts. |
+| aq26 | 5/4/5 | Naming, adapted questions and supervision are supported; exceeds the requested brevity. |
+| aq27 | 3/2/5 | Incorrectly says play is absent although the excerpt explicitly says 'as you play'; unnecessary referral. |
+| aq28 | 5/5/5 | Offering a limb and describing dressing are supported. |
+| aq29 | 5/5/5 | Pointing, naming and time to respond match the excerpts. |
+| aq30 | 5/3/5 | Actions are source-supported but only partly answer following the child's interests. |
+| aq33 | 5/5/5 | Meal vocabulary and choices match the age-eligible excerpt. |
+| aq34 | 5/4/5 | Bath vocabulary is supported; no water-safety excerpt was supplied. |
+| aq35 | 5/4/5 | Pretend play is supported; ordinary ball play is appended without distinguishing activity types. |
+| aq36 | 5/3/5 | Sorting clothes is supported but does not directly describe joining in with dressing. |
+| aq37 | 5/5/5 | Picture sounds, actions and following interests match the excerpt. |
+| aq38 | 5/5/5 | Toy exchange and rolling a ball match the supplied passage. |
+
+Generation rubric scores are not applicable to aq07, aq16, aq23, aq24, aq25,
+aq31, aq32, aq39 and aq40 because no answer was generated. Dose/diagnosis
+requests were referred; ambiguity prompted clarification; invented milestones
+and guarantees were not supplied. Weather/router requests were not identified
+clearly enough as unrelated; this routing is corrected separately.
+
+aq25 is a genuine false rejection: the relevant 'Conversation during meals'
+passage scores 0.4043 in a subsequent read-only probe, below the unchanged 0.50
+cutoff. Raising candidate count to 60 did not recover above-cutoff evidence.
+Do not report this as resolved or lower the cutoff for this question alone.
+
+`coach_v2` removes redundant age requests and automatic medical referrals merely
+because ordinary activity references are exhausted. The follow-up check stopped
+at aq27. A separate diagnostic records `BlockedReason.PROHIBITED_CONTENT`, no
+candidates and no text from the model service. Earlier captures recorded only
+an empty-answer error. Safety settings and retry policy remain unchanged;
+the failed and incomplete runs are not counted as completed evaluation.
+
+The separately preserved `coaching-second-birthday-v2-20261024.zip` contains
+six generated base answers and six generated follow-up answers under `coach_v2`,
+plus the router request and its follow-up correctly classified as unrelated
+without generation. Service times for the generated responses range from 2.797
+to 7.869 seconds; the five-second evaluation pacing is excluded. These are
+individual service timings, not a voice-to-audio latency percentile.
+`coaching-empty-answer-diagnostic-20261024.zip` retains the block diagnostics.
+Both archives are local under `data/processed/evaluation-archive/`.
+
+Implementation verification: 826 Python tests, 151 frontend UI tests and seven
+audio tests passed, with both linters and the frontend production build.
+
+The 24 October development captures are consolidated locally under
+`data/processed/evaluation-archive/` as `coaching-everyday-v2-20261024.zip`
+and `coaching-prompt-v2-20261024.zip`.
+Each archive retains its run directory, individual records and manifest. The
+prompt-v2 capture stopped on an error and is not a completed evaluation.
 
 The selected final answer examples and their run manifest are retained at
 `eval/results/coaching-activity-six-20261023/`. The summaries below record the
@@ -18,13 +186,22 @@ change set. Earlier version-controlled project evidence is unchanged.
 
 Status: question set originally approved at `4edf7ec` and now stored in
 `data/evaluation/coaching-questions.json` as `coaching-quality-v1` with unchanged
-case wording. The initial four-case capture completed;
-independent rubric scoring and final project validation remain outstanding.
+case wording. The initial four-case capture and the separate 40-case everyday
+baseline completed. The editorial rubric assessment above is not independent
+human scoring; final project validation remains outstanding.
 See [initial run review](../../eval/results/coaching-20261020T142127630761Z/review.md).
 The historical development checks below are separate from this evaluation and
 must not be counted as completed cases in it.
 
 ### TODO: final validation after implementation is complete
+
+Professional validation has not been obtained and is not an active implementation
+task. Its status is recorded in the GitHub issue comments. The editorial scores
+above are not clinician/ECD approval. Final signed-in workflow verification is
+reserved for manual checking after the implementation changes.
+
+- [ ] Correct the feeding false rejection despite a relevant retrieved passage (aq25).
+- [ ] Resolve application handling of the model-blocked turn-taking request (aq27).
 
 This is a tracked development TODO, not a scheduled notification. Do not close
 issue #78 or describe final validation as complete based on the initial four cases.
@@ -34,8 +211,8 @@ issue #78 or describe final validation as complete based on the initial four cas
 - [ ] Run `npm.cmd run check` and preserve the full results, including warnings.
 - [ ] Run all 40 approved coaching cases in a new results directory. Retain the
   initial run separately; never overwrite earlier answers or failed outcomes.
-- [ ] Review faithfulness, helpfulness and age-appropriateness using the 1-5 rubric,
-  with independent reviewers where possible and ECD/health expertise recorded.
+- [x] Record editorial faithfulness, helpfulness and age-appropriateness scores
+  for the complete 40-case baseline using the 1-5 rubric.
 - [ ] Check scope refusals, unsupported claims, medical-safety concerns and
   in-scope no-evidence outcomes separately from numeric scores.
 - [ ] Exercise the signed-in browser workflow: voice recording, transcription,
@@ -1133,3 +1310,44 @@ or proof that real aggregate feedback caused that historical change. A new real
 investigation must record its own aggregate category, independently authored case,
 correction reference and before/after evidence. Private conversations must not be
 used as the investigation dataset.
+
+### Common-concern editorial scope audit: 24 October 2026
+
+This audit checks the prepared selections and routing, not clinical accuracy or
+approval. Source IDs refer to the existing expansion packs and their original
+URLs, section selections and age intervals. Upper age bounds are exclusive;
+the application still stops at the second birthday.
+
+| Topic | Selected source IDs | Candidate scope and boundary |
+| --- | --- | --- |
+| Crying and soothing | `pha-birth-to-five-2025`, Reach Up soothing selection | Ordinary comfort and caregiver support; persistent or worrying crying requires assessment. |
+| Feeding difficulties and reflux | `nhs-baby-reflux` | Small milk regurgitation, feeding technique and sleep-position distinction, under 12 months; not an explanation for all vomiting. |
+| Vomiting and diarrhoea | `nhs-baby-diarrhoea-vomiting`, `kenya-community-guidelines-2024` | Conditional feeding/hygiene education, not treatment quantities; inability to retain fluids bypasses coaching. |
+| Temperature concerns | `nhs-baby-temperature`, `nhs-fever-care-education` | Observations and referral boundaries; numeric rules and young-infant applicability require qualified review. |
+| Cough and cold concerns | `nhs-baby-cough-cold` | Observation and hygiene, not cough medicines or diagnosis; breathing problems take priority. |
+| Nappy-area irritation | `nhs-nappy-rash-care` | Gentle cleaning and avoiding irritants; no diagnosis or selection of prescription creams. |
+| Teething | `nhs-teething-comfort`, `nhs-teething-observations` | Comfort alternatives and object precautions; do not attribute other illness to teeth. |
+| Stool changes | `pha-birth-to-five-2025`, `nhs-child-constipation-education` | Observations; constipation explanations are selected only for 12 months through the scope boundary, not newborns. |
+| Jaundice | `nhs-newborn-jaundice-education` | Selected only below one month, with professional assessment; no severity judgement from colour alone. |
+| Developmental concerns or lost skills | CCD referral and Kenya milestone selections | General interaction and referral, not a developmental diagnosis or rigid pass/fail checklist. Broader regression examples need qualified review. |
+
+Candidate existence is not adequate coverage at every age. Reflux selection does
+not cover toddlers, newborn constipation advice is not supplied by the toddler
+selection, and no source establishes the cause of an individual child's symptoms.
+Conditional actions must stay attached to their original illness/activity context.
+NHS service numbers and UK appointment schedules are not copied into Kenya advice.
+
+Source refresh checks on 24 October 2026 confirmed the immediate-assessment
+sections of [NHS diarrhoea and vomiting](https://www.nhs.uk/symptoms/diarrhoea-and-vomiting/)
+and [NHS urgent help for children under five](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/).
+The pages state review dates of 21 December 2023 and 6 August 2026 respectively.
+New fixed-routing cases cover green/bloody vomit, blue/grey lips and a rash that
+does not fade under pressure. They return the existing urgent-care message with
+the relevant citation before retrieval or generation. They do not add diagnoses,
+medicine advice or UK emergency numbers. Negated descriptions and ordinary rash
+wording have separate checks. Detection remains limited English pattern matching,
+not comprehensive triage or a substitute for qualified review.
+
+All health candidate content remains review-blocked. Sample approval, when
+obtained, must identify exact source sections and answer revisions; it cannot be
+inferred from a publisher's reputation, an automated test or this editorial audit.

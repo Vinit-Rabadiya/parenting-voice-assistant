@@ -233,7 +233,11 @@ def main() -> None:
     parser.add_argument("--corpus", type=Path, default=PROJECT_ROOT / "data/processed/rag/passages.jsonl")
     parser.add_argument("--split", choices=("development", "held_out"))
     parser.add_argument("--rerank", action="store_true", help="Compare an optional local CPU cross-encoder.")
+    parser.add_argument("--allow-candidate-content", action="store_true",
+                        help="Inspect unapproved references in a separate evaluation collection only.")
     args = parser.parse_args()
+    if args.allow_candidate_content and args.collection == settings.QDRANT_COLLECTION:
+        parser.error("Candidate content requires a separate evaluation collection.")
     queries_path, output_path = args.queries, args.output
 
     if not queries_path.exists():
@@ -256,7 +260,7 @@ def main() -> None:
     print(f"Loaded {len(queries)} evaluation queries from {queries_path.name}")
 
     # connect to the live qdrant index.
-    service = RetrievalService(collection_name=args.collection)
+    service = RetrievalService(collection_name=args.collection, allow_candidate_content=args.allow_candidate_content)
     if args.rerank:
         if args.split != "development":
             parser.error("The experimental reranker is restricted to the development split.")
@@ -284,6 +288,7 @@ def main() -> None:
     report = build_report(queries, results)
     report["configuration"].update(collection=args.collection, corpus_path=str(args.corpus), split=args.split)
     report["configuration"]["evidence_minimum_score"] = settings.RETRIEVAL_MIN_SCORE
+    report["configuration"]["candidate_content_allowed"] = args.allow_candidate_content
     if args.rerank:
         from scripts.rerank_retrieval import DEFAULT_MODEL
         report["configuration"].update(reranker=DEFAULT_MODEL, reranker_device="cpu",

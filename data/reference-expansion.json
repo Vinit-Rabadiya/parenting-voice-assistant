@@ -155,7 +155,7 @@
       "passages": [
         {"section": "Baby's first bath and temperature", "domain": "safety", "routines": ["bathing"], "text": "Prepare towels, clean clothes, and a nappy before bathing. Keep the room warm, mix the water well, and check it is not hot or cold before putting your baby in. Stay with your baby throughout."},
         {"section": "How to bathe your baby", "domain": "safety", "routines": ["bathing"], "text": "Support your baby's head and shoulders, keep their head above water, and wash gently without splashing. Never leave a baby alone in a bath, even briefly. Lift them out carefully and pat the skin folds dry."},
-        {"section": "Top and tailing", "domain": "responsive_caregiving", "routines": ["bathing"], "text": "Talk gently while washing your baby so they hear your familiar voice. In the first weeks, washing the face, neck, hands, and bottom with warm water can be an alternative to a full bath."},
+        {"section": "Top and tailing", "domain": "responsive_caregiving", "routines": ["bathing"], "text": "A full bath means gently lowering your baby's body into a baby bath or bowl, while supporting their head and shoulders and keeping their head above water. In the first weeks, top and tailing means using warm water to wash the face, neck, hands and bottom rather than putting your baby in a bath. Talk gently while washing so they hear your familiar voice. Never leave your baby alone in a bath, even briefly."},
         {"section": "Baby's first bath", "domain": "safety", "routines": ["bathing"], "age": [0, 1], "text": "During the first month, plain water is best for bathing your baby's skin. Choose a time when they are not hungry or tired and not straight after a feed."}
       ]
     }

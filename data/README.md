@@ -1,5 +1,43 @@
 # RAG data preparation
 
+## Current everyday release
+
+The application default is `caregiver_guidance_everyday_v3`: 184 passages from
+25 sources, with SHA256
+`956089a645fddbdca41d37c92495355d958e47942037a1f06f1ae17b0c2d009e`.
+On 24 October 2026, all remote payloads were compared with the local release and
+matched exactly. This activates the source-checked everyday selections, not the
+273-record candidate corpus. New clinical candidates stay excluded. The original
+`caregiver_guidance_minilm_v1` collection is retained for rollback.
+
+`everyday-release-review.json` and `scripts.prepare_release_corpus` define the
+selection; generated intermediate files are not additional application inputs.
+After preparing the original corpus and the expansion chain documented below
+(expanded, health, PDF-health, activity-safety, everyday-care, practical-care-activity),
+prepare and upload only the selected release:
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.prepare_release_corpus
+.\venv\Scripts\python.exe -m scripts.create_qdrant_collection --collection caregiver_guidance_everyday_v3
+.\venv\Scripts\python.exe -m scripts.index_rag --passages data/processed/everyday-release-v3/passages.jsonl --manifest data/processed/everyday-release-v3/sources.json --report data/processed/everyday-release-v3/preparation-report.json --collection caregiver_guidance_everyday_v3 --upload
+```
+
+The preparation command refuses to overwrite an existing release. Do not rerun
+it for ordinary application startup. Reuse the populated collection; restart the
+backend after configuration changes. The final signed-in workflow check is
+pending. Professional validation has not been obtained and is documented as a
+separate limitation, not an implementation completion claim.
+
+Revision v3 retains the 184-passage scope and original baseline. It refreshes
+one source's wording from the pinned reference pack, preserving passage IDs,
+ages, routines and applicability conditions. The bathing definition now retains
+the source's term "top and tailing" and its contrast with a full bath. The v2
+collection and its evaluation records remain unchanged. No clinical candidate
+is released by this wording revision.
+
+The following sections preserve preparation history and candidate comparisons;
+their historical counts are not the current application collection size.
+
 The selected reference corpus supports retrieval, not model training. The current prepared
 corpus contains 106 editorially selected passages: 18 WHO/UNICEF counselling-card passages,
 75 Reach Up passages, and 13 Kenya handbook passages. Selection and extraction checks do
@@ -7,12 +45,10 @@ not constitute expert validation of developmental appropriateness.
 
 ## Expanded reference candidates
 
-The broader target inventory is `data/baby-care-coverage-plan.json`. It lists
-everyday baby-care topics, responsible issues and the review requirements before
-a topic can be described as supported. Its status is planned, not activated.
-Prioritise gaps against that inventory rather than increasing passage counts
-without a coverage purpose. Preserve the distinction between source preparation,
-editorial relevance review, qualified health review and live activation.
+The broader topic inventory is in the root README's planned baby-care coverage
+section; GitHub issues hold implementation checklists. Prioritise those gaps
+rather than increasing passage counts without a coverage purpose. Source checking,
+answer evaluation, live activation and professional validation are different claims.
 
 `reference-expansion.json` adds short editorial summaries from UNICEF Parenting
 and NHS guidance, checked on 22 October 2026. It is a candidate source pack,
@@ -556,19 +592,23 @@ Kenya context is retained with vaccination notices in conversation history and
 legacy interactions. Existing history metadata is preserved rather than rewritten.
 
 `backend/services/vaccination.py` currently routes recognised English vaccine
-questions to a fixed `vaccination_notice`: individual clinical assessment or
-Kenya references awaiting review. These notices
+questions to a fixed `vaccination_notice`: source-checked general education,
+individual clinical assessment or Kenya schedule information awaiting reconciliation. These responses
 do not call Qdrant or Gemini and do not supply vaccine schedules, catch-up doses
 or individual reaction assessments. Existing recognised danger/crisis routing
 runs first. The notice is stored through the same response path as other chat
 messages; normal coaching is unchanged. Keyword routing is not comprehensive
-medical triage, and Kenya-only scope does not approve or enable health content.
+medical triage. General purpose and expected-effects responses cite WHO and
+UNICEF respectively. They do not assess a reported symptom or predict a child's
+reaction. Source checks expire after 90 days; stale or future-dated checks fall
+back to the unavailable-reference notice. This adds no model call or live browsing.
 
 `data/evaluation/vaccination-source-review.json` records the current source
 reconciliation gap. The older guideline and later programme announcements do
-not establish a complete current schedule. The proposed refresh policy is not
-yet an implemented approval system. Qualified review and educational-generation
-integration remain outstanding under #100; common concerns remain under #102.
+not establish a complete current schedule. The project maintainer rechecks sources
+at least every 90 days and after programme changes or source conflicts. Professional
+validation is unavailable and documented separately, not claimed by these checks.
+Specific vaccine and schedule coverage remains under #100; common concerns under #102.
 
 ### Optional local reranking comparison
 
@@ -741,3 +781,57 @@ Start with `extract_text()` and `extraction_mode="layout"`, then read “Why Tex
 is hard.” The distinction explains why page text is preserved for review before selecting
 passages: a PDF describes positioned drawing/text operations, not reliable paragraph or
 table structure.
+
+## Reference validation checkpoint: 24 October 2026
+
+The current candidate audit is [coverage.md](../eval/review/caregiver-coverage/coverage.md):
+273 passages from 55 sources, including 122 passages blocked for health review.
+The original 106 passages now have content-based, non-exclusive domain annotations
+in `data/passage-domain-review.json`. The annotation file pins the original corpus
+hash and includes an anchor from each selected passage. It does not modify source
+text, frozen evaluation labels or the application collection.
+
+Fourteen same-source containment pairs identify combined activities and their
+standalone communication selections. They are retained: removing one without
+reviewing age eligibility and the surrounding activity would discard information
+or invalidate earlier evaluation. The report also identifies missing source check
+dates and computes overdue publisher review dates at the chosen audit date.
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.prepare_coverage_review --corpus-dir data/processed/practical-care-activity-candidates --domain-review data/passage-domain-review.json --evaluation-date 2026-10-24 --audit-only
+.\venv\Scripts\python.exe -m scripts.inspect_relevance_scores --results eval/coverage-v1/development-routines-results.json --compare 0.40 0.45 0.50 0.55 0.60
+```
+
+The first command prints an audit without creating question labels or overwriting
+an existing review. The second compares recorded development scores; it neither
+selects a threshold nor reads held-out results. Its interpretation and measured
+trade-offs are in `data/evaluation/coverage-development-review.md`.
+
+### Separation of review content from normal chat
+
+`RetrievalService` excludes candidate records, records blocked for health review,
+and records requiring clinical review from normal requests. The existing live
+corpus continues through the existing retrieval and evidence-gate path.
+Changing a collection setting alone does not approve review-only records.
+
+Evaluation of unapproved material requires both a separate `--collection` and
+`--allow-candidate-content` in `scripts.evaluate_retrieval` or
+`scripts.evaluate_coaching`. Add that flag to the separate-collection evaluation
+commands above when reproducing candidate experiments. It cannot be used with
+the configured application collection. Evaluation manifests record the flag;
+age and routine filters still apply. Review mode is not a frontend option,
+clinical approval mechanism or permission to publish candidate answers.
+
+### Source currency
+
+The NHS formula-preparation and young-child sleep pages were checked on
+24 October 2026 and still show review-due dates of 31 August 2026 and
+31 March 2026 respectively. They remain flagged; availability is not approval.
+Original URLs and applicability restrictions are retained with the candidates.
+
+The [Kenya Ministry of Health programme announcement](https://www.health.go.ke/node/1955)
+identifies routine typhoid vaccination at nine months. That specific update does
+not establish a complete current national schedule. The source-review record is
+`data/evaluation/vaccination-source-review.json`. Specific schedule answers remain
+disabled until current source reconciliation is recorded. The source-checked
+general-purpose and expected-effects responses above do not provide a schedule.

@@ -15,7 +15,9 @@ def test_relevant_statements_receive_an_honest_next_step(message):
     assert not clearly_unrelated(message)
 
 
-@pytest.mark.parametrize("message", ["car repair", "repair my car", "write python code"])
+@pytest.mark.parametrize("message", ["car repair", "repair my car", "write python code",
+                                      "What is the weather forecast tomorrow?", "How do I fix my internet router?",
+                                      "Please reset the wifi", "Configure my router"])
 def test_explicit_unrelated_requests_are_distinct(message):
     assert clearly_unrelated(message)
     assert missing_evidence_response(message).kind == "unrelated"

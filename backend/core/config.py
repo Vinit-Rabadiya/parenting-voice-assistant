@@ -23,7 +23,7 @@ class Settings:
     # read the qdrant connection values loaded from the root .env.
     QDRANT_URL: str | None = os.getenv("QDRANT_URL")
     QDRANT_API_KEY: str | None = os.getenv("QDRANT_API_KEY")
-    QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "caregiver_guidance_minilm_v1")
+    QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "caregiver_guidance_everyday_v3")
     # Provisional cutoff from recorded development examples; not a confidence percentage.
     RETRIEVAL_MIN_SCORE: float = float(os.getenv("RETRIEVAL_MIN_SCORE", "0.50"))
 

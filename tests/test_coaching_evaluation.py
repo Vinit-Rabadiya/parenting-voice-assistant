@@ -87,6 +87,34 @@ def test_capture_preserves_exact_evidence_and_answer():
     assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 0
 
 
+def test_capture_records_provider_block_without_retry_or_invented_answer():
+    case, _, retrieval, coaching, models = setup_case()
+    models.generate_content.return_value = SimpleNamespace(
+        text=None, candidates=[],
+        prompt_feedback=SimpleNamespace(block_reason="PROHIBITED_CONTENT"),
+    )
+    record = capture_case(case, profile_dates(date(2026, 10, 20), 0), retrieval, coaching)
+    assert record["outcome"] == "error"
+    assert record["error_stage"] == "generation"
+    assert record["answer"] is None
+    assert record["attempts"][0]["prompt_block_reason"] == "PROHIBITED_CONTENT"
+    assert record["attempts"][0]["has_text"] is False
+    assert record["attempts"][0]["finish_reasons"] == []
+    models.generate_content.assert_called_once()
+
+
+def test_capture_records_general_vaccine_source_without_model_call(monkeypatch):
+    monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2026, 10, 24))
+    case, _, retrieval, coaching, models = setup_case()
+    case["question"] = "How do vaccines work?"
+    record = capture_case(case, profile_dates(date(2026, 10, 24), 0), retrieval, coaching)
+    assert record["outcome"] == "vaccination_notice"
+    assert "who.int" in record["reference_sources"][0]["url"]
+    assert record["answer"]
+    retrieval.retrieve.assert_not_called()
+    models.generate_content.assert_not_called()
+
+
 def test_no_evidence_does_not_generate():
     case, _, retrieval, coaching, models = setup_case(score=0.0)
     record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)

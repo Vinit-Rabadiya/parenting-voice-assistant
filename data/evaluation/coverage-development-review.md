@@ -124,3 +124,90 @@ builds. Existing corpus files, labels and evaluation splits are not regenerated:
 doing so would invalidate the pinned baseline fingerprint. The application collection
 remains unchanged. A final label pool needs independent review; do not rewrite this
 one after seeing results and then report the revised scores as an unbiased improvement.
+
+## Recorded-score threshold comparison: 24 October 2026
+
+### Frozen retrieval test result
+
+`eval/coverage-v1/held-out-routines-results.json` records the first held-out run
+against the pinned 187-passage routine corpus. There are 16 cases: 15 answerable
+and one unsupported. Hit@4 is 1.0, labelled-pool Recall@4 is 0.8222 and MRR is
+0.7278, with zero observed age leaks. Mean retrieval time is 372.9 ms.
+The unsupported guarantee request passes the raw similarity gate: it is not
+counted as a successful rejection. Retrieval alone does not establish that an
+answer would make that guarantee. These findings have not been used to change
+the cutoff or ranking. They do not validate the separate 184-passage release.
+
+### Source-checked everyday release inventory
+
+The 184-passage, 25-source derived corpus preserves the original 106 records
+and adds 78 source-checked selections. Thirty-three additions have an explicit,
+ID-scoped correction of a mixed pack's blanket clinical flag: language, play,
+participation and everyday planning, not vaccine or symptom education.
+The 273-record candidate input remains unchanged and clinical candidates stay
+excluded. Editorial checking is not professional validation of the older baseline.
+
+Corpus SHA256: `9122e08e6f827859f25ea80cbd3b6b257cd63bdd9b31e7fb30ac22ebefc2940c`.
+Collection: `caregiver_guidance_everyday_v2`, prepared separately from the
+application collection. It is not yet activated in the application.
+
+| Completed months | Feeding | Bathing | Play | Reading | Dressing | Sleep | Soothing |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 (11 days) | 5 | 8 | 9 | 4 | 3 | 3 | 1 |
+| 2 | 5 | 7 | 13 | 4 | 3 | 3 | 1 |
+| 4 | 6 | 8 | 12 | 4 | 4 | 3 | 1 |
+| 6 | 9 | 8 | 12 | 3 | 2 | 2 | 0 |
+| 9 | 9 | 7 | 11 | 4 | 1 | 2 | 0 |
+| 12 | 6 | 5 | 14 | 6 | 5 | 2 | 0 |
+| 18 | 6 | 4 | 15 | 5 | 4 | 2 | 0 |
+| 24 | 5 | 3 | 12 | 5 | 3 | 0 | 0 |
+
+Counts represent age-eligible tags, not topic completeness or answer quality.
+Non-exclusive editorial domains: cognitive 50, language 111, gross motor 21,
+fine motor 38, social-emotional 41 and responsive caregiving 29. Sleep at exactly
+24 months and soothing after six months remain explicit coverage gaps in this
+release. Fourteen same-source containment pairs remain unchanged because combined
+and standalone selections can have different age eligibility; no automatic
+deletion or claim of complete duplicate resolution is made.
+
+Input: `eval/coverage-v1/development-routines-results.json`, the existing 36-case
+development run against the routine-corrected 187-passage collection. The original
+report, labels, split and rankings are unchanged. These are not new network
+measurements or results for the 273-passage candidate corpus.
+
+| Cutoff | Answerable: labelled evidence accepted | Answerable: no evidence accepted | Answerable: only unlabelled evidence accepted | Unsupported: accepted | Unsupported: rejected |
+| --- | --- | --- | --- | --- | --- |
+| 0.40 | 33 | 0 | 1 | 1 | 1 |
+| 0.45 | 32 | 0 | 2 | 1 | 1 |
+| 0.50 | 29 | 2 | 3 | 0 | 2 |
+| 0.55 | 23 | 8 | 3 | 0 | 2 |
+| 0.60 | 17 | 12 | 5 | 0 | 2 |
+
+At 0.50, cv12 and cv35 receive no evidence. Cases cv14, cv21 and cv32 accept
+passages outside their positive label pool. This last category is a review flag,
+not proof that every accepted passage is irrelevant: the editorial label pool
+is incomplete. It also prevents counting a high-scoring non-answer as success.
+
+Lower cutoffs recover some labelled evidence but admit one unsupported example;
+higher cutoffs reject more answerable requests. The two unsupported examples
+are too few to establish a reliable false-acceptance rate. Recorded scores are
+rounded and cannot replace evaluation of a pinned current corpus.
+
+Decision: retain the application's provisional 0.50 cutoff. This comparison is
+development evidence, not final calibration or held-out validation. The tool
+rejects held-out or unidentified splits for cutoff comparison. Independent labels,
+current-corpus evaluation and final outcome review are required for a release claim.
+
+### Implementation verification
+
+Commits `e01978c`, `18fd6ac` and `2e9e484` contain the retrieval safeguards,
+audit tools/domain annotations and regression tests respectively. Full configured
+checks passed: 803 Python tests, 151 frontend tests, 7 audio tests, both linters
+and the frontend production build.
+
+Two read-only feeding-reference probes at six months, using exact age 183 days,
+returned three passages and three above-cutoff evidence passages in each mode:
+3.016 seconds for application retrieval and 1.711 seconds for explicit candidate
+evaluation in `caregiver_guidance_activity_review_v5`. These are individual
+network observations, not repeated latency benchmarks, generated-answer timings
+or signed-in browser validation. No generation request or collection write was made.

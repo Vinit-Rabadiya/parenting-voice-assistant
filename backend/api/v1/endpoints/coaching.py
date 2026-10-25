@@ -247,6 +247,12 @@ async def coach(
          "source_url": item.source_url, "title": item.title}
         for item in result.passages
     ]
+    if vaccination is not None and vaccination.source_url:
+        citations.append({
+            "passage_id": "vaccination-" + vaccination.reason,
+            "source_title": vaccination.source_title, "pdf_page": None,
+            "source_url": vaccination.source_url, "title": "General vaccination education",
+        })
     response = CoachingResponse(
         interaction_id=None, answer=result.answer,
         response_kind=response_kind,
