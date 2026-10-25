@@ -7,6 +7,10 @@ import {
   beginTotpEnrollment,
   confirmTotpEnrollment,
   getAccountSecurityStatus,
+  reauthenticateAccount,
+  completeTotpSignIn,
+  totpSignInFactors,
+  turnOffMfa,
 } from "../services/auth";
 import QRCode from "qrcode";
 import AccountUsage from "../components/AccountUsage";
@@ -14,7 +18,7 @@ import AccountConsent from "../components/AccountConsent";
 import AdminFeedbackSummary from "../components/AdminFeedbackSummary";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
 function AccountPage({ verificationEmailRequested, email, accountAccess, onDataDeleted }) {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   // remember this screen's progress, messages, and account setup details.
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -26,6 +30,13 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
   const [enrollmentCode, setEnrollmentCode] = useState("");
   // null means authenticator enrollment has not been checked yet.
   const [enrollmentComplete, setEnrollmentComplete] = useState(null);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [factorCount, setFactorCount] = useState(0);
+  const [usesGoogle, setUsesGoogle] = useState(false);
+  const [securityAction, setSecurityAction] = useState(null);
+  const [securityPassword, setSecurityPassword] = useState("");
+  const [securityCode, setSecurityCode] = useState("");
+  const [securityFactor, setSecurityFactor] = useState("");
   const [dataDeleted, setDataDeleted] = useState(false);
 
   async function handleDeleteData() {
@@ -71,11 +82,14 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
         if (!cancelled) {
           setEmailVerified(status.emailVerified);
           setEnrollmentComplete(status.totpEnrolled);
+          setMfaRequired(status.mfaRequired === true);
+          setFactorCount(status.factorCount || 0);
+          setUsesGoogle(status.usesGoogle === true);
         }
       } catch {
         if (!cancelled) {
           setMessage(
-            "Couldn’t check your email status. Please try the check button.",
+            "Couldn’t check account security. Please try again.",
           );
         }
       } finally {
@@ -113,11 +127,15 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
 
       setEmailVerified(isVerified);
       setEnrollmentComplete(status.totpEnrolled);
+      setMfaRequired(status.mfaRequired === true);
+      setFactorCount(status.factorCount || 0);
+      setUsesGoogle(status.usesGoogle === true);
+      window.dispatchEvent(new Event("account-security-changed"));
       if (isVerified === true) {
         setMessage(
           status.totpEnrolled
             ? "Email verified. Authenticator is enrolled."
-            : "Email verified. Set up your authenticator next.",
+            : "Email verified. You can continue; MFA is optional unless required by security policy.",
         );
       } else {
         setMessage(
@@ -162,7 +180,45 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     }
   }
 
-  // start setup; the authenticator is added only after a correct code is confirmed.
+  async function createEnrollment() {
+    const pending = await beginTotpEnrollment();
+    const setupUri = pending.secret.generateQrCodeUrl(email, "Parenting Voice Assistant");
+    const qrDataUrl = await QRCode.toDataURL(setupUri, { width: 240, margin: 4 });
+    setPendingEnrollment({ ...pending, qrDataUrl });
+  }
+
+  async function handleReauthentication(event) {
+    event.preventDefault();
+    if (busy || !securityAction) return;
+    setBusy(true); setMessage("");
+    try {
+      if (securityAction.resolver) {
+        const confirmed = await completeTotpSignIn(securityAction.resolver, securityCode, securityFactor || null);
+        if (confirmed.uid !== user.uid) throw new Error("Account changed. Please sign in again.");
+      } else {
+        const result = await reauthenticateAccount(securityPassword, user.uid);
+        if (result.next === "mfa-required") {
+          setSecurityAction({ ...securityAction, resolver: result.resolver });
+          return;
+        }
+      }
+      if (securityAction.intent === "disable") {
+        await turnOffMfa(user.uid);
+        await logout();
+      } else if (securityAction.intent === "enroll") {
+        await createEnrollment();
+      }
+      setSecurityAction(null);
+      setSecurityFactor("");
+      if (securityAction.intent === "access") window.dispatchEvent(new Event("account-security-changed"));
+    } catch (error) {
+      setMessage(error.status ? error.message : "Couldn’t confirm sign-in. Check your details and try again.");
+    } finally {
+      setSecurityPassword(""); setSecurityCode(""); setBusy(false);
+    }
+  }
+
+  // Enrollment is complete only after Firebase verifies the authenticator code.
   async function handleBeginEnrollment() {
     if (busy) return;
     setBusy(true);
@@ -170,26 +226,12 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     setEnrollmentCode("");
 
     try {
-      const pending = await beginTotpEnrollment();
-
-      // this setup text contains the secret, so do not print or share it.
-      const setupUri = pending.secret.generateQrCodeUrl(
-        email,
-        "Parenting Voice Assistant",
-      );
-
-      // make the qr image in this browser without sending the secret to another website.
-      const qrDataUrl = await QRCode.toDataURL(setupUri, {
-        width: 240,
-        margin: 4,
-      });
-
-      // keep the key and qr together so cancel and completion can clear both.
-      setPendingEnrollment({ ...pending, qrDataUrl });
+      await createEnrollment();
     } catch (error) {
+      if (error.code === "auth/requires-recent-login") setSecurityAction({ intent: "enroll" });
       setMessage(
         error.code === "auth/requires-recent-login"
-          ? "Log out and log in again before setting up your authenticator."
+          ? "Confirm your sign-in below to set up an authenticator."
           : "Couldn’t start authenticator setup. Please try again.",
       );
     } finally {
@@ -209,8 +251,10 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
       await confirmTotpEnrollment(pendingEnrollment, enrollmentCode);
       setPendingEnrollment(null);
       setEnrollmentComplete(true);
+      setFactorCount((count) => count + 1);
+      window.dispatchEvent(new Event("account-security-changed"));
       setMessage(
-        "Authenticator added. Log out, then log in to test your code.",
+        "Authenticator added. If prompted, confirm sign-in with your code to continue.",
       );
     } catch {
       setMessage(
@@ -247,18 +291,26 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
             <circle cx="12" cy="12" r="11" fill="currentColor" />
             <path d="m7 12 3 3 7-7" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>}
-          {enrollmentComplete === true ? "MFA enabled" : enrollmentComplete === false ? "Set up MFA" : "MFA status unavailable"}
+          {enrollmentComplete === true ? "MFA enabled" : enrollmentComplete === false ? (mfaRequired ? "MFA required" : "MFA off") : "MFA status unavailable"}
         </h2></div>
       {emailVerified ? (
         <div className="account-security-content">
           {!accountAccess?.verified && <p className="email-verified">Email verified.</p>}
 
           {/* show the saved authenticator status, the setup form, or the setup button. */}
-          {enrollmentComplete ? (!accountAccess?.verified && (
-            <p>
-               Authenticator enrolled. Log out and sign in with your authenticator code to complete verification.
-            </p>
-          )) : pendingEnrollment ? (
+          <p>{mfaRequired ? "MFA is required by security policy and cannot be turned off."
+            : "MFA is optional. An authenticator adds a verification code to your sign-in."}</p>
+          {enrollmentComplete && <>
+            {!accountAccess?.verified && <button type="button" disabled={busy || Boolean(securityAction)}
+              onClick={() => setSecurityAction({ intent: "access" })}>Confirm sign-in</button>}
+            {!pendingEnrollment && factorCount < 2 && <button type="button" disabled={busy || Boolean(securityAction)}
+              onClick={handleBeginEnrollment}>Add backup authenticator</button>}
+            <button type="button" className="delete-action" disabled={busy || mfaRequired || Boolean(securityAction) || Boolean(pendingEnrollment)}
+              onClick={() => { setSecurityAction({ intent: "disable" }); setMessage(""); }}>Turn off MFA</button>
+            <p>Keep a backup authenticator on a separate device. If you lose access to both, contact the account
+              administrator for identity verification and recovery. A password reset does not remove MFA.</p>
+          </>}
+          {pendingEnrollment ? (
             <form className="account-enrollment" onSubmit={handleConfirmEnrollment}>
               <p>
                 Scan this QR code with your authenticator app, then enter its
@@ -311,10 +363,10 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
                 Cancel setup
               </button>
             </form>
-          ) : (
+          ) : !enrollmentComplete && (
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || Boolean(securityAction)}
               onClick={handleBeginEnrollment}
             >
               Set up authenticator
@@ -355,6 +407,26 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
           ) : null}
         </div>
       )}
+      {securityAction && <form className="account-enrollment" onSubmit={handleReauthentication}>
+        <h3>Confirm your sign-in</h3>
+        {securityAction.intent === "disable" && <p>Turning off MFA signs you out of existing sessions. Sign in again after the change.</p>}
+        {securityAction.resolver ? <>
+          {totpSignInFactors(securityAction.resolver).length > 1 && <label>Authenticator
+            <select value={securityFactor || totpSignInFactors(securityAction.resolver)[0].uid}
+              onChange={(event) => setSecurityFactor(event.target.value)} disabled={busy}>
+              {totpSignInFactors(securityAction.resolver).map((factor, index) => <option key={factor.uid} value={factor.uid}>
+                {factor.displayName || `Authenticator ${index + 1}`}</option>)}
+            </select>
+          </label>}
+          <label>Authenticator code<input value={securityCode} onChange={(event) => setSecurityCode(event.target.value)}
+            inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required disabled={busy} /></label>
+        </> : !usesGoogle && <label>Current password<input type="password" autoComplete="current-password"
+          value={securityPassword} onChange={(event) => setSecurityPassword(event.target.value)} required disabled={busy} /></label>}
+        <button type="submit" disabled={busy}>{securityAction.resolver ? "Verify code" : usesGoogle ? "Continue with Google" : "Confirm sign-in"}</button>
+        <button type="button" disabled={busy} onClick={() => {
+          setSecurityAction(null); setSecurityPassword(""); setSecurityCode(""); setSecurityFactor("");
+        }}>Cancel</button>
+      </form>}
       </section>
       <p className="account-feedback" role="status">{message}</p>
       {accountAccess?.verified && <AccountUsage revision={dataDeleted} />}

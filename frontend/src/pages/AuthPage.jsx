@@ -4,7 +4,7 @@ import { useState } from "react";
 import LoginForm from "../components/LoginForm";
 import SignUpForm from "../components/SignUpForm";
 import GoogleSignInButton from "../components/GoogleSignInButton";
-import { completeTotpSignIn } from "../services/auth";
+import { completeTotpSignIn, totpSignInFactors } from "../services/auth";
 
 function AuthPage({ onAccountCreated, initialMode = "login" }) {
   // choose login or signup here; each form calls the shared firebase functions.
@@ -12,6 +12,7 @@ function AuthPage({ onAccountCreated, initialMode = "login" }) {
   // remember the unfinished login while waiting for an authenticator code.
   const [mfaResolver, setMfaResolver] = useState(null);
   const [code, setCode] = useState("");
+  const [factorUid, setFactorUid] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -23,7 +24,7 @@ function AuthPage({ onAccountCreated, initialMode = "login" }) {
     setBusy(true);
     setMessage("");
     try {
-      await completeTotpSignIn(mfaResolver, code);
+      await completeTotpSignIn(mfaResolver, code, factorUid || null);
     } catch {
       setMessage(
         "Couldn’t complete verification. Try a fresh code or cancel and log in again.",
@@ -41,6 +42,13 @@ function AuthPage({ onAccountCreated, initialMode = "login" }) {
         <h1>Enter your authenticator code</h1>
 
         <form onSubmit={submitHandler}>
+          {totpSignInFactors(mfaResolver).length > 1 && <label>Authenticator
+            <select value={factorUid || totpSignInFactors(mfaResolver)[0].uid} disabled={busy}
+              onChange={(event) => setFactorUid(event.target.value)}>
+              {totpSignInFactors(mfaResolver).map((factor, index) => <option key={factor.uid} value={factor.uid}>
+                {factor.displayName || `Authenticator ${index + 1}`}</option>)}
+            </select>
+          </label>}
           <label>
             Six-digit code
             <input
@@ -62,6 +70,11 @@ function AuthPage({ onAccountCreated, initialMode = "login" }) {
         </form>
 
         <p role="status">{message}</p>
+        <details><summary>Lost access to your authenticator?</summary>
+          <p>Select your backup authenticator above if you added one. If neither authenticator is available,
+            contact the account administrator for identity verification and MFA recovery.
+            A password reset does not remove MFA.</p>
+        </details>
 
         <button
           type="button"
@@ -70,6 +83,7 @@ function AuthPage({ onAccountCreated, initialMode = "login" }) {
             // cancel this login attempt without removing the user's authenticator.
             setMfaResolver(null);
             setCode("");
+            setFactorUid("");
             setMessage("");
           }}
         >

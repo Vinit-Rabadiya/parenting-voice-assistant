@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentAccount } from "../services/api";
 
-// only show verified after the backend accepts the current email and mfa session.
+// Show verified only after the backend accepts the current session and security policy.
 export default function useAccountAccess(user) {
   const [result, setResult] = useState({ user: null, verified: false, error: "" });
   const [attempt, setAttempt] = useState(0);
@@ -47,12 +47,14 @@ export default function useAccountAccess(user) {
     // Retry unfinished setup on focus, but reuse confirmed access in this session.
     const checkUnconfirmedAccess = () => { if (!accessConfirmed) void check(); };
     window.addEventListener("focus", checkUnconfirmedAccess);
+    window.addEventListener("account-security-changed", retry);
     return () => {
       active = false;
       controller?.abort();
       window.removeEventListener("focus", checkUnconfirmedAccess);
+      window.removeEventListener("account-security-changed", retry);
     };
-  }, [user, attempt]);
+  }, [user, attempt, retry]);
 
   if (!user) return { verified: false, checking: false, error: "" };
   if (result.user !== user || result.attempt !== attempt) return { verified: false, checking: true, status: "checking", error: "", retry };

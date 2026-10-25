@@ -4,13 +4,14 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth, exceptions
 from requests.exceptions import RequestException
+from backend.services.account_security import AccountSecurityService
 
 # read the login token from the request header.
 bearer = HTTPBearer(auto_error=False)
 
 
 # check that the user is logged in before running an endpoint.
-def require_authenticated_user(
+def require_verified_user(
     request: Request,
     credential: HTTPAuthorizationCredentials | None = Depends(bearer),
 ) -> dict:
@@ -69,19 +70,45 @@ def require_authenticated_user(
             detail="Unsupported authentication tenant.",
         )
 
-    # require the authenticator code to have been used for this login.
-    if firebase_claims.get("sign_in_second_factor") != "totp":
-        raise HTTPException(
-            status_code=403,
-            detail="Complete authenticator login first.",
-        )
-
     # Sensitive endpoints can require a recent sign-in using this verified claim.
     request.state.auth_time = claims.get("auth_time", 0)
+    request.state.auth_claims = claims
     # Only a verified server-issued boolean claim grants aggregate-report access.
     request.state.feedback_summary_admin = claims.get("feedback_summary_admin") is True
     # return the verified user id.
     return {"uid": claims["uid"]}
+
+
+def get_account_security_service(request: Request) -> AccountSecurityService:
+    return AccountSecurityService(request.app.state.firebase)
+
+
+def get_account_security_state(request: Request, user: dict = Depends(require_verified_user),
+                               service: AccountSecurityService = Depends(get_account_security_service)) -> dict:
+    try:
+        state = dict(service.read(user["uid"]))
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Account verification required.") from None
+    except Exception:
+        raise HTTPException(status_code=503, detail="Account security is temporarily unavailable.") from None
+    claims = request.state.auth_claims
+    state["mfa_required"] = (state["mfa_required"] or claims.get("mfa_required") is True
+                             or claims.get("feedback_summary_admin") is True)
+    return state
+
+
+def require_authenticated_user(request: Request, user: dict = Depends(require_verified_user),
+                               security: dict = Depends(get_account_security_state)) -> dict:
+    # An opted-in account still needs its second factor. Old first-factor tokens
+    # cannot bypass enrollment, and mandatory policy is checked server-side.
+    if security["mfa_required"] and not security["mfa_enabled"]:
+        raise HTTPException(status_code=403, detail="MFA is required by security policy. Set up an authenticator in My Account.")
+    if security["mfa_enabled"] or security["mfa_required"]:
+        if request.state.auth_claims.get("firebase", {}).get("sign_in_second_factor") != "totp":
+            detail = ("MFA is required by security policy. Set up or complete authenticator sign-in."
+                      if security["mfa_required"] else "Complete authenticator login first.")
+            raise HTTPException(status_code=403, detail=detail)
+    return user
 
 
 def require_feedback_summary_admin(

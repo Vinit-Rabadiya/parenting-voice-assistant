@@ -10,6 +10,13 @@ env_path = PROJECT_ROOT / ".env"
 load_dotenv(dotenv_path=env_path)
 
 
+def boolean_setting(name: str, default: str = "false") -> bool:
+    value = os.getenv(name, default).strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false.")
+    return value == "true"
+
+
 class Settings:
     PROJECT_NAME: str = "Parenting Voice Assistant"
     DESCRIPTION: str = "AI-powered voice assistant and coaching system for caregivers."
@@ -37,6 +44,7 @@ class Settings:
     GEMINI_FALLBACK_MODEL: str = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.8-flash")
 
     FIREBASE_PROJECT_ID: str | None = os.getenv("FIREBASE_PROJECT_ID")
+    AUTH_REQUIRE_MFA: bool = boolean_setting("AUTH_REQUIRE_MFA")
 
     @property
     def firebase_admin_key_path(self) -> str | None:
