@@ -16,12 +16,13 @@ from backend.core.security import require_authenticated_user
 from backend.api.consent import require_processing_consent
 from backend.schemas.coaching import CoachingRequest, CoachingResponse, CitationSchema, FeedbackRequest, FeedbackResponse
 from backend.services.caregiver_data import CaregiverDataService
-from backend.services.coaching import CoachingResult, CoachingService, generation_request_id
+from backend.services.age import message_age_months
+from backend.services.coaching import CoachingResult, CoachingService, generation_request_id, PROVIDER_BLOCK_MESSAGE
 from backend.services.usage import UsageControlService
 from backend.services.retrieval import RetrievalService
 from backend.services.evidence import select_evidence
-from backend.services.care_response import clearly_unrelated, professional_assessment_response, missing_evidence_response
-from backend.services.response_safety import SAFE_RESPONSE, inspect_response
+from backend.services.care_response import professional_assessment_response, conversation_boundary_response
+from backend.services.response_safety import SAFE_RESPONSE, SafetyDecision, inspect_response
 from backend.services.input_safety import ESCALATION_MESSAGE, inspect_input
 from backend.services.crisis_safety import inspect_crisis
 from backend.services.vaccination import inspect_vaccination
@@ -44,6 +45,7 @@ async def save_coaching_response(data_service: CaregiverDataService, uid: str,
         stored = response.model_dump(include={
             "citations", "support_resources", "status", "safety",
             "child_age_months", "processing_seconds",
+            "answer_basis", "reference_status",
         })
         if response.vaccination_country is not None:
             stored["vaccination_country"] = response.vaccination_country
@@ -62,6 +64,8 @@ async def save_coaching_response(data_service: CaregiverDataService, uid: str,
             [citation.model_dump() for citation in response.citations], response.status,
             **({"vaccination_country": response.vaccination_country} if response.vaccination_country else {}),
             **({"response_kind": response.response_kind} if response.response_kind else {}),
+            **({"answer_basis": response.answer_basis, "reference_status": response.reference_status}
+               if response.answer_basis else {}),
         )
 
 
@@ -97,13 +101,17 @@ async def coach(
         child = await run_in_threadpool(data_service.get_child, user["uid"], payload.child_id)
     if child is None:
         raise HTTPException(status_code=404, detail="Select a child profile before asking for guidance.")
-    # Check before the age-scope rejection as well: an aged-out managed profile
-    # must not turn a recognized danger report into only an age-range error.
+    explicit_age = message_age_months(payload.question)
+    outside_age_range = explicit_age is None and child.get("in_scope") is False
+    age_months = child["age_months"] if explicit_age is None else explicit_age
+    completed_months = child["completed_months"] if explicit_age is None else int(explicit_age)
+    age_days = child["age_days"] if explicit_age is None else round(explicit_age * 30.4375)
+    # Urgent reports take priority over retrieval and ordinary generation.
     triage_started = time.perf_counter()
     with timed_stage(request_id, "caregiver_safety"):
         crisis = inspect_crisis(payload.question, payload.support_country)
     with timed_stage(request_id, "input_safety"):
-        triage = inspect_input(payload.question, child["completed_months"])
+        triage = inspect_input(payload.question, completed_months)
     timing_logger.info(
         "coaching_caregiver_safety request=%s outcome=%s reasons=%s",
         request_id, crisis.kind or "not_flagged", ",".join(crisis.reasons) or "none",
@@ -122,7 +130,7 @@ async def coach(
         response = CoachingResponse(
             interaction_id=None, answer=answer,
             citations=[CitationSchema(**citation) for citation in citations],
-            child_age_months=child["age_months"],
+            child_age_months=age_months,
             processing_seconds=round(time.perf_counter() - triage_started, 3),
             status=status, safety="not_flagged" if status == "caregiver_support" else "escalate",
             support_resources=list(crisis.resources),
@@ -136,8 +144,6 @@ async def coach(
             timing_logger.warning("coaching_input_safety request=%s persistence=failed", request_id)
         response.processing_seconds = round(time.perf_counter() - triage_started, 3)
         return response
-    if child.get("in_scope") is not True:
-        raise HTTPException(status_code=422, detail="Coaching supports children from birth through their second birthday. Select a profile within this age range.")
     started = time.perf_counter()
     context = []
     if payload.conversation_id is not None:
@@ -154,20 +160,37 @@ async def coach(
         context = select_conversation_context(conversation["messages"])
     await run_in_threadpool(enforce_usage_limit, usage, user["uid"], "coaching")
     retrieval_query = contextual_retrieval_query(payload.question, context)
+    # A direct follow-up keeps the age explicitly stated in its caregiver topic.
+    # Current profile age remains the fallback when no subject age was supplied.
+    if explicit_age is None and retrieval_query != payload.question:
+        context_age = message_age_months(retrieval_query)
+        if context_age is not None:
+            age_months, completed_months = context_age, int(context_age)
+            age_days = round(context_age * 30.4375)
+            outside_age_range = False
     vaccination = inspect_vaccination(retrieval_query)
     unresolved_follow_up = is_follow_up(payload.question) and retrieval_query == payload.question
     assessment = professional_assessment_response(payload.question)
+    boundary = conversation_boundary_response(payload.question, unresolved_follow_up=unresolved_follow_up,
+                                              child_age_months=age_months, outside_age_range=outside_age_range)
     stage = "Qdrant retrieval"
+    reference_status = "no_match"
     try:
         with timed_stage(request_id, "retrieval"):
             # Do not retrieve arbitrary advice for a follow-up with no safe topic.
-            if unresolved_follow_up or vaccination is not None or assessment is not None or clearly_unrelated(payload.question):
+            if boundary is not None or vaccination is not None or assessment is not None:
                 passages = []
             else:
-                passages = await run_in_threadpool(
-                    retrieval_service.retrieve, retrieval_query, child["completed_months"],
-                    payload.routine, 3, child_age_days=child["age_days"],
-                )
+                try:
+                    passages = await run_in_threadpool(
+                        retrieval_service.retrieve, retrieval_query, completed_months,
+                        payload.routine, 3, child_age_days=age_days,
+                    )
+                except Exception as exc:
+                    # Retrieval supports the answer; an outage must not prevent generation.
+                    logger.warning("Reference retrieval unavailable: %s", type(exc).__name__)
+                    reference_status = "unavailable"
+                    passages = []
         stage = "Evidence selection"
         with timed_stage(request_id, "evidence_selection"):
             evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
@@ -175,25 +198,33 @@ async def coach(
             "coach_timing request=%s passages=%d evidence=%d evidence_characters=%d",
             request_id, len(passages), len(evidence), sum(len(item.text) for item in evidence),
         )
-        status = "answered" if evidence else "no_evidence"
+        if evidence:
+            reference_status = "matched"
+        status = "no_evidence"
         response_kind = None
-        if vaccination is not None:
+        if boundary is not None:
+            response_kind = boundary.kind
+            result = CoachingResult(answer=boundary.answer, passages=[])
+            vaccination = None
+        elif vaccination is not None:
             status = "vaccination_notice"
             result = CoachingResult(answer=vaccination.answer, passages=[])
         elif assessment is not None:
             response_kind = assessment.kind
             result = CoachingResult(answer=assessment.answer, passages=[])
-        elif evidence:
+        else:
+            status = "answered"
             stage = "Gemini generation"
             with timed_stage(request_id, "generation"):
                 context_options = {"conversation_context": context} if context else {}
                 result = await run_in_threadpool(
-                    coaching_service.generate, payload.question, child["age_months"],
+                    coaching_service.generate, payload.question, age_months,
                     payload.routine, evidence, **context_options,
                 )
             stage = "Response safety"
             with timed_stage(request_id, "response_safety"):
-                decision = inspect_response(result.answer, result.passages, evidence, child["age_months"])
+                decision = (SafetyDecision(True, ("provider_content_block",)) if result.blocked else
+                            inspect_response(result.answer, result.passages, evidence, age_months))
                 timing_logger.info(
                     "coaching_safety request=%s outcome=%s reasons=%s",
                     request_id, "blocked" if decision.blocked else "passed",
@@ -202,12 +233,7 @@ async def coach(
                 if decision.blocked:
                     # Replace before storage and delivery; never save the blocked text.
                     status = "safety_blocked"
-                    result = CoachingResult(answer=SAFE_RESPONSE, passages=[])
-        else:
-            # A normal response, not a service error: no generation call or supporting citations.
-            fallback = missing_evidence_response(retrieval_query, unresolved_follow_up=unresolved_follow_up)
-            response_kind = fallback.kind
-            result = CoachingResult(answer=fallback.answer, passages=[])
+                    result = CoachingResult(answer=PROVIDER_BLOCK_MESSAGE if result.blocked else SAFE_RESPONSE, passages=[])
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
@@ -256,8 +282,10 @@ async def coach(
     response = CoachingResponse(
         interaction_id=None, answer=result.answer,
         response_kind=response_kind,
+        answer_basis=result.answer_basis if status == "answered" else None,
+        reference_status=reference_status if status == "answered" else None,
         citations=[CitationSchema(**citation) for citation in citations],
-        child_age_months=child["age_months"],
+        child_age_months=age_months,
         processing_seconds=round(time.perf_counter() - started, 3), status=status,
         vaccination_country=payload.vaccination_country if vaccination is not None else None,
     )

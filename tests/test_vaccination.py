@@ -12,24 +12,22 @@ def checked_source_date(monkeypatch):
     monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2026, 10, 24))
 
 
-@pytest.mark.parametrize("question", ["Which vaccines are due?",
-                                     "What does BCG protect against?", "What is pentavalent?"])
-def test_vaccination_uses_kenya_scope_without_asking_for_country(question):
-    decision = inspect_vaccination(question)
-    assert decision.reason == "references_pending_review"
-    assert "Kenya-specific" in decision.answer
+def test_vaccination_uses_kenya_scope_without_asking_for_country():
+    decision = inspect_vaccination("Which vaccines are due?")
+    assert decision.reason == "individual_schedule"
+    assert "Kenya schedule" in decision.answer
     assert "Select a vaccination country" not in decision.answer
 
 
 def test_kenya_does_not_enable_unapproved_schedule_answers():
     decision = inspect_vaccination("Which vaccines at nine months?")
-    assert decision.reason == "references_pending_review"
+    assert decision.reason == "individual_schedule"
     assert "cannot confirm" in decision.answer
 
 
 def test_general_education_does_not_override_a_schedule_request():
     decision = inspect_vaccination("What is vaccination schedule at 9 months?")
-    assert decision.reason == "references_pending_review"
+    assert decision.reason == "individual_schedule"
     assert decision.source_url is None
 
 
@@ -68,7 +66,12 @@ def test_reported_symptoms_and_individual_decisions_do_not_get_general_reassuran
 
 def test_general_education_requires_current_source_check(monkeypatch):
     monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2027, 2, 1))
-    assert inspect_vaccination("How do vaccines work?").reason == "references_pending_review"
+    assert inspect_vaccination("How do vaccines work?") is None
+
+
+@pytest.mark.parametrize("question", ["What does BCG protect against?", "What is pentavalent?"])
+def test_other_general_vaccine_topics_reach_normal_generation(question):
+    assert inspect_vaccination(question) is None
 
 
 def test_support_country_is_not_used_as_vaccination_country():

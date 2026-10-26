@@ -1,4 +1,4 @@
-"""Deterministic similarity gate; scores are not answer-confidence probabilities."""
+"""Select reference support; similarity does not determine whether to answer."""
 
 from math import isfinite
 

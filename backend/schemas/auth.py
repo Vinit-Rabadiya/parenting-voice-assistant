@@ -9,3 +9,8 @@ class HealthResponse(BaseModel):
 
 class UserResponse(BaseModel):
     uid: str = Field(description="Unique Firebase User ID")
+
+
+class AccountSecurityResponse(BaseModel):
+    mfa_enabled: bool
+    mfa_required: bool

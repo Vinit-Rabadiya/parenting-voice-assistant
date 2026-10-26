@@ -1,7 +1,9 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { sendFeedback } from "../services/caregiving";
+import useGuidanceAudio from "../hooks/useGuidanceAudio";
+import GuidanceText from "./GuidanceText";
 
-export default function GuidanceAnswer({ message, childName, conversationId, allowFeedback = true }) {
+export default function GuidanceAnswer({ message, childName, conversationId, allowFeedback = true, fresh = false, active = true }) {
   const headingId = useId();
   const commentId = useId();
   const ratingId = useId();
@@ -14,87 +16,41 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
   const [saving, setSaving] = useState(false);
   const [rating, setRating] = useState(message.feedback?.rating || "");
   const [reasons, setReasons] = useState(message.feedback?.reasons || []);
-  const [audioError, setAudioError] = useState("");
-  const utteranceRef = useRef(null);
+  const animate = fresh && message.status === "answered";
+  const [textReady, setTextReady] = useState(!animate);
+  const finishText = useCallback(() => setTextReady(true), []);
+  const audio = useGuidanceAudio(result.answer, { automatic: fresh, ready: textReady, active });
+  const audioBusy = ["preparing", "playing"].includes(audio.state);
   const reasonOptions = [
     ["unclear", "Unclear"], ["repeated_advice", "Repeated advice"],
     ["did_not_answer", "Did not answer my message"], ["not_age_appropriate", "Not suited to my child's age"],
   ];
 
-  function clearUtterance() {
-    if (utteranceRef.current) {
-      utteranceRef.current.onerror = null;
-      utteranceRef.current.onend = null;
-      utteranceRef.current = null;
-    }
-  }
-
-  useEffect(() => () => {
-    if (!utteranceRef.current) return;
-    clearUtterance();
-    try { window.speechSynthesis?.cancel(); }
-    catch { /* No state updates while removing the answer. */ }
-  }, [message.text]);
-
-  function speak(text) {
-    setAudioError("");
-    if (typeof window.speechSynthesis?.speak !== "function" || typeof window.SpeechSynthesisUtterance !== "function") {
-      setAudioError("Audio playback is unavailable in this browser. You can still read the answer.");
-      return;
-    }
-    try {
-      clearUtterance();
-      window.speechSynthesis.cancel();
-      const utterance = new window.SpeechSynthesisUtterance(text);
-      utteranceRef.current = utterance;
-      utterance.rate = 0.95;
-      utterance.onend = () => { if (utteranceRef.current === utterance) utteranceRef.current = null; };
-      utterance.onerror = event => {
-        if (utteranceRef.current !== utterance) return;
-        utteranceRef.current = null;
-        if (!["canceled", "interrupted"].includes(event.error)) {
-          setAudioError("Audio could not be played. You can still read the answer or try Listen again.");
-        }
-      };
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      clearUtterance();
-      setAudioError("Audio could not be played. You can still read the answer or try Listen again.");
-    }
-  }
-
-  function stopAudio() {
-    clearUtterance();
-    setAudioError("");
-    try { window.speechSynthesis?.cancel(); }
-    catch { setAudioError("Audio controls are unavailable. You can still read the answer."); }
-  }
-
-  async function recordFeedback(helpful, numericRating = null) {
-    if (!targetId || saving) return;
+  async function recordFeedback() {
+    if (!targetId || saving || !rating) return;
     setSaving(true);
     try {
-      await sendFeedback(targetId, { ...(numericRating === null ? { helpful } : { rating: numericRating }),
+      await sendFeedback(targetId, { rating: Number(rating),
         reasons, comment: feedbackComment || null,
         ...(message.interaction_id ? {} : { conversation_id: conversationId }) });
-      if (numericRating === null) setRating("");
       setFeedbackStatus("Thanks — your feedback was saved.");
     } catch (cause) { setFeedbackStatus(cause.message); }
     finally { setSaving(false); }
   }
 
-  return (<section className="guidance-answer" aria-live="polite" aria-labelledby={headingId}>
+  return (<section className="guidance-answer" data-message-id={message.id} aria-labelledby={headingId}>
       <h2 id={headingId}>{result.status === "crisis_support" ? "Immediate support"
         : result.status === "caregiver_support" ? "Support for you"
         : result.status === "escalated" ? "Seek urgent medical care"
         : result.status === "safety_blocked" ? "Guidance could not be provided"
         : result.status === "vaccination_notice" ? "Vaccination information"
         : result.response_kind === "clarification" ? "Tell me a little more"
+        : result.response_kind === "age_out_of_scope" ? "Supported age range"
         : result.response_kind === "unrelated" ? "Baby-care topics only"
         : result.response_kind === "professional_referral" ? "Professional advice needed"
         : result.response_kind === "insufficient_references" ? "More information needed"
         : result.status === "no_evidence" ? "No suitable guidance found" : `Guidance for ${childName}`}</h2>
-      <p className="guidance-text">{result.answer}</p>
+      <GuidanceText text={result.answer} animate={animate && !textReady} active={active} onComplete={finishText} />
       <p className="guidance-meta">{["crisis_support", "caregiver_support"].includes(result.status)
         ? "A support message is shown instead of generated developmental coaching."
         : result.status === "escalated"
@@ -105,9 +61,21 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         ? "No AI-generated vaccination advice was provided."
         : result.status === "no_evidence"
         ? `Processed in ${result.processing_seconds.toFixed(2)} seconds. No coaching answer was generated.`
-        : `Prepared in ${result.processing_seconds.toFixed(2)} seconds using age-aware reference material.`}</p>
-      <div className="answer-actions"><button type="button" onClick={() => speak(result.answer)}>Listen</button><button type="button" onClick={stopAudio}>Stop audio</button></div>
-      {audioError && <p className="guidance-meta" role="status">{audioError}</p>}
+        : result.answer_basis === "general_information"
+        ? `Prepared in ${result.processing_seconds.toFixed(2)} seconds. General information; not verified against reference documents.`
+        : `Prepared in ${result.processing_seconds.toFixed(2)} seconds with reference support. Any supplemental information is labelled in the answer.`}</p>
+      {result.reference_status === "unavailable" && <p className="guidance-meta">Reference search is temporarily unavailable. This answer uses general information.</p>}
+      <div className="answer-actions"><button type="button" disabled={!active} aria-label={audioBusy ? "Stop audio" : "Listen"}
+        onClick={() => { if (audioBusy) audio.stop(); else { finishText(); audio.play(); } }}>
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          {audioBusy ? <rect x="6" y="6" width="12" height="12" rx="1" /> : <path d="M7 4v16l14-8z" />}
+        </svg>{audioBusy ? "Stop audio" : "Listen"}</button>
+        <span className="guidance-meta" role="status">{!textReady && active ? "Showing guidance…" : audio.state === "preparing" ? "Preparing audio…" : audio.message}</span>
+        {audio.hint && <div className="audio-help" role="status">
+          <span>Can't hear the guidance? Check your device volume.</span>
+          <button type="button" aria-label="Dismiss audio help" onClick={audio.dismissHint}>×</button>
+        </div>}
+      </div>
       {result.status === "vaccination_notice" && result.vaccination_country && <p className="guidance-meta">
         Vaccination country: {result.vaccination_country === "KE" ? "Kenya" : "Another country"}
       </p>}
@@ -120,7 +88,7 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
           <p>Resource information checked: {resource.verified_on}</p>
         </li>)}</ul>
       </section>}
-      {result.citations.length > 0 && <details className="answer-sources"><summary>Sources used ({result.citations.length})</summary><ul>{result.citations.map((citation) => <li key={citation.passage_id}><a href={citation.source_url} target="_blank" rel="noreferrer">{citation.source_title}{citation.pdf_page != null ? `, page ${citation.pdf_page}` : ""}: {citation.title}</a></li>)}</ul></details>}
+      {result.citations.length > 0 && <details className="answer-sources"><summary>References consulted ({result.citations.length})</summary><ul>{result.citations.map((citation) => <li key={citation.passage_id}><a href={citation.source_url} target="_blank" rel="noreferrer">{citation.source_title}{citation.pdf_page != null ? `, page ${citation.pdf_page}` : ""}: {citation.title}</a></li>)}</ul></details>}
       {targetId && <div className="feedback"><p>Was this helpful?</p>
         <label htmlFor={ratingId}>Helpfulness rating</label>
         <select id={ratingId} value={rating} disabled={saving} onChange={(event) => { setRating(event.target.value); setFeedbackStatus(""); }}>
@@ -139,9 +107,7 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         </fieldset>
         </details>
         <label htmlFor={commentId}>Optional comment<input id={commentId} maxLength="500" value={feedbackComment} onChange={(event) => { setFeedbackComment(event.target.value); setFeedbackStatus(""); }} /></label>
-        <button type="button" disabled={saving || !rating} onClick={() => recordFeedback(null, Number(rating))}>Save rating</button>
-        <button type="button" disabled={saving} onClick={() => recordFeedback(true)}>Helpful</button>
-        <button type="button" disabled={saving} onClick={() => recordFeedback(false)}>Not helpful</button>
+        <button type="button" disabled={saving || !rating} onClick={recordFeedback}>{saving ? "Saving feedback…" : "Save feedback"}</button>
         <p role="status">{feedbackStatus}</p></div>}
     </section>);
 }

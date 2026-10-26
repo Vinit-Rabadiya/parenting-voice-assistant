@@ -2,6 +2,7 @@
 import "./Navbar.css";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
 
 export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, onSignup, onAccount, onHome }) {
   const { logout } = useAuth();
@@ -28,7 +29,7 @@ export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, o
   async function signOut() {
     if (busy) return;
     setBusy(true); setError("");
-    try { await logout(); window.speechSynthesis?.cancel(); setOpen(false); }
+    try { await logout(); stopGuidanceAudio(); setOpen(false); }
     catch { setError("Could not log out. Please try again."); }
     finally { setBusy(false); }
   }

@@ -11,6 +11,7 @@ export default defineConfig({
       "@testing-library/react": fileURLToPath(new URL("./node_modules/@testing-library/react/dist/index.js", import.meta.url)),
       "react-dom": fileURLToPath(new URL("./node_modules/react-dom", import.meta.url)),
       react: fileURLToPath(new URL("./node_modules/react", import.meta.url)),
+      "firebase/auth": fileURLToPath(new URL("./node_modules/firebase/auth/dist/esm/index.esm.js", import.meta.url)),
     },
   },
   test: {

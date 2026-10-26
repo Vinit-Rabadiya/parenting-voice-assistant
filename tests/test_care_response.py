@@ -1,6 +1,6 @@
 import pytest
 
-from backend.services.care_response import clearly_unrelated, missing_evidence_response
+from backend.services.care_response import clearly_unrelated, conversation_boundary_response
 from backend.services.care_response import feeding_concern_response
 from backend.services.care_response import professional_assessment_response
 
@@ -9,9 +9,8 @@ from backend.services.care_response import professional_assessment_response
     "I am feeding my baby", "Packing for an outing with my toddler",
     "I am changing my baby's clothes", "My child is turning one",
 ])
-def test_relevant_statements_receive_an_honest_next_step(message):
-    response = missing_evidence_response(message)
-    assert response.kind == "insufficient_references"
+def test_relevant_statements_are_not_stopped_by_a_reference_requirement(message):
+    assert conversation_boundary_response(message) is None
     assert not clearly_unrelated(message)
 
 
@@ -20,26 +19,24 @@ def test_relevant_statements_receive_an_honest_next_step(message):
                                       "Please reset the wifi", "Configure my router"])
 def test_explicit_unrelated_requests_are_distinct(message):
     assert clearly_unrelated(message)
-    assert missing_evidence_response(message).kind == "unrelated"
+    assert conversation_boundary_response(message).kind == "unrelated"
 
 
 def test_mixed_baby_care_request_is_not_rejected_by_unrelated_keyword():
     assert not clearly_unrelated("Keep my baby safe while I repair my car")
 
 
-def test_unknown_message_is_clarified_not_declared_unrelated():
-    assert missing_evidence_response("What should I do?").kind == "clarification"
+def test_unknown_message_reaches_model_scope_handling():
+    assert conversation_boundary_response("What should I do?") is None
 
 
 def test_follow_up_without_permitted_context_asks_for_the_topic():
-    assert missing_evidence_response("what else?", unresolved_follow_up=True).kind == "clarification"
+    assert conversation_boundary_response("what else?", unresolved_follow_up=True).kind == "clarification"
 
 
 @pytest.mark.parametrize("message", ["My baby has a rash", "fever", "My child is losing skills"])
-def test_missing_health_evidence_is_not_reassurance(message):
-    response = missing_evidence_response(message)
-    assert response.kind == "professional_referral"
-    assert "does not mean it is safe to wait" in response.answer
+def test_general_health_topics_reach_generation_and_safety_checks(message):
+    assert conversation_boundary_response(message) is None
 
 
 @pytest.mark.parametrize("message", ["the child cant keep any food", "My baby can't keep food down", "My baby cannot keep milk down", "My child cannot keep his food down"])

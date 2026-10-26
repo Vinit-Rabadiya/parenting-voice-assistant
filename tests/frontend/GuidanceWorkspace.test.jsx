@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import GuidanceWorkspace from "../../frontend/src/components/GuidanceWorkspace";
 import { createConversation, deleteConversation, getConversation, listConversations, requestCoaching } from "../../frontend/src/services/caregiving";
@@ -63,7 +63,7 @@ it("allows history review and deletion without mounting input or feedback before
   await screen.findByText("Talk softly.");
   expect(screen.queryByRole("textbox", { name: "Question" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Record into message" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Helpful" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Save feedback" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "More options for Feeding conversation" }));
   expect(screen.getByRole("button", { name: "Delete conversation" })).toBeTruthy();
   expect(requestCoaching).not.toHaveBeenCalled();
@@ -155,6 +155,48 @@ it("moves the message into the thread immediately and replaces Send with Stop", 
   expect(screen.getByRole("button", { name: "Get guidance" })).toBeTruthy();
 });
 
+it.each([390, 1280])("scrolls the chat to the new answer once at viewport width %s", async (width) => {
+  vi.stubGlobal("innerWidth", width);
+  const scroll = vi.fn();
+  vi.stubGlobal("matchMedia", () => ({ matches: false }));
+  HTMLElement.prototype.scrollTo = scroll;
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+    return { top: this.classList.contains("guidance-answer") ? 450 : 100 };
+  });
+  let finish;
+  requestCoaching.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Feeding ideas" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(1));
+  scroll.mockClear();
+  await act(async () => finish({ answer: "Talk softly.", status: "answered", message_id: "new-answer" }));
+  await screen.findByText("Talk softly.");
+  expect(scroll).toHaveBeenCalledTimes(1);
+  expect(scroll.mock.calls[0][0]).toEqual({ top: 338, behavior: "smooth" });
+  await waitFor(() => expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1));
+  act(() => window.speechSynthesis.speak.mock.calls[0][0].onstart());
+  fireEvent.click(screen.getByRole("button", { name: "Stop audio" }));
+  expect(scroll).toHaveBeenCalledTimes(1);
+  delete HTMLElement.prototype.scrollTo;
+});
+
+it("ignores a late response after cancellation even if the request ignores its abort signal", async () => {
+  let finish;
+  requestCoaching.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Feeding ideas" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole("button", { name: "Stop waiting" }));
+  await act(async () => finish({ answer: "This answer arrived too late.", status: "answered", message_id: "late-answer" }));
+  expect(screen.queryByText("This answer arrived too late.")).toBeNull();
+  expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Get guidance" })).toBeTruthy();
+});
+
 it("keeps the submitted message in the thread after stopping guidance", async () => {
   requestCoaching.mockImplementation((_payload, { signal }) => new Promise((_resolve, reject) => {
     signal.addEventListener("abort", () => reject(new Error("Stopped waiting for guidance.")), { once: true });
@@ -182,7 +224,7 @@ it("shows saved sources in a collapsed disclosure and includes a privacy notice"
   render(<GuidanceWorkspace />);
   await selectProfile();
   fireEvent.click(screen.getByRole("button", { name: "Feeding conversation" }));
-  const summary = await screen.findByText("Sources used (1)");
+  const summary = await screen.findByText("References consulted (1)");
   expect(summary.closest("details").open).toBe(false);
   fireEvent.click(summary);
   expect(summary.closest("details").open).toBe(true);
@@ -204,7 +246,7 @@ it("shows a blocked outcome distinctly and reads only the returned replacement",
   expect(screen.getByText(replacement)).toBeTruthy();
   expect(screen.queryByText("Sources used")).toBeNull();
   expect(screen.queryByText(/No coaching answer was generated/)).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  await waitFor(() => expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1));
   expect(window.speechSynthesis.speak.mock.calls[0][0].text).toBe(replacement);
 });
 
@@ -274,7 +316,7 @@ it("does not offer feedback when an escalation could not be saved", async () => 
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "My baby is choking." } });
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   expect(await screen.findByRole("heading", { name: "Seek urgent medical care" })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Helpful" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Save feedback" })).toBeNull();
   expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
 });
 

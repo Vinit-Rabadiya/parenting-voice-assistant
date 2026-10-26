@@ -5,6 +5,7 @@ import { useAuth } from "../../frontend/src/hooks/useAuth";
 import AccountPage from "../../frontend/src/pages/AccountPage";
 import { Navbar } from "../../frontend/src/components/Navbar";
 import { deleteMyData } from "../../frontend/src/services/caregiving";
+import { getAccountSecurityStatus, reauthenticateAccount, turnOffMfa } from "../../frontend/src/services/auth";
 
 const { user, logOut, unsubscribe } = vi.hoisted(() => ({
   user: { uid: "caregiver", email: "caregiver@example.test" },
@@ -19,7 +20,9 @@ vi.mock("../../frontend/src/services/api", () => ({ getCurrentAccount: vi.fn() }
 vi.mock("../../frontend/src/services/caregiving", () => ({ deleteMyData: vi.fn(), deleteAccount: vi.fn() }));
 vi.mock("../../frontend/src/services/auth", () => ({
   logOut,
-  getAccountSecurityStatus: async () => ({ emailVerified: true, totpEnrolled: true }),
+  getAccountSecurityStatus: vi.fn(),
+  reauthenticateAccount: vi.fn(), turnOffMfa: vi.fn(),
+  completeTotpSignIn: vi.fn(), totpSignInFactors: vi.fn(() => []),
   resendVerificationEmail: vi.fn(),
   beginTotpEnrollment: vi.fn(),
   confirmTotpEnrollment: vi.fn(),
@@ -46,8 +49,31 @@ beforeEach(() => {
   deleteMyData.mockReset();
   logOut.mockReset();
   logOut.mockResolvedValue(undefined);
+  getAccountSecurityStatus.mockResolvedValue({ emailVerified: true, totpEnrolled: true,
+    mfaRequired: false, usesGoogle: true, factorCount: 1 });
+  reauthenticateAccount.mockResolvedValue({ next: "signed-in" });
+  turnOffMfa.mockResolvedValue(undefined);
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+it("keeps MFA optional and disables it only after confirming sign-in", async () => {
+  render(<AuthProvider><AccountHarness /></AuthProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: "Turn off MFA" }));
+  expect(turnOffMfa).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Continue with Google" }));
+  await waitFor(() => expect(turnOffMfa).toHaveBeenCalledWith("caregiver"));
+  expect(reauthenticateAccount).toHaveBeenCalledWith("", "caregiver");
+  await waitFor(() => expect(logOut).toHaveBeenCalledTimes(1));
+});
+
+it("explains mandatory MFA and prevents turning it off", async () => {
+  getAccountSecurityStatus.mockResolvedValue({ emailVerified: true, totpEnrolled: true,
+    mfaRequired: true, factorCount: 1 });
+  render(<AuthProvider><AccountHarness /></AuthProvider>);
+  expect((await screen.findByRole("button", { name: "Turn off MFA" })).disabled).toBe(true);
+  expect(screen.getByText(/MFA is required by security policy/)).toBeTruthy();
+  expect(turnOffMfa).not.toHaveBeenCalled();
+});
 
 it("deletes saved data after confirmation without logging out", async () => {
   vi.spyOn(window, "confirm").mockReturnValue(true);

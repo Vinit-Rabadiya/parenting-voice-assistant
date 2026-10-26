@@ -12,8 +12,12 @@ import {
   multiFactor,
   TotpMultiFactorGenerator,
   getMultiFactorResolver,
+  reauthenticateWithPopup,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
 } from "firebase/auth";
 import { auth } from "./firebase";
+import { getAccountSecurity, disableAccountMfa } from "./caregiving";
 
 // keep firebase calls here and let the pages choose screens and messages.
 const provider = new GoogleAuthProvider();
@@ -95,28 +99,25 @@ export const beginTotpEnrollment = async () => {
   }
 
   await reload(user);
-  if (user.emailVerified === false) {
+  if (user.emailVerified !== true) {
     throw new Error("Email verification is required.");
   }
 
-  // stop if this account already has a time-based authenticator.
-  if (
-    multiFactor(user).enrolledFactors.some(
-      (factor) => factor.factorId === TotpMultiFactorGenerator.FACTOR_ID,
-    )
-  ) {
-    throw new Error("An authenticator is already enrolled.");
+  const count = multiFactor(user).enrolledFactors.length;
+  if (count >= 2) {
+    throw new Error("Two authenticators are already enrolled.");
   }
+  if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
 
   // get temporary permission from firebase to start this user's authenticator setup.
   const session = await multiFactor(user).getSession();
   const secret = await TotpMultiFactorGenerator.generateSecret(session);
 
   // return the secret for setup; the user must still confirm a code to finish adding it.
-  return { userId: user.uid, secret };
+  return { userId: user.uid, secret, displayName: count ? "Backup authenticator" : "Authenticator" };
 };
 
-export const completeTotpSignIn = async (resolver, code) => {
+export const completeTotpSignIn = async (resolver, code, factorUid = null) => {
   // use the entered code to finish the login that firebase is waiting to complete.
   if (!resolver) {
     throw new Error("Login challenge is missing. Please log in again.");
@@ -131,7 +132,7 @@ export const completeTotpSignIn = async (resolver, code) => {
 
   // find the first time-based authenticator listed for this login attempt.
   const factor = resolver.hints.find(
-    (hint) => hint.factorId === TotpMultiFactorGenerator.FACTOR_ID,
+    (hint) => hint.factorId === TotpMultiFactorGenerator.FACTOR_ID && (!factorUid || hint.uid === factorUid),
   );
 
   if (!factor) {
@@ -173,7 +174,8 @@ export const confirmTotpEnrollment = async (pending, code) => {
   );
 
   // firebase checks the code and adds the authenticator; scanning alone does not finish setup.
-  await multiFactor(user).enroll(assertion, "Authenticator");
+  if (auth.currentUser !== user) throw new Error("Account changed. Start authenticator setup again.");
+  await multiFactor(user).enroll(assertion, pending.displayName || "Authenticator");
 };
 
 export const getAccountSecurityStatus = async () => {
@@ -185,12 +187,57 @@ export const getAccountSecurityStatus = async () => {
   }
 
   await reload(user);
+  if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+  await user.getIdToken(true);
+  const policy = user.emailVerified ? await getAccountSecurity() : null;
+  if (policy && (typeof policy.mfa_required !== "boolean" || typeof policy.mfa_enabled !== "boolean")) {
+    throw new Error("Account security could not be confirmed. Please try again.");
+  }
+  if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+  const token = await user.getIdTokenResult();
 
   return {
     emailVerified: user.emailVerified,
+    mfaRequired: policy?.mfa_required ?? false,
+    factorCount: multiFactor(user).enrolledFactors.length,
+    usesGoogle: token.claims.firebase?.sign_in_provider === "google.com",
     // an authenticator being set up does not prove its code was used for this login.
     totpEnrolled: multiFactor(user).enrolledFactors.some(
       (factor) => factor.factorId === TotpMultiFactorGenerator.FACTOR_ID,
     ),
   };
+};
+
+export const totpSignInFactors = (resolver) => resolver.hints.filter(
+  (factor) => factor.factorId === TotpMultiFactorGenerator.FACTOR_ID,
+);
+
+export const reauthenticateAccount = async (password = "", expectedUid = auth.currentUser?.uid) => {
+  const user = auth.currentUser;
+  if (!user || user.uid !== expectedUid) throw new Error("Account changed. Please sign in again.");
+  const token = await user.getIdTokenResult();
+  if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+  try {
+    if (token.claims.firebase?.sign_in_provider === "google.com") {
+      await reauthenticateWithPopup(user, provider);
+    } else {
+      if (!password) throw new Error("Enter your current password.");
+      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+    }
+    if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+    return { next: "signed-in" };
+  } catch (error) {
+    if (error.code === "auth/multi-factor-auth-required") {
+      return { next: "mfa-required", resolver: getMultiFactorResolver(auth, error) };
+    }
+    throw error;
+  }
+};
+
+export const turnOffMfa = async (expectedUid = auth.currentUser?.uid) => {
+  const user = auth.currentUser;
+  if (!user || user.uid !== expectedUid) throw new Error("Account changed. Please sign in again.");
+  await user.getIdToken(true);
+  if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+  await disableAccountMfa();
 };

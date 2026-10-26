@@ -48,6 +48,12 @@ main.landing-shell {
   background: var(--code-bg);
 }
 .guidance-text { font-size: 18px; line-height: 1.65; white-space: pre-wrap; }
+.guidance-text p { margin: 0 0 8px; }
+.guidance-word--pending { visibility: hidden; }
+.guidance-text ul, .guidance-text ol { padding-left: 24px; }
+.answer-actions { position: relative; flex-wrap: wrap; }
+.audio-help { display: flex; align-items: center; gap: 8px; max-width: min(320px, 100%); padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--code-bg); color: var(--text-h); font-size: 12px; box-shadow: var(--shadow); }
+.audio-help button { flex-shrink: 0; }
 .guidance-meta { color: var(--text); font-size: 13px; }
 .guidance-answer a { color: var(--accent); }
 .feedback { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
@@ -55,9 +61,10 @@ main.landing-shell {
 .feedback select { max-width: 100%; margin: 4px 8px 8px 0; padding: 8px; color: var(--text-h); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
 .feedback-details { margin: 6px 0; }
 .feedback-details summary { cursor: pointer; font-size: 12px; }
-.feedback-details fieldset { border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 6px; margin: 8px 0; }
-.feedback-details label { display: flex; align-items: center; gap: 8px; }
-.feedback-details input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--accent); }
+.feedback-details fieldset { border: 1px solid var(--border); border-radius: 8px; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; margin: 6px 0; }
+.guidance-workspace .feedback-details label { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; box-sizing: border-box; padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); font-weight: 400; line-height: 1.3; cursor: pointer; }
+.guidance-workspace .feedback-details label:has(input:checked) { border-color: var(--accent); background: var(--accent-bg); }
+.guidance-workspace .feedback-details input[type="checkbox"] { flex: 0 0 14px; width: 14px; height: 14px; min-height: 0; padding: 0; margin: 0; accent-color: var(--accent); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 /* Signed-in coaching uses a sidebar and a single conversation surface. */
 #root:has(main.landing-shell:not([hidden]) .landing-page--chat) { width: 100%; max-width: none; height: 100dvh; min-height: 0; margin: 0; border: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
@@ -113,6 +120,7 @@ main.landing-shell:not([hidden]):has(.landing-page--chat) { width: 100%; max-wid
 .conversation-thread .guidance-text { font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .conversation-thread .guidance-meta { font-size: 12px; }
 .conversation-thread .guidance-answer ul { margin: 2px 0; padding-left: 20px; font-size: 12px; line-height: 1.45; }
+.conversation-thread .guidance-text ul, .conversation-thread .guidance-text ol { font-size: inherit; line-height: inherit; }
 .conversation-thread .answer-actions { justify-content: flex-start; gap: 6px; }
 .conversation-thread .answer-actions button, .conversation-thread .feedback button { min-height: 36px; padding: 6px 10px; font-size: 12px; }
 .conversation-thread .feedback { margin-top: 6px; padding-top: 8px; }

@@ -1,6 +1,7 @@
 """Limited output guardrails, not clinical validation or semantic fact checking."""
 
 from dataclasses import dataclass
+from math import isfinite
 import re
 
 from backend.services.retrieval import RetrievedPassage
@@ -32,7 +33,7 @@ AGE_CLAIM = re.compile(
     r"\byour\s+(?:baby|child|infant)\s+is\s+(\d+(?:\.\d+)?)\s*"
     r"(?:[- ]?months?[- ]?old|years?[- ]?old)\b", re.I,
 )
-NUMBERED_CITATION = re.compile(r"\[(\d+)\]")
+NUMBERED_CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 WEB_LINK = re.compile(r"https?://|www\.", re.I)
 BLANKET_REASSURANCE = re.compile(
     r"\b(?:completely normal|perfectly normal|nothing to worry about)\b", re.I,
@@ -74,17 +75,19 @@ def inspect_response(answer: str, returned_passages: list[RetrievedPassage],
     # Compare complete records, not just IDs: a real ID with a changed URL/text
     # must not turn into a trusted source card.
     approved = {passage.passage_id: passage for passage in evidence}
-    if not returned_passages or any(approved.get(p.passage_id) != p for p in returned_passages):
+    if any(approved.get(p.passage_id) != p for p in returned_passages):
         reasons.append("invalid_source_provenance")
     returned_ids = {passage.passage_id for passage in returned_passages}
     if any(not 1 <= int(marker) <= len(evidence)
            or evidence[int(marker) - 1].passage_id not in returned_ids
-           for marker in NUMBERED_CITATION.findall(answer)):
+           for group in NUMBERED_CITATION.findall(answer) for marker in group.split(",")):
         reasons.append("invalid_citation_marker")
     # Source links belong in backend-created source cards, not model-generated text.
     if WEB_LINK.search(answer):
         reasons.append("model_generated_link")
-    if not 0 <= child_age_months <= 24:
+    if not isfinite(child_age_months) or child_age_months < 0:
+        reasons.append("invalid_child_age")
+    elif child_age_months > 24:
         reasons.append("profile_out_of_scope")
     for match in AGE_CLAIM.finditer(answer):
         stated_age = float(match.group(1))

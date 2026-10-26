@@ -6,6 +6,7 @@ import MicrophoneControls from "./MicrophoneControls";
 import useConversations from "../hooks/useConversations";
 import PrivacyConsent from "./PrivacyConsent";
 import ChatLoading from "./ChatLoading";
+import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
 
 function ConversationListItem({ conversation, active, disabled, onOpen, onDelete, workspaceActive }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -73,12 +74,22 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const threadRef = useRef(null);
+  const lastScrollTarget = useRef(null);
   const composerRef = useRef(null);
   const lastMessageId = chat.messages.at(-1)?.id;
   useEffect(() => {
     const thread = threadRef.current;
-    if (thread) thread.scrollTop = thread.scrollHeight;
-  }, [chat.conversationId, lastMessageId]);
+    if (!thread || !isActive) return;
+    const target = Array.from(thread.children).find((item) => item.dataset.messageId === lastMessageId);
+    if (!target || target === lastScrollTarget.current) return;
+    lastScrollTarget.current = target;
+    // Move only the chat scroller to this message, never the whole page's end.
+    const top = Math.max(0, thread.scrollTop + target.getBoundingClientRect().top
+      - thread.getBoundingClientRect().top - thread.clientTop - 12);
+    const behavior = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth";
+    if (thread.scrollTo) thread.scrollTo({ top, behavior });
+    else thread.scrollTop = top;
+  }, [chat.conversationId, lastMessageId, isActive]);
   useEffect(() => {
     const input = composerRef.current;
     if (!input) return;
@@ -88,8 +99,8 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
 
   async function submit(event) {
     event.preventDefault();
-    if (readOnly || chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200) return;
-    window.speechSynthesis?.cancel();
+    if (readOnly || chat.busy || voiceBusy || chat.loading || question.trim().length < 2 || question.length > 1200) return;
+    stopGuidanceAudio();
     const message = question.trim();
     setQuestion("");
     await chat.submit(message, routine, supportCountry);
@@ -126,19 +137,19 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
       <section className="conversation-thread" aria-labelledby="thread-title" ref={threadRef} tabIndex={0}>
         {chat.moreMessages && <button type="button" disabled={chat.busy} onClick={chat.loadOlderMessages}>Load earlier messages</button>}
         {chat.messages.map((message) => message.role === "user"
-          ? <article className="caregiver-message" key={message.id}><h3>You</h3><p>{message.text}</p>
+          ? <article className="caregiver-message" data-message-id={message.id} key={message.id}><h3>You</h3><p>{message.text}</p>
               {message.delivery === "cancelled" && <small role="status">Request cancelled. Stopped waiting for guidance.</small>}
               {message.delivery === "limited" && <small role="status">Request limit reached. No new guidance was generated.</small>}
               {message.delivery === "unconfirmed" && <small>Answer not confirmed. This message is shown locally; reopen the conversation to check saved history.</small>}
             </article>
           : <GuidanceAnswer key={message.id} message={message} childName={child.name} allowFeedback={!readOnly}
+              fresh={message.id === chat.newAnswerId} active={isActive && !chat.generating && !voiceBusy}
               conversationId={message.conversation_id === null ? null : chat.conversationId} />)}
         {!chat.messages.length && <div className="chat-welcome"><h3>What are you doing with your baby today?</h3>
           <p>Describe the moment, or ask for guidance.</p></div>}
         {chat.generating && <p className="guidance-loading" role="status"><span className="guidance-spinner" aria-hidden="true" />Preparing guidance…</p>}
       </section>
       {readOnly ? <p className="chat-composer">Read-only access: you can review or delete existing data. Accept the notice above to request coaching.</p> : <section className="question-panel chat-composer" aria-label="Message composer">
-        {child.in_scope === false && <p role="status">This profile is outside the coaching age range. Saved conversations remain available.</p>}
         <form onSubmit={submit}>
           <label className="visually-hidden" htmlFor="caregiver-question">Question</label>
           <textarea ref={composerRef} id="caregiver-question" rows="1" value={question} readOnly={voiceBusy} maxLength={1200}
@@ -157,7 +168,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
               </select>
               <label htmlFor="support-country">Support resources location (optional)</label>
               <select id="support-country" value={supportCountry} onChange={(event) => {
-                window.speechSynthesis?.cancel(); setSupportCountry(event.target.value);
+                stopGuidanceAudio(); setSupportCountry(event.target.value);
               }}><option value="">Not selected / other country</option><option value="KE">Kenya</option></select>
             </div>
           </details>
@@ -166,7 +177,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
               onCaptureStateChange={setVoiceBusy} disabled={chat.busy} />}
             {chat.generating ? <button type="button" className="send-message" aria-label="Stop waiting" title="Stop waiting" onClick={chat.cancelGeneration}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1" /></svg>
-            </button> : <button type="submit" className="send-message" aria-label="Get guidance" title="Send message" disabled={chat.busy || voiceBusy || chat.loading || child.in_scope === false || question.trim().length < 2 || question.length > 1200}>
+            </button> : <button type="submit" className="send-message" aria-label="Get guidance" title="Send message" disabled={chat.busy || voiceBusy || chat.loading || question.trim().length < 2 || question.length > 1200}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5m-6 6 6-6 6 6" /></svg>
             </button>}
           </div>
@@ -189,7 +200,7 @@ function Workspace({ processingAllowed, isActive }) {
   const [child, setChild] = useState(null);
   const [busy, setBusy] = useState(false);
   const selectChild = useCallback((nextChild) => {
-    window.speechSynthesis?.cancel(); setBusy(false); setChild(nextChild);
+    stopGuidanceAudio(); setBusy(false); setChild(nextChild);
   }, []);
   const profileControls = <ChildProfiles selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} isActive={isActive} />;
   return <div className="guidance-workspace">

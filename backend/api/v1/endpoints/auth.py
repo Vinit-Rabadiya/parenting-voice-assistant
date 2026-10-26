@@ -6,13 +6,37 @@ from math import isfinite
 from firebase_admin import auth
 from backend.api.dependencies import get_caregiver_data_service
 from backend.services.caregiver_data import CaregiverDataService
-from backend.core.security import require_authenticated_user
-from backend.schemas.auth import UserResponse
+from backend.core.security import (require_authenticated_user,
+                                   get_account_security_state, get_account_security_service)
+from backend.schemas.auth import UserResponse, AccountSecurityResponse
+from backend.services.account_security import AccountSecurityService
 from backend.api.dependencies import get_usage_control_service, usage_limits
 from backend.schemas.usage import UsageResponse
 from backend.services.usage import UsageControlService
 
 router = APIRouter()
+
+
+@router.get("/me/security", response_model=AccountSecurityResponse)
+def account_security(response: Response, security: dict = Depends(get_account_security_state)):
+    # Available during mandatory-MFA setup; never exposes profiles or chat data.
+    response.headers["Cache-Control"] = "no-store"
+    return security
+
+
+@router.post("/me/security/mfa/disable", status_code=204)
+def disable_mfa(request: Request, user: dict = Depends(require_authenticated_user),
+                service: AccountSecurityService = Depends(get_account_security_service),
+                security: dict = Depends(get_account_security_state)):
+    if security["mfa_required"]:
+        raise HTTPException(status_code=403, detail="MFA is required by security policy and cannot be disabled.")
+    require_recent_sign_in(request, "changing MFA")
+    try:
+        service.disable_mfa(user["uid"])
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="MFA is required by security policy and cannot be disabled.") from None
+    except Exception:
+        raise HTTPException(status_code=503, detail="MFA settings could not be updated. Refresh account security before retrying.") from None
 
 
 @router.get("/me/usage", response_model=UsageResponse)
@@ -64,6 +88,6 @@ def current_user(
     response: Response,
     user: dict = Depends(require_authenticated_user),
 ):
-    """Verify bearer token, email verification, and TOTP second-factor status, returning the user UID."""
+    """Verify the session, email, and applicable MFA requirements."""
     response.headers["Cache-Control"] = "no-store"
     return UserResponse(uid=user["uid"])

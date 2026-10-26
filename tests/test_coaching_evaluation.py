@@ -10,6 +10,7 @@ import pytest
 from google.genai import errors
 
 from backend.services.coaching import CoachingService
+from backend.services.age import AGE_SCOPE_MESSAGE
 from backend.services.retrieval import RetrievedPassage
 from scripts.evaluate_coaching import QUESTION_SET_PATH, capture_case, load_cases, profile_dates
 from scripts.evaluate_coaching import load_retrieval_capture_cases
@@ -94,9 +95,9 @@ def test_capture_records_provider_block_without_retry_or_invented_answer():
         prompt_feedback=SimpleNamespace(block_reason="PROHIBITED_CONTENT"),
     )
     record = capture_case(case, profile_dates(date(2026, 10, 20), 0), retrieval, coaching)
-    assert record["outcome"] == "error"
-    assert record["error_stage"] == "generation"
-    assert record["answer"] is None
+    assert record["outcome"] == "safety_blocked"
+    assert record["safety"]["reasons"] == ["provider_content_block"]
+    assert "couldn't generate" in record["answer"]
     assert record["attempts"][0]["prompt_block_reason"] == "PROHIBITED_CONTENT"
     assert record["attempts"][0]["has_text"] is False
     assert record["attempts"][0]["finish_reasons"] == []
@@ -115,13 +116,14 @@ def test_capture_records_general_vaccine_source_without_model_call(monkeypatch):
     models.generate_content.assert_not_called()
 
 
-def test_no_evidence_does_not_generate():
+def test_no_evidence_generates_general_information():
     case, _, retrieval, coaching, models = setup_case(score=0.0)
     record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)
-    assert record["outcome"] == "no_evidence"
+    assert record["outcome"] == "answered"
+    assert record["answer_basis"] == "general_information"
     assert record["supplied_evidence"] == []
-    assert record["selected_model"] is None
-    models.generate_content.assert_not_called()
+    assert record["selected_model"] == "primary"
+    models.generate_content.assert_called_once()
 
 
 @pytest.mark.parametrize("question,outcome", [
@@ -139,13 +141,13 @@ def test_capture_reuses_vaccination_and_unrelated_boundaries(question, outcome):
     models.generate_content.assert_not_called()
 
 
-def test_capture_uses_context_aware_missing_evidence_wording():
+def test_capture_answers_caregiving_statement_without_evidence():
     case, _, retrieval, coaching, models = setup_case(score=0)
     case["question"] = "I am feeding my baby"
     record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)
-    assert record["response_kind"] == "insufficient_references"
-    assert "baby-care topic" in record["answer"]
-    models.generate_content.assert_not_called()
+    assert record["outcome"] == "answered"
+    assert record["answer_basis"] == "general_information"
+    models.generate_content.assert_called_once()
 
 
 def test_no_evidence_follow_up_retains_the_permitted_caregiver_topic():
@@ -155,10 +157,24 @@ def test_no_evidence_follow_up_retains_the_permitted_caregiver_topic():
                 {"role": "assistant", "text": "Talk softly.", "status": "answered"}]
     record = capture_case(case, profile_dates(date(2026, 10, 24), 6), retrieval, coaching,
                           messages=messages)
-    assert record["response_kind"] == "insufficient_references"
+    assert record["outcome"] == "answered"
+    assert record["answer_basis"] == "general_information"
     assert "I am feeding my baby" in record["search_query"]
     assert "Talk softly." not in record["search_query"]
     assert record["supplied_evidence"] == []
+    models.generate_content.assert_called_once()
+
+
+def test_capture_follow_up_retains_explicit_older_child_age():
+    case, _, retrieval, coaching, models = setup_case(score=0)
+    case["question"] = "What else can I try?"
+    messages = [{"role": "user", "text": "How can I play with my 3-year-old?"},
+                {"role": "assistant", "text": "Try pretend play.", "status": "answered"}]
+    record = capture_case(case, profile_dates(date(2026, 10, 24), 6), retrieval, coaching, messages=messages)
+    assert record["outcome"] == "no_evidence"
+    assert record["response_kind"] == "age_out_of_scope"
+    assert record["answer"] == AGE_SCOPE_MESSAGE
+    retrieval.retrieve.assert_not_called()
     models.generate_content.assert_not_called()
 
 

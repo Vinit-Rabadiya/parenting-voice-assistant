@@ -61,8 +61,11 @@ def inspect_vaccination(question: str) -> VaccinationDecision | None:
             "WHO: Vaccines and immunization — What is vaccination?",
             "https://www.who.int/news-room/questions-and-answers/item/vaccines-and-immunization-what-is-vaccination",
         )
-    return VaccinationDecision(
-        "Kenya-specific vaccination guidance is not yet available from approved references in this chat. "
-        "Check your child's vaccination record with their vaccination clinic for current information "
-        "and upcoming appointments. This chat cannot confirm which vaccines your child is due to receive.",
-        "references_pending_review")
+    if SCHEDULE.search(question):
+        return VaccinationDecision(
+            "Vaccination appointments depend on your child's age, previous doses and the current Kenya schedule. "
+            "Take their vaccination record to the vaccination clinic to confirm the next appointment. "
+            "This chat cannot confirm which vaccines your child is due to receive or calculate a personal schedule.",
+            "individual_schedule")
+    # General education outside the fixed responses uses the normal generation path.
+    return None

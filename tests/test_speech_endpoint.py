@@ -79,6 +79,10 @@ def test_invalid_token_is_rejected(signed_in_client, token_verifier, speech_serv
 def test_incomplete_login_is_rejected(
     signed_in_client, token_verifier, speech_service, verified, firebase, detail,
 ):
+    from backend.core.security import get_account_security_service
+    signed_in_client.app.dependency_overrides[get_account_security_service]().read.return_value = {
+        "mfa_enabled": True, "mfa_required": False,
+    }
     token_verifier.return_value = {
         "uid": "test-caregiver", "email_verified": verified, "firebase": firebase,
     }

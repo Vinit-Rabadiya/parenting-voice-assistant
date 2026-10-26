@@ -89,6 +89,22 @@ it("accepts a fixed urgent response for an older child without citations", async
   await expect(requestCoaching({})).resolves.toEqual(response);
 });
 
+it("accepts explicitly labelled general information at 24 months without citations", async () => {
+  const response = { ...validResponse, child_age_months: 24, citations: [],
+    answer_basis: "general_information", reference_status: "no_match" };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => response }));
+  await expect(requestCoaching({})).resolves.toEqual(response);
+});
+
+it("rejects generated guidance beyond 24 months but accepts an age-range notice", async () => {
+  const response = { ...validResponse, child_age_months: 25, citations: [], answer_basis: "general_information" };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => response }));
+  await expect(requestCoaching({})).rejects.toThrow("response could not be read");
+  const notice = { ...response, status: "no_evidence", response_kind: "age_out_of_scope" };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => notice }));
+  await expect(requestCoaching({})).resolves.toEqual(notice);
+});
+
 it("rejects a response after the signed-in account changes", async () => {
   vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => {
     auth.currentUser = null;
