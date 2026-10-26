@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import App from "../../frontend/src/App";
+import AuthPage from "../../frontend/src/pages/AuthPage";
+import { completeTotpSignIn } from "../../frontend/src/services/auth";
 
 const { state, microphoneMounted, microphoneReleased } = vi.hoisted(() => ({
-  state: { user: null, checkingAuth: false, signupResult: null, setSignupResult: vi.fn(), accessOverride: null },
+  state: { user: null, checkingAuth: false, signupResult: null, setSignupResult: vi.fn(), accessOverride: null, mfaHints: [] },
   microphoneMounted: vi.fn(), microphoneReleased: vi.fn(),
 }));
 
@@ -14,10 +16,10 @@ vi.mock("../../frontend/src/hooks/useAuth", () => ({ useAuth: () => state }));
 vi.mock("../../frontend/src/hooks/useAccountAccess", () => ({
   default: () => state.accessOverride || ({ verified: Boolean(state.user?.emailVerified), checking: false, error: "" }),
 }));
-vi.mock("../../frontend/src/services/auth", () => ({ completeTotpSignIn: vi.fn() }));
+vi.mock("../../frontend/src/services/auth", () => ({ completeTotpSignIn: vi.fn(), totpSignInFactors: resolver => resolver.hints }));
 vi.mock("../../frontend/src/components/LoginForm", () => ({ default: () => <div>Login form</div> }));
 vi.mock("../../frontend/src/components/SignUpForm", () => ({ default: () => <div>Signup form</div> }));
-vi.mock("../../frontend/src/components/GoogleSignInButton", () => ({ default: () => <button>Google sign in</button> }));
+vi.mock("../../frontend/src/components/GoogleSignInButton", () => ({ default: ({ onMfaRequired }) => <button onClick={() => onMfaRequired({ hints: state.mfaHints })}>Google sign in</button> }));
 vi.mock("../../frontend/src/pages/AccountPage", () => ({ default: ({ email, verificationEmailRequested, onDataDeleted }) => (
   <div>Account: {email}. Verification requested: {String(verificationEmailRequested)}
     <button onClick={onDataDeleted}>Simulate saved data deletion</button>
@@ -44,8 +46,32 @@ beforeEach(() => {
   state.checkingAuth = false;
   state.signupResult = null;
   state.accessOverride = null;
+  state.mfaHints = [];
 });
 afterEach(() => cleanup());
+
+it("shows recovery help without referring to an absent backup selector", () => {
+  state.mfaHints = [{ uid: "main", displayName: "Main authenticator" }];
+  render(<AuthPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Google sign in" }));
+  fireEvent.click(screen.getByText("Lost access to your authenticator?"));
+  expect(screen.queryByLabelText("Authenticator")).toBeNull();
+  expect(screen.queryByText(/selector above/)).toBeNull();
+  expect(screen.getByText(/contact the service owner/)).toBeTruthy();
+});
+
+it("explains and submits the selected backup authenticator when available", async () => {
+  state.mfaHints = [{ uid: "main", displayName: "Main authenticator" }, { uid: "backup", displayName: "Backup authenticator" }];
+  render(<AuthPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Google sign in" }));
+  fireEvent.click(screen.getByText("Lost access to your authenticator?"));
+  expect(screen.getByText(/Try another authenticator/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Authenticator"), { target: { value: "backup" } });
+  fireEvent.change(screen.getByLabelText("Six-digit code"), { target: { value: "012345" } });
+  fireEvent.click(screen.getByRole("button", { name: "Verify and log in" }));
+  await screen.findByRole("button", { name: "Verify and log in" });
+  expect(completeTotpSignIn).toHaveBeenCalledWith({ hints: state.mfaHints }, "012345", "backup");
+});
 
 it("shows only loading while backend access is being checked", () => {
   state.user = { uid: "one", emailVerified: true };
