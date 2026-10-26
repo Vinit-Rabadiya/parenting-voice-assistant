@@ -15,8 +15,21 @@ it("checks automatically and marks verified only after server approval", async (
   const { result } = renderHook(() => useAccountAccess(user));
   expect(result.current.checking).toBe(true);
   expect(result.current.verified).toBe(false);
-  await act(async () => { approve({ uid: "one" }); });
+  await act(async () => { approve({ uid: "one", role: "caregiver" }); });
   expect(result.current.verified).toBe(true);
+  expect(result.current.role).toBe("caregiver");
+});
+
+it("uses the server role and clears it while changing accounts", async () => {
+  getCurrentAccount.mockResolvedValueOnce({ uid: "one", role: "administrator" })
+    .mockReturnValueOnce(new Promise(() => {}));
+  const { result, rerender } = renderHook(({ user }) => useAccountAccess(user), {
+    initialProps: { user: { uid: "one" } },
+  });
+  await waitFor(() => expect(result.current.role).toBe("administrator"));
+  rerender({ user: { uid: "two" } });
+  expect(result.current.checking).toBe(true);
+  expect(result.current.role).toBeUndefined();
 });
 
 it("reports rejected access and retries automatically when returning to the window", async () => {

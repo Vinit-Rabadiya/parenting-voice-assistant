@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.dependencies import get_speech_service
-from backend.core.security import require_authenticated_user
+from backend.core.security import require_caregiver_user
 from backend.api.consent import require_processing_consent
 from backend.schemas.speech import TranscriptionResponse
 from backend.services.speech import SpeechService
@@ -18,7 +18,7 @@ MAX_AUDIO_BYTES = 16000 * 1 * 2 * 30 + 4096
 # run the login dependency before any endpoint registered on this router.
 router = APIRouter(
     prefix="/speech",
-    dependencies=[Depends(require_authenticated_user)],
+    dependencies=[Depends(require_caregiver_user)],
 )
 
 

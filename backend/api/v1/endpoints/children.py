@@ -3,14 +3,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from backend.api.dependencies import enforce_usage_limit, get_caregiver_data_service, get_usage_control_service
-from backend.core.security import require_authenticated_user
+from backend.core.security import require_authenticated_user, require_caregiver_user
 from backend.api.consent import require_processing_consent
 from backend.schemas.children import ChildCreateRequest, ChildProfileResponse, ChildUpdateRequest
 from backend.services.caregiver_data import CaregiverDataService
 from backend.services.usage import UsageControlService
 
 
-router = APIRouter(prefix="/children", dependencies=[Depends(require_authenticated_user)])
+router = APIRouter(prefix="/children", dependencies=[Depends(require_caregiver_user)])
 
 
 @router.delete("/{child_id}", status_code=204)

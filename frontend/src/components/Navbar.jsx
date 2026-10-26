@@ -34,7 +34,7 @@ export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, o
     finally { setBusy(false); }
   }
   return (
-    <header className="site-navbar">
+    <header className={`site-navbar${accountAccess?.role === "administrator" ? " site-navbar--admin" : ""}`}>
       <button type="button" className="site-brand" onClick={onHome}>Parenting Voice Assistant</button>
       <nav aria-label="Account">
         {isAuthenticated ? (
@@ -46,6 +46,7 @@ export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, o
                   : accountAccess?.status === "unavailable" ? "Service unavailable" : "Verification required"}
               </span>
             </div>
+            {accountAccess?.role === "administrator" && <button type="button" onClick={onHome}>Dashboard</button>}
             <div className="navbar-account-menu" ref={menuRef}>
               <button type="button" ref={triggerRef} aria-expanded={open} aria-controls="navbar-account-options"
                 onClick={() => setOpen((value) => !value)}>My Account</button>

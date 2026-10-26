@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from google.api_core.exceptions import FailedPrecondition
 
 from backend.api.dependencies import get_caregiver_data_service
-from backend.core.security import require_authenticated_user
+from backend.core.security import require_authenticated_user, require_caregiver_user
 from backend.api.consent import require_processing_consent
 from backend.schemas.conversations import (
     ConversationCreateRequest,
@@ -16,7 +16,7 @@ from backend.schemas.conversations import (
 from backend.services.caregiver_data import CaregiverDataService
 
 
-router = APIRouter(prefix="/conversations")
+router = APIRouter(prefix="/conversations", dependencies=[Depends(require_caregiver_user)])
 DocumentId = Annotated[str, Path(min_length=1, max_length=128, pattern=r"^[^/]+$")]
 CursorId = Annotated[str | None, Query(min_length=1, max_length=128, pattern=r"^[^/]+$")]
 

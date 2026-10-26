@@ -41,6 +41,7 @@ class AccountSecurityService:
             raise RuntimeError("Invalid MFA policy.")
         return {
             "mfa_enabled": bool(factors),
+            "feedback_summary_admin": claims.get("feedback_summary_admin") is True,
             "mfa_required": (settings.AUTH_REQUIRE_MFA or claims.get("mfa_required") is True
                              or claims.get("feedback_summary_admin") is True),
         }

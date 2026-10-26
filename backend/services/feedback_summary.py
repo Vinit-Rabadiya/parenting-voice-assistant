@@ -1,16 +1,16 @@
-"""Project only rating fields and return coarse, small-group-suppressed counts."""
+"""Count saved answer feedback without exposing private conversation fields."""
 from datetime import datetime, timezone
 import time
 
 from backend.core.privacy import CONSENT_VERSION
-from backend.schemas.admin import FeedbackBucket, FeedbackSummary
+from backend.schemas.admin import FeedbackBucket, FeedbackComment, FeedbackSummary
 
-MINIMUM_GROUP = 5
 MAX_DOCUMENTS_PER_GROUP = 10000
 MAX_ACCOUNTS = 500
 MAX_SCAN_SECONDS = 10
+MAX_COMMENTS = 50
 PROJECTED_FIELDS = ("feedback.rating", "feedback.helpful", "feedback.reasons",
-                    "feedback.recorded_at", "role")
+                    "feedback.comment", "feedback.recorded_at", "role")
 REASONS = {
     "unclear": "Unclear", "repeated_advice": "Repeated advice",
     "did_not_answer": "Did not answer the message",
@@ -24,23 +24,26 @@ def aware_time(value):
     return isinstance(value, datetime) and value.tzinfo is not None and value.utcoffset() is not None
 
 
-def summarize_feedback(latest: dict) -> FeedbackSummary:
-    """One contribution per caregiver, no totals, averages, dates or identifiers."""
+def summarize_feedback(records: list[dict]) -> FeedbackSummary:
+    """Count each answer once and include a bounded list of shared comments."""
     def bucket(label, matches):
-        count = sum(bool(matches(value)) for value in latest.values())
-        if count < MINIMUM_GROUP:
-            return FeedbackBucket(label=label)
-        lower = count // MINIMUM_GROUP * MINIMUM_GROUP
-        return FeedbackBucket(label=label, lower=lower, upper=lower + MINIMUM_GROUP - 1)
+        return FeedbackBucket(label=label, count=sum(bool(matches(value)) for value in records))
 
+    shared = [value for value in records if value.get("comment")]
+    comments = [FeedbackComment(comment=value["comment"], rating=value.get("rating"),
+                                helpful=value.get("helpful"),
+                                reasons=[REASONS[reason] for reason in value.get("reasons", []) if reason in REASONS])
+                for value in shared[:MAX_COMMENTS]]
     return FeedbackSummary(
         ratings=[bucket(label, lambda value, number=number:
                         type(value.get("rating")) is int and value["rating"] == number)
                  for number, label in RATINGS.items()],
         reasons=[bucket(label, lambda value, reason=reason: reason in value.get("reasons", []))
                  for reason, label in REASONS.items()],
-        legacy_helpfulness=[bucket(label, lambda value, flag=flag: value.get("helpful") is flag)
+        legacy_helpfulness=[bucket(label, lambda value, flag=flag:
+                                  value.get("rating") is None and value.get("helpful") is flag)
                             for flag, label in ((True, "Helpful"), (False, "Not helpful"))],
+        comments=comments, comment_count=len(shared),
     )
 
 
@@ -49,7 +52,7 @@ class FeedbackSummaryService:
         self.client = client
 
     def read(self) -> FeedbackSummary:
-        latest, consent = {}, {}
+        records, consent = [], {}
         now = datetime.now(timezone.utc)
         started = time.perf_counter()
 
@@ -101,10 +104,13 @@ class FeedbackSummaryService:
                 # Retain only allowlisted values, even if a storage mock or future
                 # backend ignores the Firestore field projection.
                 reasons = value.get("reasons", [])
-                candidate = {"rating": rating, "helpful": helpful,
+                comment = value.get("comment")
+                candidate = {"rating": rating if type(rating) is int and 1 <= rating <= 5 else None,
+                             "helpful": helpful if type(helpful) is bool else None,
+                             "comment": comment.strip() if isinstance(comment, str) and len(comment) <= 500 else None,
+                             "recorded_at": recorded,
                              "reasons": [reason for reason in REASONS if isinstance(reasons, list) and reason in reasons]}
-                order = (recorded, snapshot.reference.path)
-                if uid not in latest or order > latest[uid][0]:
-                    latest[uid] = (order, candidate)
+                records.append(candidate)
         check_budget()
-        return summarize_feedback({uid: item[1] for uid, item in latest.items()})
+        records.sort(key=lambda value: value["recorded_at"], reverse=True)
+        return summarize_feedback(records)

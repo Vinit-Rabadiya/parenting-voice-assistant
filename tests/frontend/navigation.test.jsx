@@ -20,6 +20,7 @@ vi.mock("../../frontend/src/services/auth", () => ({ completeTotpSignIn: vi.fn()
 vi.mock("../../frontend/src/components/LoginForm", () => ({ default: () => <div>Login form</div> }));
 vi.mock("../../frontend/src/components/SignUpForm", () => ({ default: () => <div>Signup form</div> }));
 vi.mock("../../frontend/src/components/GoogleSignInButton", () => ({ default: ({ onMfaRequired }) => <button onClick={() => onMfaRequired({ hints: state.mfaHints })}>Google sign in</button> }));
+vi.mock("../../frontend/src/components/AdminFeedbackSummary", () => ({ default: () => <section aria-label="Feedback overview"><h2>Caregiver feedback</h2></section> }));
 vi.mock("../../frontend/src/pages/AccountPage", () => ({ default: ({ email, verificationEmailRequested, onDataDeleted }) => (
   <div>Account: {email}. Verification requested: {String(verificationEmailRequested)}
     <button onClick={onDataDeleted}>Simulate saved data deletion</button>
@@ -81,6 +82,34 @@ it("shows only loading while backend access is being checked", () => {
   expect(screen.queryByRole("banner")).toBeNull();
   expect(screen.queryByRole("button", { name: "Start recording" })).toBeNull();
   expect(microphoneMounted).not.toHaveBeenCalled();
+});
+
+it("opens the administrator dashboard without mounting caregiver controls", () => {
+  state.user = { uid: "administrator", emailVerified: true };
+  state.accessOverride = { verified: true, checking: false, role: "administrator" };
+  render(<App />);
+  expect(screen.getByRole("heading", { name: "Administrator dashboard" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Feedback overview" })).toBeTruthy();
+  expect(screen.queryByText("Working with feedback")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Start recording" })).toBeNull();
+  expect(screen.queryByLabelText("Test chat draft")).toBeNull();
+  expect(microphoneMounted).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "My Account" }));
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back to dashboard" }));
+  expect(screen.getByRole("heading", { name: "Administrator dashboard" })).toBeTruthy();
+  expect(microphoneMounted).not.toHaveBeenCalled();
+});
+
+it("removes caregiver state when the server reports an administrator role", () => {
+  state.user = { uid: "same-account", emailVerified: true };
+  const view = render(<App />);
+  fireEvent.change(screen.getByLabelText("Test chat draft"), { target: { value: "Private draft" } });
+  state.accessOverride = { verified: true, checking: false, role: "administrator" };
+  view.rerender(<App />);
+  expect(screen.queryByLabelText("Test chat draft")).toBeNull();
+  expect(screen.getByRole("heading", { name: "Administrator dashboard" })).toBeTruthy();
+  expect(microphoneReleased).toHaveBeenCalledTimes(1);
 });
 
 it("keeps the workspace hidden after a failed connection and offers retry", () => {

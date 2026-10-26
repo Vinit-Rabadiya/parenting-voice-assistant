@@ -209,6 +209,7 @@ it("respects reduced motion, preserves formatted content and never executes mark
 
 it("saves a numeric rating and reasons without inventing a boolean value", async () => {
   render(<GuidanceAnswer message={message} childName="Baby" conversationId="chat-1" />);
+  expect(screen.getByText(/Administrators can read your comment/)).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Helpfulness rating"), { target: { value: "2" } });
   fireEvent.click(screen.getByText("Add an optional reason"));
   fireEvent.click(screen.getByLabelText("Repeated advice"));

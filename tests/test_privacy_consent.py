@@ -37,6 +37,15 @@ def test_notice_identifies_information_shared_outside_the_app():
     ))
 
 
+def test_notice_explains_single_response_counts_without_private_record_access():
+    feedback_notice = next(item for item in PRIVACY_NOTICE if "Optional ratings" in item)
+    assert "including when there is only one response" in feedback_notice
+    comment_notice = next(item for item in PRIVACY_NOTICE if "Optional written feedback comments" in item)
+    assert "can be read by administrators" in comment_notice
+    assert "Earlier feedback is not shared automatically" in comment_notice
+    assert all(field in comment_notice for field in ("chats", "identity", "child profile", "not attached"))
+
+
 def test_notice_does_not_assume_existing_accounts_accepted(client, consent_api):
     result = client.get("/privacy/consent")
     assert result.status_code == 200
@@ -119,6 +128,7 @@ def test_account_deletion_does_not_require_consent(client, consent_api):
 
     def recent_login(request: Request):
         request.state.auth_time = time.time()
+        request.state.account_role = "caregiver"
         return {"uid": "account-a"}
 
     app.dependency_overrides[require_authenticated_user] = recent_login
@@ -133,6 +143,7 @@ def test_data_deletion_keeps_login_and_does_not_require_consent(client, consent_
 
     def recent_login(request: Request):
         request.state.auth_time = time.time()
+        request.state.account_role = "caregiver"
         return {"uid": "account-a"}
 
     app.dependency_overrides[require_authenticated_user] = recent_login

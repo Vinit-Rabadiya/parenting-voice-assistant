@@ -1,4 +1,4 @@
-// choose the landing, authentication, or account screen.
+// choose the caregiver, administrator, authentication, or account screen.
 // it is imported in main.jsx and rendered into the root element of index.html.
 import "./App.css";
 import { useState } from "react";
@@ -7,6 +7,7 @@ import { useAuth } from "./hooks/useAuth";
 import AccountPage from "./pages/AccountPage";
 import AuthPage from "./pages/AuthPage";
 import LandingPage from "./pages/LandingPage";
+import AdminPage from "./pages/AdminPage";
 import { Navbar } from "./components/Navbar";
 import useAccountAccess from "./hooks/useAccountAccess";
 import { stopGuidanceAudio } from "./hooks/useGuidanceAudio";
@@ -17,6 +18,7 @@ function MainContent() {
   const [previousUserId, setPreviousUserId] = useState(user?.uid ?? null);
   const [dataRevision, setDataRevision] = useState(0);
   const accountAccess = useAccountAccess(user);
+  const administrator = accountAccess.verified && accountAccess.role === "administrator";
 
   // wait for firebase to finish checking who is signed in.
   if (checkingAuth) {
@@ -66,7 +68,8 @@ function MainContent() {
         onSignup={() => setScreen("signup")}
         onAccount={() => { stopGuidanceAudio(); setScreen("account"); }}
       />
-      {(user || screen === "home") && (
+      {administrator && screen === "home" && <main className="admin-shell"><AdminPage /></main>}
+      {!administrator && (user || screen === "home") && (
       <main className="landing-shell" hidden={screen !== "home"} key={`workspace-${userId}-${dataRevision}`}>
         <LandingPage
           isAuthenticated={Boolean(user)}
@@ -80,7 +83,7 @@ function MainContent() {
       {screen !== "home" && (
     <main className={user ? "account-shell" : undefined}>
       <button className={user ? "account-back" : undefined} type="button" onClick={() => setScreen("home")}>
-        Back to home
+        {administrator ? "Back to dashboard" : "Back to home"}
       </button>
       {/* show account page if signed in, otherwise show auth page. */}
       {user ? (
