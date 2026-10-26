@@ -240,7 +240,10 @@ Email verification is required. Google sign-in uses Firebase's verified-email st
 the application never marks an email verified based only on the provider name.
 MFA is optional for ordinary accounts. In **My Account**, enable an authenticator,
 add a backup on a separate device, or turn MFA off after confirming sign-in.
-If enrollment requires another sign-in check, complete it in account settings.
+Adding a first or backup authenticator requires confirming the current sign-in
+before a setup key is created. If the QR code cannot be displayed, use the same
+key for manual setup. Expired setup requires a fresh sign-in confirmation.
+Cancelling setup clears its key and code without changing enrolled authenticators.
 
 `AUTH_REQUIRE_MFA=false` is the default. Set it to `true` to require MFA globally.
 The server-issued `mfa_required=true` claim and the `feedback_summary_admin=true`

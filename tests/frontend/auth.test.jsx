@@ -64,6 +64,20 @@ it("enrolls a separately verified backup authenticator without replacing the fir
   expect(enroll).toHaveBeenCalledWith(expect.anything(), "Backup authenticator");
 });
 
+it("does not return an enrollment secret after the account changes", async () => {
+  multiFactor.mockReturnValue({ enrolledFactors: [], getSession: vi.fn().mockResolvedValue("session") });
+  TotpMultiFactorGenerator.generateSecret.mockImplementationOnce(async () => {
+    auth.currentUser = { uid: "different-account" };
+    return { secretKey: "test-only-secret" };
+  });
+  await expect(beginTotpEnrollment()).rejects.toMatchObject({ code: "app/account-changed" });
+});
+
+it("returns a specific error when two authenticators are already enrolled", async () => {
+  multiFactor.mockReturnValue({ enrolledFactors: [{ factorId: "totp" }, { factorId: "totp" }] });
+  await expect(beginTotpEnrollment()).rejects.toMatchObject({ code: "app/authenticator-limit" });
+});
+
 it("does not treat an unreadable mandatory-MFA policy as optional", async () => {
   getAccountSecurity.mockResolvedValue({});
   await expect(getAccountSecurityStatus()).rejects.toThrow("Account security could not be confirmed");

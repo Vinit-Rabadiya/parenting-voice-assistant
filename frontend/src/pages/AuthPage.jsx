@@ -37,15 +37,16 @@ function AuthPage({ onAccountCreated, initialMode = "login" }) {
   };
   // show code entry instead of login choices while firebase waits for the code.
   if (mfaResolver) {
+    const factors = totpSignInFactors(mfaResolver);
     return (
       <section>
         <h1>Enter your authenticator code</h1>
 
         <form onSubmit={submitHandler}>
-          {totpSignInFactors(mfaResolver).length > 1 && <label>Authenticator
-            <select value={factorUid || totpSignInFactors(mfaResolver)[0].uid} disabled={busy}
+          {factors.length > 1 && <label>Authenticator
+            <select value={factorUid || factors[0].uid} disabled={busy}
               onChange={(event) => setFactorUid(event.target.value)}>
-              {totpSignInFactors(mfaResolver).map((factor, index) => <option key={factor.uid} value={factor.uid}>
+              {factors.map((factor, index) => <option key={factor.uid} value={factor.uid}>
                 {factor.displayName || `Authenticator ${index + 1}`}</option>)}
             </select>
           </label>}
@@ -71,9 +72,8 @@ function AuthPage({ onAccountCreated, initialMode = "login" }) {
 
         <p role="status">{message}</p>
         <details><summary>Lost access to your authenticator?</summary>
-          <p>Select your backup authenticator above if you added one. If neither authenticator is available,
-            contact the account administrator for identity verification and MFA recovery.
-            A password reset does not remove MFA.</p>
+          {factors.length > 1 && <p>Try another authenticator from the selector above.</p>}
+          <p>If you cannot access an authenticator, contact the service owner to recover your account.</p>
         </details>
 
         <button
