@@ -266,8 +266,8 @@ class CaregiverDataService:
         from backend.schemas.coaching import FeedbackValues
 
         # Validate at the storage boundary too; do not infer numeric ratings from
-        # historical boolean feedback. There is no administrator review of
-        # individual private feedback records.
+        # historical boolean feedback. Shared-comment access is checked against
+        # the current privacy notice when building the administrator report.
         value = FeedbackValues(helpful=helpful, rating=rating, reasons=reasons or [], comment=comment)
         return {**value.model_dump(), "comment": comment.strip() if comment else None,
                 "recorded_at": datetime.now(timezone.utc)}

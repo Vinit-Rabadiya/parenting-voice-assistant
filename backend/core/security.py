@@ -92,6 +92,11 @@ def get_account_security_state(request: Request, user: dict = Depends(require_ve
     except Exception:
         raise HTTPException(status_code=503, detail="Account security is temporarily unavailable.") from None
     claims = request.state.auth_claims
+    request.state.account_role = "administrator" if state.get("feedback_summary_admin") is True else "caregiver"
+    # A previously issued role claim cannot outlive the current account permission.
+    request.state.feedback_summary_admin = (
+        request.state.feedback_summary_admin and state.get("feedback_summary_admin") is True
+    )
     state["mfa_required"] = (state["mfa_required"] or claims.get("mfa_required") is True
                              or claims.get("feedback_summary_admin") is True)
     return state
@@ -108,6 +113,12 @@ def require_authenticated_user(request: Request, user: dict = Depends(require_ve
             detail = ("MFA is required by security policy. Set up or complete authenticator sign-in."
                       if security["mfa_required"] else "Complete authenticator login first.")
             raise HTTPException(status_code=403, detail=detail)
+    return user
+
+
+def require_caregiver_user(request: Request, user: dict = Depends(require_authenticated_user)) -> dict:
+    if getattr(request.state, "account_role", None) == "administrator":
+        raise HTTPException(status_code=403, detail="Administrator accounts cannot access caregiver features. Use a caregiver account.")
     return user
 
 

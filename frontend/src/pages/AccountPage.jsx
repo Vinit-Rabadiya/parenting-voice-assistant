@@ -15,7 +15,6 @@ import {
 import QRCode from "qrcode";
 import AccountUsage from "../components/AccountUsage";
 import AccountConsent from "../components/AccountConsent";
-import AdminFeedbackSummary from "../components/AdminFeedbackSummary";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
 import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
 
@@ -54,6 +53,7 @@ function setupSessionExpired(error) {
 }
 
 function AccountPage({ verificationEmailRequested, email, accountAccess, onDataDeleted }) {
+  const administrator = accountAccess?.role === "administrator";
   const { logout, user } = useAuth();
   // remember this screen's progress, messages, and account setup details.
   const [busy, setBusy] = useState(false);
@@ -88,14 +88,17 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
 
   async function handleDeleteData() {
     if (busy || dataDeleted) return;
-    if (!window.confirm("Permanently delete all saved child profiles, chats, feedback, and privacy consent? Your login account will remain. This cannot be undone.")) return;
+    if (!window.confirm(administrator
+      ? "Permanently delete personal application data saved on this account? Your login and administrator role will remain. This cannot be undone."
+      : "Permanently delete all saved child profiles, chats, feedback, and privacy consent? Your login account will remain. This cannot be undone.")) return;
     setBusy(true); setMessage("");
     try {
       await deleteMyData();
       stopGuidanceAudio();
       setDataDeleted(true);
       onDataDeleted?.();
-      setMessage("Your saved app data was deleted. Your account is still active. Review the privacy notice again before adding profiles or requesting guidance.");
+      setMessage(administrator ? "Your personal application data was deleted. Your login and administrator role remain active."
+        : "Your saved app data was deleted. Your account is still active. Review the privacy notice again before adding profiles or requesting guidance.");
     } catch (error) {
       onDataDeleted?.();
       setMessage(error.message || "Data deletion could not finish. Please try again.");
@@ -104,7 +107,8 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
 
   async function handleDeleteAccount() {
     if (busy) return;
-    if (!window.confirm("Permanently delete your account, all child profiles, questions, answers, and feedback? This cannot be undone.")) return;
+    if (!window.confirm(administrator ? "Permanently delete your account and its personal application data? This cannot be undone."
+      : "Permanently delete your account, all child profiles, questions, answers, and feedback? This cannot be undone.")) return;
     setBusy(true);
     setMessage("");
     try {
@@ -478,19 +482,20 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
       </section>
       <p className="account-feedback" role="status">{message}</p>
       {securityErrorCode && <details className="account-feedback"><summary>Error reference</summary><code>{securityErrorCode}</code></details>}
-      {accountAccess?.verified && <AccountUsage revision={dataDeleted} />}
-      {accountAccess?.verified && <AccountConsent key={String(dataDeleted)} />}
-      {accountAccess?.verified && <AdminFeedbackSummary />}
+      {accountAccess?.verified && !administrator && <AccountUsage revision={dataDeleted} />}
+      {accountAccess?.verified && !administrator && <AccountConsent key={String(dataDeleted)} />}
       {accountAccess?.verified && <section className="account-card account-data" aria-labelledby="account-data-title">
         <div className="account-card-heading"><h2 id="account-data-title">Data and account</h2>
           <p>These actions permanently remove information and cannot be undone.</p></div>
         <div className="account-data-row"><div><h3>Delete saved data</h3>
-        <p>Remove all saved child profiles, chats, feedback, and privacy consent. Keep your login account.</p>
+        <p>{administrator ? "Remove personal application data retained from earlier use. Keep your login and administrator role."
+          : "Remove all saved child profiles, chats, feedback, and privacy consent. Keep your login account."}</p>
         </div>
         <button className="delete-action" type="button" disabled={busy || dataDeleted} onClick={handleDeleteData}>Delete my data</button>
         </div>
         <div className="account-data-row"><div><h3>Delete account</h3>
-        <p>Permanently remove your account, child profiles, saved questions, answers, and feedback.</p>
+        <p>{administrator ? "Permanently remove your account and its personal application data."
+          : "Permanently remove your account, child profiles, saved questions, answers, and feedback."}</p>
         </div>
         <button className="delete-action" type="button" disabled={busy} onClick={handleDeleteAccount}>Delete my account</button>
         </div>

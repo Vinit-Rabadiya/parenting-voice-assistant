@@ -1,4 +1,4 @@
-"""Administrator access to aggregates only; no private-record report endpoints."""
+"""Administrator access to feedback without conversation or profile lookup."""
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from backend.api.dependencies import get_caregiver_data_service
@@ -22,7 +22,7 @@ def feedback_summary(request: Request, response: Response,
                      user: dict = Depends(require_feedback_summary_admin),
                      service: CaregiverDataService = Depends(get_caregiver_data_service)):
     response.headers["Cache-Control"] = "no-store"
-    # No account, child, date, category or exact-count filters/drill-down.
+    # No account, child, date or category filters or individual-record drill-down.
     if request.query_params:
         raise HTTPException(status_code=422, detail="Feedback summary filters are not supported.")
     try:

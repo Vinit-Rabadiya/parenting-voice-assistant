@@ -12,7 +12,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service
 from backend.api.dependencies import enforce_usage_limit, get_usage_control_service
-from backend.core.security import require_authenticated_user
+from backend.core.security import require_authenticated_user, require_caregiver_user
 from backend.api.consent import require_processing_consent
 from backend.schemas.coaching import CoachingRequest, CoachingResponse, CitationSchema, FeedbackRequest, FeedbackResponse
 from backend.services.caregiver_data import CaregiverDataService
@@ -32,7 +32,7 @@ from backend.services.conversation_context import (
 from backend.core.config import settings
 
 
-router = APIRouter(prefix="/coach", dependencies=[Depends(require_authenticated_user)])
+router = APIRouter(prefix="/coach", dependencies=[Depends(require_caregiver_user)])
 logger = logging.getLogger(__name__)
 # Use Uvicorn's console logger so temporary diagnostics appear at normal INFO level.
 timing_logger = logging.getLogger("uvicorn.error.coaching_timing")

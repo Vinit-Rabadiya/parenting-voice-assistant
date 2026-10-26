@@ -106,7 +106,8 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
           </label>)}
         </fieldset>
         </details>
-        <label htmlFor={commentId}>Optional comment<input id={commentId} maxLength="500" value={feedbackComment} onChange={(event) => { setFeedbackComment(event.target.value); setFeedbackStatus(""); }} /></label>
+        <label htmlFor={commentId}>Optional comment<input id={commentId} aria-describedby={`${commentId}-notice`} maxLength="500" value={feedbackComment} onChange={(event) => { setFeedbackComment(event.target.value); setFeedbackStatus(""); }} /></label>
+        <p id={`${commentId}-notice`} className="guidance-meta">Administrators can read your comment to improve the service. Do not include names or private details.</p>
         <button type="button" disabled={saving || !rating} onClick={recordFeedback}>{saving ? "Saving feedback…" : "Save feedback"}</button>
         <p role="status">{feedbackStatus}</p></div>}
     </section>);

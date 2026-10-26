@@ -1,18 +1,26 @@
-"""Allowlisted aggregate response: never individual feedback or conversation data."""
+"""Administrator feedback responses omit conversation and account identifiers."""
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class FeedbackBucket(BaseModel):
     model_config = ConfigDict(extra="forbid")
     label: str
-    lower: int | None = Field(default=None, ge=5)
-    upper: int | None = Field(default=None, ge=9)
+    count: int = Field(strict=True, ge=0)
+
+
+class FeedbackComment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    comment: str = Field(min_length=1, max_length=500)
+    rating: int | None = Field(default=None, strict=True, ge=1, le=5)
+    helpful: bool | None = None
+    reasons: list[str]
 
 
 class FeedbackSummary(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    unit: str = "Latest consented feedback per caregiver"
-    minimum_group_size: int = 5
+    unit: str = "Saved feedback per answer"
     ratings: list[FeedbackBucket]
     reasons: list[FeedbackBucket]
     legacy_helpfulness: list[FeedbackBucket]
+    comments: list[FeedbackComment] = Field(default_factory=list, max_length=50)
+    comment_count: int = Field(default=0, strict=True, ge=0)

@@ -1,4 +1,4 @@
-# this file handles the /me endpoint to return the currently logged-in user id.
+# account endpoints return the verified identity, role and security settings.
 # it is included in backend/api/v1/router.py and called by frontend/src/services/api.js.
 from fastapi import APIRouter, Depends, Response, Request, HTTPException
 import time
@@ -7,7 +7,7 @@ from firebase_admin import auth
 from backend.api.dependencies import get_caregiver_data_service
 from backend.services.caregiver_data import CaregiverDataService
 from backend.core.security import (require_authenticated_user,
-                                   get_account_security_state, get_account_security_service)
+                                   get_account_security_state, get_account_security_service, require_caregiver_user)
 from backend.schemas.auth import UserResponse, AccountSecurityResponse
 from backend.services.account_security import AccountSecurityService
 from backend.api.dependencies import get_usage_control_service, usage_limits
@@ -40,7 +40,7 @@ def disable_mfa(request: Request, user: dict = Depends(require_authenticated_use
 
 
 @router.get("/me/usage", response_model=UsageResponse)
-def account_usage(response: Response, user: dict = Depends(require_authenticated_user),
+def account_usage(response: Response, user: dict = Depends(require_caregiver_user),
                   service: UsageControlService = Depends(get_usage_control_service)):
     response.headers["Cache-Control"] = "no-store"
     try:
@@ -85,9 +85,10 @@ def delete_account(request: Request, user: dict = Depends(require_authenticated_
     summary="Get Current Authenticated User",
 )
 def current_user(
+    request: Request,
     response: Response,
     user: dict = Depends(require_authenticated_user),
 ):
     """Verify the session, email, and applicable MFA requirements."""
     response.headers["Cache-Control"] = "no-store"
-    return UserResponse(uid=user["uid"])
+    return UserResponse(uid=user["uid"], role=request.state.account_role)

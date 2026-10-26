@@ -63,6 +63,7 @@ export async function getCurrentAccount(signal) {
   }
 
   if (body?.uid !== user.uid) throw accessError("Unable to confirm account access. Please retry.", "unavailable");
+  if (!["caregiver", "administrator"].includes(body.role)) throw accessError("Unable to confirm account access. Please retry.", "unavailable");
 
   return body;
 }
