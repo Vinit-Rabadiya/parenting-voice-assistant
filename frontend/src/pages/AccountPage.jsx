@@ -1,6 +1,6 @@
 // this page manages email verification, qr authenticator setup, backend checks, and logout.
 // app.jsx opens this page for account management or signed-in onboarding.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { resendVerificationEmail } from "../services/auth";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -18,6 +18,41 @@ import AccountConsent from "../components/AccountConsent";
 import AdminFeedbackSummary from "../components/AdminFeedbackSummary";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
 import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
+
+function securityErrorMessage(error, stage) {
+  const messages = {
+    "auth/requires-recent-login": "Confirm your sign-in again before changing an authenticator.",
+    "auth/invalid-multi-factor-session": "Authenticator setup expired. Confirm your sign-in and start setup again.",
+    "auth/missing-multi-factor-session": "Authenticator setup needs a new sign-in confirmation. Please try again.",
+    "auth/user-token-expired": "Your sign-in expired. Sign out and sign in again before continuing.",
+    "app/login-required": "Sign in before setting up an authenticator.",
+    "app/account-changed": "The signed-in account changed. Reopen My Account and start again.",
+    "auth/unverified-email": "Verify your email before adding an authenticator.",
+    "app/authenticator-limit": "Two authenticators are already set up. Refresh My Account to see the current status.",
+    "auth/maximum-second-factor-count-exceeded": "The authenticator limit has been reached. Refresh My Account to check the current status.",
+    "auth/second-factor-already-in-use": "This authenticator is already set up. Refresh My Account to check its status.",
+    "auth/network-request-failed": "Could not connect. Check your internet connection and try again.",
+    "auth/too-many-requests": "Too many attempts. Wait a few minutes before trying again.",
+    "auth/operation-not-allowed": "Authenticator setup is unavailable. Contact the account administrator to check the sign-in configuration.",
+    "auth/unsupported-first-factor": "Sign in again with Google or email and password before adding an authenticator.",
+    "auth/popup-blocked": "Allow the Google sign-in popup, then select Continue with Google again.",
+    "auth/popup-closed-by-user": "Sign-in confirmation was cancelled. Select Continue with Google to try again.",
+    "auth/invalid-verification-code": "The authenticator code was not accepted. Enter the current six-digit code and check that your device time is automatic.",
+    "auth/code-expired": "That code expired. Enter the current code from your authenticator app.",
+    "auth/wrong-password": "The password was not accepted. Check it and try again.",
+    "auth/invalid-credential": "Sign-in could not be confirmed. Check your sign-in details and try again.",
+  };
+  if (Object.hasOwn(messages, error?.code)) return messages[error.code];
+  if (error?.status === 403) return "This security change is not allowed. Refresh My Account to check your account policy.";
+  if (error?.status === 503) return "Account security is temporarily unavailable. Please try again later.";
+  return stage === "setup" ? "Authenticator setup could not finish. Try again or contact the account administrator."
+    : "Sign-in could not be confirmed. Check your details and try again.";
+}
+
+function setupSessionExpired(error) {
+  return ["auth/requires-recent-login", "auth/invalid-multi-factor-session", "auth/missing-multi-factor-session"].includes(error?.code);
+}
+
 function AccountPage({ verificationEmailRequested, email, accountAccess, onDataDeleted }) {
   const { logout, user } = useAuth();
   // remember this screen's progress, messages, and account setup details.
@@ -39,6 +74,17 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
   const [securityCode, setSecurityCode] = useState("");
   const [securityFactor, setSecurityFactor] = useState("");
   const [dataDeleted, setDataDeleted] = useState(false);
+  const [securityErrorCode, setSecurityErrorCode] = useState("");
+  const setupAttempt = useRef(0);
+  useEffect(() => () => { setupAttempt.current += 1; }, []);
+
+  function reportSecurityError(error, stage) {
+    setMessage(securityErrorMessage(error, stage));
+    if (error?.code === "app/authenticator-limit") setFactorCount(2);
+    // A short code helps support identify provider failures without exposing the
+    // exception message, setup key, request body or authentication credentials.
+    setSecurityErrorCode(typeof error?.code === "string" && /^auth\/[a-z-]{1,60}$/.test(error.code) ? error.code : "");
+  }
 
   async function handleDeleteData() {
     if (busy || dataDeleted) return;
@@ -182,16 +228,24 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
   }
 
   async function createEnrollment() {
+    const attempt = ++setupAttempt.current;
     const pending = await beginTotpEnrollment();
-    const setupUri = pending.secret.generateQrCodeUrl(email, "Parenting Voice Assistant");
-    const qrDataUrl = await QRCode.toDataURL(setupUri, { width: 240, margin: 4 });
+    if (attempt !== setupAttempt.current) return;
+    let qrDataUrl = null;
+    try {
+      const setupUri = pending.secret.generateQrCodeUrl(email, "Parenting Voice Assistant");
+      qrDataUrl = await QRCode.toDataURL(setupUri, { width: 240, margin: 4 });
+    } catch { /* Manual setup with the same secret remains available. */ }
+    if (attempt !== setupAttempt.current) return;
     setPendingEnrollment({ ...pending, qrDataUrl });
+    if (!qrDataUrl) setMessage("The QR code could not be displayed. Use the setup key below in your authenticator app instead.");
   }
 
   async function handleReauthentication(event) {
     event.preventDefault();
     if (busy || !securityAction) return;
-    setBusy(true); setMessage("");
+    setBusy(true); setMessage(""); setSecurityErrorCode("");
+    let stage = "sign-in";
     try {
       if (securityAction.resolver) {
         const confirmed = await completeTotpSignIn(securityAction.resolver, securityCode, securityFactor || null);
@@ -207,37 +261,30 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
         await turnOffMfa(user.uid);
         await logout();
       } else if (securityAction.intent === "enroll") {
+        stage = "setup";
         await createEnrollment();
       }
       setSecurityAction(null);
       setSecurityFactor("");
       if (securityAction.intent === "access") window.dispatchEvent(new Event("account-security-changed"));
     } catch (error) {
-      setMessage(error.status ? error.message : "Couldn’t confirm sign-in. Check your details and try again.");
+      reportSecurityError(error, stage);
+      if (setupSessionExpired(error)) {
+        setPendingEnrollment(null); setSecurityFactor("");
+        setSecurityAction({ intent: securityAction.intent });
+      } else if (stage === "setup") setSecurityAction(null);
     } finally {
       setSecurityPassword(""); setSecurityCode(""); setBusy(false);
     }
   }
 
   // Enrollment is complete only after Firebase verifies the authenticator code.
-  async function handleBeginEnrollment() {
+  function handleBeginEnrollment() {
     if (busy) return;
-    setBusy(true);
-    setMessage("");
+    setMessage("Confirm your sign-in before adding an authenticator.");
+    setSecurityErrorCode("");
     setEnrollmentCode("");
-
-    try {
-      await createEnrollment();
-    } catch (error) {
-      if (error.code === "auth/requires-recent-login") setSecurityAction({ intent: "enroll" });
-      setMessage(
-        error.code === "auth/requires-recent-login"
-          ? "Confirm your sign-in below to set up an authenticator."
-          : "Couldn’t start authenticator setup. Please try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    setSecurityAction({ intent: "enroll" });
   }
 
   // check the code with firebase and remove setup details when the authenticator is added.
@@ -246,7 +293,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     if (busy || !pendingEnrollment) return;
 
     setBusy(true);
-    setMessage("");
+    setMessage(""); setSecurityErrorCode("");
 
     try {
       await confirmTotpEnrollment(pendingEnrollment, enrollmentCode);
@@ -257,10 +304,9 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
       setMessage(
         "Authenticator added. If prompted, confirm sign-in with your code to continue.",
       );
-    } catch {
-      setMessage(
-        "Couldn’t confirm setup. Try a fresh code, or cancel and start setup again.",
-      );
+    } catch (error) {
+      reportSecurityError(error, "setup");
+      if (setupSessionExpired(error)) { setPendingEnrollment(null); setSecurityAction({ intent: "enroll" }); }
     } finally {
       setEnrollmentCode("");
       setBusy(false);
@@ -300,37 +346,37 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
 
           {/* show the saved authenticator status, the setup form, or the setup button. */}
           <p>{mfaRequired ? "MFA is required by security policy and cannot be turned off."
-            : "MFA is optional. An authenticator adds a verification code to your sign-in."}</p>
+            : enrollmentComplete ? "Your authenticator protects sign-in with a six-digit code. You can keep MFA on or turn it off."
+              : "MFA is off. You can add an authenticator for extra sign-in protection."}</p>
           {enrollmentComplete && <>
             {!accountAccess?.verified && <button type="button" disabled={busy || Boolean(securityAction)}
               onClick={() => setSecurityAction({ intent: "access" })}>Confirm sign-in</button>}
             {!pendingEnrollment && factorCount < 2 && <button type="button" disabled={busy || Boolean(securityAction)}
               onClick={handleBeginEnrollment}>Add backup authenticator</button>}
             <button type="button" className="delete-action" disabled={busy || mfaRequired || Boolean(securityAction) || Boolean(pendingEnrollment)}
-              onClick={() => { setSecurityAction({ intent: "disable" }); setMessage(""); }}>Turn off MFA</button>
-            <p>Keep a backup authenticator on a separate device. If you lose access to both, contact the account
-              administrator for identity verification and recovery. A password reset does not remove MFA.</p>
+              onClick={() => { setSecurityAction({ intent: "disable" }); setMessage(""); setSecurityErrorCode(""); }}>Turn off MFA</button>
+            <p>{factorCount < 2 ? "A backup authenticator lets you sign in if you lose your main one. Set it up on another device."
+              : "Two authenticators are set up. Keep your backup on a separate device."}</p>
+            <p>If you lose access to all your authenticators, contact the account administrator for recovery.
+              Changing your password does not remove MFA.</p>
           </>}
           {pendingEnrollment ? (
             <form className="account-enrollment" onSubmit={handleConfirmEnrollment}>
               <p>
-                Scan this QR code with your authenticator app, then enter its
-                six-digit code below. If you cannot scan it, use the setup key
-                instead.
+                {pendingEnrollment.qrDataUrl
+                  ? "Scan this QR code with your authenticator app, then enter its six-digit code below. You can also use the setup key instead."
+                  : "Add this account manually in your authenticator app using the setup key below, then enter the six-digit code it generates."}
               </p>
-              <img
+              {pendingEnrollment.qrDataUrl && <img
                 src={pendingEnrollment.qrDataUrl}
                 alt="QR code for setting up your authenticator"
                 width={240}
                 height={240}
-              />
+              />}
               <p>Setup key:</p>
               <code>{pendingEnrollment.secret.secretKey}</code>
 
-              <p>
-                Keep access to your authenticator. A password-reset email will
-                not recover a lost authenticator.
-              </p>
+              <p>Keep this setup key private and keep access to your authenticator.</p>
 
               <label>
                 Authenticator code
@@ -357,8 +403,9 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
                 onClick={() => {
                   // clear the setup key, qr, and code when the user cancels.
                   setPendingEnrollment(null);
+                  setupAttempt.current += 1;
                   setEnrollmentCode("");
-                  setMessage("");
+                  setMessage(""); setSecurityErrorCode("");
                 }}
               >
                 Cancel setup
@@ -425,11 +472,12 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
           value={securityPassword} onChange={(event) => setSecurityPassword(event.target.value)} required disabled={busy} /></label>}
         <button type="submit" disabled={busy}>{securityAction.resolver ? "Verify code" : usesGoogle ? "Continue with Google" : "Confirm sign-in"}</button>
         <button type="button" disabled={busy} onClick={() => {
-          setSecurityAction(null); setSecurityPassword(""); setSecurityCode(""); setSecurityFactor("");
+          setSecurityAction(null); setSecurityPassword(""); setSecurityCode(""); setSecurityFactor(""); setMessage(""); setSecurityErrorCode("");
         }}>Cancel</button>
       </form>}
       </section>
       <p className="account-feedback" role="status">{message}</p>
+      {securityErrorCode && <details className="account-feedback"><summary>Error reference</summary><code>{securityErrorCode}</code></details>}
       {accountAccess?.verified && <AccountUsage revision={dataDeleted} />}
       {accountAccess?.verified && <AccountConsent key={String(dataDeleted)} />}
       {accountAccess?.verified && <AdminFeedbackSummary />}

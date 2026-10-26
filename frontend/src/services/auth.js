@@ -22,6 +22,10 @@ import { getAccountSecurity, disableAccountMfa } from "./caregiving";
 // keep firebase calls here and let the pages choose screens and messages.
 const provider = new GoogleAuthProvider();
 
+function enrollmentError(code, message) {
+  return Object.assign(new Error(message), { code });
+}
+
 export const signInWithGoogle = async () => {
   // google login may still need an authenticator code before login is complete.
   try {
@@ -95,23 +99,26 @@ export const beginTotpEnrollment = async () => {
   // require a signed-in user with a verified email before starting authenticator setup.
   const user = auth.currentUser;
   if (user === null) {
-    throw new Error("Login is required.");
+    throw enrollmentError("app/login-required", "Login is required.");
   }
 
   await reload(user);
   if (user.emailVerified !== true) {
-    throw new Error("Email verification is required.");
+    throw enrollmentError("auth/unverified-email", "Email verification is required.");
   }
 
   const count = multiFactor(user).enrolledFactors.length;
   if (count >= 2) {
-    throw new Error("Two authenticators are already enrolled.");
+    throw enrollmentError("app/authenticator-limit", "Two authenticators are already enrolled.");
   }
-  if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+  if (auth.currentUser !== user) throw enrollmentError("app/account-changed", "Account changed. Please try again.");
 
   // get temporary permission from firebase to start this user's authenticator setup.
+  await user.getIdToken(true);
+  if (auth.currentUser !== user) throw enrollmentError("app/account-changed", "Account changed. Please try again.");
   const session = await multiFactor(user).getSession();
   const secret = await TotpMultiFactorGenerator.generateSecret(session);
+  if (auth.currentUser !== user) throw enrollmentError("app/account-changed", "Account changed. Please try again.");
 
   // return the secret for setup; the user must still confirm a code to finish adding it.
   return { userId: user.uid, secret, displayName: count ? "Backup authenticator" : "Authenticator" };
@@ -155,12 +162,12 @@ export const confirmTotpEnrollment = async (pending, code) => {
   const user = auth.currentUser;
 
   if (!user || !pending || user.uid !== pending.userId) {
-    throw new Error("The account changed. Start authenticator setup again.");
+    throw enrollmentError("app/account-changed", "The account changed. Start authenticator setup again.");
   }
   await reload(user);
 
   if (!user.emailVerified) {
-    throw new Error("Verify your email before setting up an authenticator.");
+    throw enrollmentError("auth/unverified-email", "Verify your email before setting up an authenticator.");
   }
   const otp = code.trim();
 
