@@ -1285,11 +1285,13 @@ of this sample does not approve the whole corpus or authorize activation.
 
 ### Aggregate feedback improvement example
 
-This is a synthetic demonstration, not feedback from a real caregiver. Five
-synthetic accounts each selecting rating 2 and `did_not_answer` produce a 5–9
-category band through `summarize_feedback`. Four accounts or repeated ratings
-from one account do not produce a reportable group. No private conversation or
-free-text comment is available to the administrator.
+This is a synthetic demonstration, not feedback from a real caregiver. One
+saved answer with rating 2 and `did_not_answer` produces a count of 1 in both
+categories through `summarize_feedback`. Each answer's saved feedback counts
+once, including multiple answers rated by the same caregiver. Editing a rating
+replaces that answer's previous contribution. Written comments submitted under
+the current notice can also be reviewed with their ratings and reasons. Private
+conversations and child profiles are not attached to the report.
 
 An administrator can investigate a category such as "Did not answer the message"
 using a separately written development question. The existing aq35 example,
