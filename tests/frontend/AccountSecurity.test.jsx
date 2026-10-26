@@ -17,7 +17,6 @@ vi.mock("qrcode", () => ({ default: { toDataURL: vi.fn() } }));
 vi.mock("../../frontend/src/services/caregiving", () => ({ deleteMyData: vi.fn(), deleteAccount: vi.fn() }));
 vi.mock("../../frontend/src/components/AccountUsage", () => ({ default: () => <p>Caregiver usage</p> }));
 vi.mock("../../frontend/src/components/AccountConsent", () => ({ default: () => <p>Caregiver consent</p> }));
-vi.mock("../../frontend/src/components/AdminFeedbackSummary", () => ({ default: () => null }));
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -30,6 +29,14 @@ beforeEach(() => {
   QRCode.toDataURL.mockResolvedValue("data:image/png;base64,test-only");
 });
 afterEach(cleanup);
+
+it("keeps administrator account settings separate from caregiver tools", async () => {
+  render(<AccountPage email="account@example.test" accountAccess={{ verified: true, role: "administrator" }} />);
+  await screen.findByRole("heading", { name: "MFA enabled" });
+  expect(screen.queryByText("Caregiver usage")).toBeNull();
+  expect(screen.queryByText("Caregiver consent")).toBeNull();
+  expect(screen.getByRole("button", { name: "Delete my account" })).toBeTruthy();
+});
 
 async function openSetup() {
   render(<AccountPage email="account@example.test" accountAccess={{ verified: true }} />);

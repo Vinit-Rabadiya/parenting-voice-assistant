@@ -26,7 +26,7 @@ def test_verified_accounts_without_mfa_can_access_their_account(client, provider
     with patch("backend.core.security.auth.verify_id_token", return_value=verified_claims(firebase={"sign_in_provider": provider})) as verify:
         response = client.get("/me", headers={"Authorization": "Bearer verified-token"})
     assert response.status_code == 200
-    assert response.json() == {"uid": "caregiver"}
+    assert response.json() == {"uid": "caregiver", "role": "caregiver"}
     assert verify.call_args.kwargs["check_revoked"] is True
 
 

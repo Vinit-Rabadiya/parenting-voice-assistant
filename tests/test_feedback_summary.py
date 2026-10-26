@@ -16,13 +16,14 @@ from scripts.set_feedback_admin import main, update_permission
 NOW = datetime.now(timezone.utc) - timedelta(minutes=1)
 
 
-def record(uid, *, name="a", rating=4, helpful=None, reasons=None, group="messages", when=NOW):
+def record(uid, *, name="a", rating=4, helpful=None, reasons=None, group="messages", when=NOW,
+           comment="SHARED_FEEDBACK"):
     path = (f"users/{uid}/conversations/chat/messages/{name}" if group == "messages"
             else f"users/{uid}/interactions/{name}")
     return SimpleNamespace(reference=SimpleNamespace(path=path), to_dict=lambda: {
         "role": "assistant", "text": "PRIVATE_CHAT", "child_id": "PRIVATE_CHILD",
         "feedback": {"rating": rating, "helpful": helpful, "reasons": reasons or [],
-                     "comment": "PRIVATE_COMMENT", "recorded_at": when},
+                     "comment": comment, "recorded_at": when},
     })
 
 
@@ -47,67 +48,124 @@ def storage(messages=(), interactions=(), accepted=None):
     return client, queries
 
 
-@pytest.mark.parametrize("count,bounds", [(0, (None, None)), (4, (None, None)),
-                                         (5, (5, 9)), (9, (5, 9)), (10, (10, 14))])
-def test_small_groups_are_suppressed_and_counts_are_coarse(count, bounds):
-    result = summarize_feedback({f"account-{i}": {"rating": 4} for i in range(count)})
+@pytest.mark.parametrize("count", [0, 1, 4, 5, 9, 10])
+def test_category_counts_include_the_first_response(count):
+    result = summarize_feedback([{"rating": 4} for _ in range(count)])
     bucket = result.ratings[3]
-    assert (bucket.lower, bucket.upper) == bounds
-    assert result.ratings[0].lower is None
+    assert bucket.count == count
+    assert result.ratings[0].count == 0
     assert "total" not in result.model_dump()
 
 
-def test_one_caregiver_cannot_create_a_reportable_group_by_repeated_feedback():
+def test_feedback_on_different_answers_from_one_caregiver_counts_separately():
     client, _ = storage([record("one", name=str(i)) for i in range(20)])
-    assert FeedbackSummaryService(client).read().ratings[3].lower is None
+    assert FeedbackSummaryService(client).read().ratings[3].count == 20
 
 
 def test_synthetic_improvement_signal_contains_only_grouped_categories():
-    result = summarize_feedback({f"synthetic-{i}": {"rating": 2, "reasons": ["did_not_answer"]}
-                                 for i in range(5)})
-    assert result.ratings[1].lower == 5
-    assert result.reasons[2].lower == 5
+    result = summarize_feedback([{"rating": 2, "reasons": ["did_not_answer"]}])
+    assert result.ratings[1].count == 1
+    assert result.reasons[2].count == 1
     assert "synthetic" not in result.model_dump_json()
-    assert all(bucket.lower is None for bucket in result.legacy_helpfulness)
+    assert all(bucket.count == 0 for bucket in result.legacy_helpfulness)
 
 
-def test_latest_feedback_per_caregiver_and_legacy_scale_remain_separate():
+def test_each_answer_counts_and_legacy_scale_remains_separate():
     rows = [record(f"u{i}", name="old", rating=1) for i in range(5)]
     rows += [record(f"u{i}", name="new", rating=5, reasons=["unclear"],
                     when=NOW + timedelta(seconds=1)) for i in range(5)]
     legacy = [record(f"legacy{i}", rating=None, helpful=False, group="interactions") for i in range(5)]
     client, queries = storage(rows, legacy)
     result = FeedbackSummaryService(client).read()
-    assert result.ratings[0].lower is None
-    assert result.ratings[4].lower == 5
-    assert result.reasons[0].lower == 5
-    assert result.legacy_helpfulness[0].lower is None
-    assert result.legacy_helpfulness[1].lower == 5
+    assert result.ratings[0].count == 5
+    assert result.ratings[4].count == 5
+    assert result.reasons[0].count == 5
+    assert result.legacy_helpfulness[0].count == 0
+    assert result.legacy_helpfulness[1].count == 5
     payload = result.model_dump_json()
-    for forbidden in ("PRIVATE", "comment", "child_id", "recorded_at", "u0", "legacy0"):
+    assert result.comments[0].comment == "SHARED_FEEDBACK"
+    for forbidden in ("PRIVATE", "child_id", "recorded_at", "u0", "legacy0"):
         assert forbidden not in payload
     for query in queries.values():
         query.select.assert_called_once_with(PROJECTED_FIELDS)
         query.limit.assert_called_once_with(MAX_DOCUMENTS_PER_GROUP + 1)
-    assert not any("comment" in field or "text" in field for field in PROJECTED_FIELDS)
+    assert "feedback.comment" in PROJECTED_FIELDS
+    assert not any("text" in field or "child" in field for field in PROJECTED_FIELDS)
+
+
+def test_shared_comments_include_only_feedback_fields_and_are_newest_first():
+    rows = [record("account-a", name="first", comment="Older comment.", reasons=["unclear"]),
+            record("account-b", name="second", rating=2, comment="Newer comment.",
+                   when=NOW + timedelta(seconds=1))]
+    client, _ = storage(rows)
+    report = FeedbackSummaryService(client).read()
+    assert [entry.comment for entry in report.comments] == ["Newer comment.", "Older comment."]
+    assert report.comments[1].reasons == ["Unclear"]
+    assert set(report.comments[0].model_dump()) == {"comment", "rating", "helpful", "reasons"}
+    assert report.comment_count == 2
+    for forbidden in ("PRIVATE_CHAT", "PRIVATE_CHILD", "account-a", "account-b", "recorded_at", "conversations"):
+        assert forbidden not in report.model_dump_json()
+
+
+def test_comment_list_is_bounded_without_truncating_rating_counts():
+    rows = [record("one", name=str(i), comment=f"Comment {i}.",
+                   when=NOW - timedelta(seconds=i)) for i in range(52)]
+    client, _ = storage(rows)
+    report = FeedbackSummaryService(client).read()
+    assert len(report.comments) == 50
+    assert report.comment_count == report.ratings[3].count == 52
+    assert report.comments[0].comment == "Comment 0."
+    assert report.comments[-1].comment == "Comment 49."
+
+
+@pytest.mark.parametrize("comment", [None, "", "  ", "x" * 501, {"text": "not a string"}])
+def test_blank_or_malformed_comments_do_not_break_rating_counts(comment):
+    client, _ = storage([record("one", comment=comment)])
+    report = FeedbackSummaryService(client).read()
+    assert report.ratings[3].count == 1
+    assert report.comments == []
+    assert report.comment_count == 0
+
+
+def test_editing_saved_feedback_moves_its_contribution_instead_of_adding_a_second_one():
+    original, _ = storage([record("one", rating=2, reasons=["unclear"], comment="Original comment.")])
+    before = FeedbackSummaryService(original).read()
+    assert before.ratings[1].count == 1
+    assert before.reasons[0].count == 1
+    updated, _ = storage([record("one", rating=5, comment="Updated comment.", when=NOW + timedelta(seconds=1))])
+    after = FeedbackSummaryService(updated).read()
+    assert after.ratings[1].count == 0
+    assert after.ratings[4].count == 1
+    assert after.reasons[0].count == 0
+    assert [entry.comment for entry in after.comments] == ["Updated comment."]
+
+
+def test_numeric_ratings_are_not_counted_again_as_historical_binary_feedback():
+    result = summarize_feedback([{"rating": 5, "helpful": True}, {"rating": None, "helpful": True}])
+    assert result.ratings[4].count == 1
+    assert result.legacy_helpfulness[0].count == 1
 
 
 @pytest.mark.parametrize("accepted", [
-    {}, {"consent_version": "old", "consent_at": NOW - timedelta(days=1), "caregiver_authority": True},
+    {}, {"consent_version": "2026-10-24.1", "consent_at": NOW - timedelta(days=1), "caregiver_authority": True},
+    {"consent_version": "2026-10-26.1", "consent_at": NOW - timedelta(days=1), "caregiver_authority": True},
     {"consent_version": CONSENT_VERSION, "consent_at": NOW + timedelta(seconds=1), "caregiver_authority": True},
     {"consent_version": CONSENT_VERSION, "consent_at": NOW, "caregiver_authority": False},
 ])
 def test_unaccepted_or_pre_notice_feedback_is_not_repurposed(accepted):
     rows = [record(f"u{i}") for i in range(5)]
     client, _ = storage(rows, accepted={f"u{i}": accepted for i in range(5)})
-    assert FeedbackSummaryService(client).read().ratings[3].lower is None
+    report = FeedbackSummaryService(client).read()
+    assert report.ratings[3].count == 0
+    assert report.comments == []
 
 
 def test_deleted_feedback_is_absent_without_a_separate_export_to_clean_up():
     client, _ = storage([record(f"u{i}") for i in range(5)])
-    assert FeedbackSummaryService(client).read().ratings[3].lower == 5
+    assert FeedbackSummaryService(client).read().ratings[3].count == 5
     after, _ = storage([record(f"u{i}") for i in range(4)])
-    assert FeedbackSummaryService(after).read().ratings[3].lower is None
+    assert FeedbackSummaryService(after).read().ratings[3].count == 4
+    assert FeedbackSummaryService(storage()[0]).read().comments == []
     client.batch.assert_not_called()
     client.transaction.assert_not_called()
 
@@ -137,7 +195,7 @@ def test_time_budget_fails_without_publishing_partial_statistics(monkeypatch):
 @pytest.mark.parametrize("value", [True, "5", 6, 0, None])
 def test_malformed_numeric_feedback_does_not_count(value):
     client, _ = storage([record(f"u{i}", rating=value) for i in range(5)])
-    assert all(bucket.lower is None for bucket in FeedbackSummaryService(client).read().ratings)
+    assert all(bucket.count == 0 for bucket in FeedbackSummaryService(client).read().ratings)
 
 
 def test_noncanonical_paths_and_user_messages_are_not_aggregated():
@@ -145,7 +203,7 @@ def test_noncanonical_paths_and_user_messages_are_not_aggregated():
     rows[0].reference.path = "other/u0/messages/a"
     rows[1].to_dict = lambda: {"role": "user", "feedback": {"rating": 4, "recorded_at": NOW}}
     client, _ = storage(rows)
-    assert FeedbackSummaryService(client).read().ratings[3].lower is None
+    assert FeedbackSummaryService(client).read().ratings[3].count == 3
 
 
 def claims(permission=False):
@@ -160,7 +218,7 @@ def admin_storage(client):
 
     previous = app.dependency_overrides.copy()
     client.app.dependency_overrides[get_account_security_service]().read.return_value = {
-        "mfa_enabled": True, "mfa_required": False,
+        "mfa_enabled": True, "mfa_required": False, "feedback_summary_admin": True,
     }
     service = MagicMock()
     app.dependency_overrides[get_caregiver_data_service] = lambda: service
@@ -186,14 +244,34 @@ def test_no_token_cannot_read_summary(client, admin_storage):
     admin_storage.client.collection_group.assert_not_called()
 
 
+def test_revoked_current_role_denies_a_previously_issued_administrator_token(client, admin_storage):
+    from backend.core.security import get_account_security_service
+
+    security = client.app.dependency_overrides[get_account_security_service]()
+    security.read.return_value["feedback_summary_admin"] = False
+    with patch("backend.core.security.auth.verify_id_token", return_value=claims(True)):
+        headers = {"Authorization": "Bearer old-admin-token"}
+        assert client.get("/admin/feedback/summary", headers=headers).status_code == 403
+        assert client.get("/admin/feedback/access", headers=headers).json() == {"allowed": False}
+    admin_storage.client.collection_group.assert_not_called()
+
+
+def test_administrator_needs_completed_mfa_before_reading_feedback(client, admin_storage):
+    first_factor = {**claims(True), "firebase": {"sign_in_provider": "google.com"}}
+    with patch("backend.core.security.auth.verify_id_token", return_value=first_factor):
+        response = client.get("/admin/feedback/summary", headers={"Authorization": "Bearer first-factor-token"})
+    assert response.status_code == 403
+    admin_storage.client.collection_group.assert_not_called()
+
+
 def test_admin_receives_only_summary_and_cannot_request_raw_rows_or_filters(client, admin_storage):
     with patch("backend.core.security.auth.verify_id_token", return_value=claims(True)), \
-            patch("backend.api.v1.endpoints.admin.FeedbackSummaryService.read", return_value=summarize_feedback({})) as read:
+            patch("backend.api.v1.endpoints.admin.FeedbackSummaryService.read", return_value=summarize_feedback([])) as read:
         headers = {"Authorization": "Bearer test"}
         response = client.get("/admin/feedback/summary", headers=headers)
         assert response.status_code == 200
         assert response.headers["cache-control"] == "no-store"
-        assert set(response.json()) == {"unit", "minimum_group_size", "ratings", "reasons", "legacy_helpfulness"}
+        assert set(response.json()) == {"unit", "ratings", "reasons", "legacy_helpfulness", "comments", "comment_count"}
         assert client.get("/admin/feedback/access", headers=headers).json() == {"allowed": True}
         assert client.get("/admin/feedback/summary?uid=other", headers=headers).status_code == 422
         assert client.get("/admin/feedback/records", headers=headers).status_code == 404
@@ -209,12 +287,37 @@ def test_storage_failure_does_not_return_zero_counts_or_exception_content(client
         assert "ratings" not in response.json()
 
 
-def test_administrator_permission_does_not_bypass_private_conversation_ownership(client, admin_storage):
+def test_administrator_role_cannot_open_private_conversations(client, admin_storage):
     admin_storage.get_conversation.return_value = None
     with patch("backend.core.security.auth.verify_id_token", return_value=claims(True)):
         response = client.get("/conversations/another-account-chat", headers={"Authorization": "Bearer test"})
-    assert response.status_code == 404
-    admin_storage.get_conversation.assert_called_once_with("administrator", "another-account-chat", 50, None)
+    assert response.status_code == 403
+    admin_storage.get_conversation.assert_not_called()
+
+
+@pytest.mark.parametrize("method,path,payload", [
+    ("get", "/children", None),
+    ("post", "/children", {"name": "Example child", "date_of_birth": "2026-10-15"}),
+    ("post", "/coach", {"child_id": "example", "question": "Play ideas?"}),
+    ("get", "/conversations?child_id=example", None),
+    ("post", "/speech/transcribe", None),
+    ("get", "/me/usage", None),
+])
+def test_administrator_accounts_cannot_use_caregiver_features(client, admin_storage, method, path, payload):
+    with patch("backend.core.security.auth.verify_id_token", return_value=claims(True)):
+        response = getattr(client, method)(path, headers={"Authorization": "Bearer administrator-token"},
+                                           **({"json": payload} if payload is not None else {}))
+    assert response.status_code == 403
+    assert "caregiver account" in response.json()["detail"]
+    admin_storage.get_child.assert_not_called()
+    admin_storage.create_child.assert_not_called()
+    admin_storage.get_conversation.assert_not_called()
+
+
+def test_current_account_exposes_its_authoritative_role(client, admin_storage):
+    with patch("backend.core.security.auth.verify_id_token", return_value=claims(True)):
+        response = client.get("/me", headers={"Authorization": "Bearer administrator-token"})
+    assert response.json() == {"uid": "administrator", "role": "administrator"}
 
 
 def test_role_preview_never_connects_to_firebase():
