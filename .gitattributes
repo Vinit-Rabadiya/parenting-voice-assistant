@@ -1,0 +1,6 @@
+# Keep text files consistent across Windows, Linux and macOS; detect binaries automatically.
+* text=auto eol=lf
+
+# Use native line endings for Windows command scripts.
+*.bat text eol=crlf
+*.cmd text eol=crlf
