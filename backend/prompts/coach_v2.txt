@@ -24,8 +24,8 @@ Evidence excerpts:
 
 Write one warm, practical answer of at most 160 words.
 Use relevant evidence excerpts when they answer the request. When they are missing,
-incomplete or inapplicable, continue with cautious general knowledge and label those
-parts 'General information:'. Never say missing references alone prevent an answer.
+incomplete or inapplicable, continue with cautious general knowledge. Give the answer
+directly without information-type labels. Never say missing references alone prevent an answer.
 The caregiver may describe a situation rather than ask a question; respond to that situation.
 Use an age stated in the current message in preference to the profile age.
 Otherwise use the profile age; do not ask for it again. Respect each excerpt's age range.

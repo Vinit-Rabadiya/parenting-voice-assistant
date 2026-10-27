@@ -7,7 +7,10 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
   const headingId = useId();
   const commentId = useId();
   const ratingId = useId();
-  const result = { ...message, answer: message.text,
+  // Older saved answers may contain this presentation label. Remove it for
+  // both display and playback without changing the stored conversation.
+  const answer = message.text.replace(/(^|\n)[ \t]*(?:#{1,6}[ \t]+)?(?:\*\*)?General information(?:\*\*)?[ \t]*:(?:\*\*)?[ \t]*(?:\r?\n)?/gi, "$1");
+  const result = { ...message, answer,
     processing_seconds: message.processing_seconds ?? 0, citations: message.citations || [] };
   const messageId = message.message_id === null ? null : message.message_id || message.id;
   const targetId = allowFeedback && (message.interaction_id || (conversationId && messageId));
@@ -51,26 +54,13 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         : result.response_kind === "insufficient_references" ? "More information needed"
         : result.status === "no_evidence" ? "No suitable guidance found" : `Guidance for ${childName}`}</h2>
       <GuidanceText text={result.answer} animate={animate && !textReady} active={active} onComplete={finishText} />
-      <p className="guidance-meta">{["crisis_support", "caregiver_support"].includes(result.status)
-        ? "A support message is shown instead of generated developmental coaching."
-        : result.status === "escalated"
-        ? "Coaching was skipped because your message may describe a danger sign."
-        : result.status === "safety_blocked"
-        ? "The generated response was withheld by the coaching safety checks."
-        : result.status === "vaccination_notice"
-        ? "No AI-generated vaccination advice was provided."
-        : result.status === "no_evidence"
-        ? `Processed in ${result.processing_seconds.toFixed(2)} seconds. No coaching answer was generated.`
-        : result.answer_basis === "general_information"
-        ? `Prepared in ${result.processing_seconds.toFixed(2)} seconds. General information; not verified against reference documents.`
-        : `Prepared in ${result.processing_seconds.toFixed(2)} seconds with reference support. Any supplemental information is labelled in the answer.`}</p>
-      {result.reference_status === "unavailable" && <p className="guidance-meta">Reference search is temporarily unavailable. This answer uses general information.</p>}
+      <p className="guidance-meta">Response time: {result.processing_seconds.toFixed(2)} seconds.</p>
       <div className="answer-actions"><button type="button" disabled={!active} aria-label={audioBusy ? "Stop audio" : "Listen"}
         onClick={() => { if (audioBusy) audio.stop(); else { finishText(); audio.play(); } }}>
         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           {audioBusy ? <rect x="6" y="6" width="12" height="12" rx="1" /> : <path d="M7 4v16l14-8z" />}
         </svg>{audioBusy ? "Stop audio" : "Listen"}</button>
-        <span className="guidance-meta" role="status">{!textReady && active ? "Showing guidance…" : audio.state === "preparing" ? "Preparing audio…" : audio.message}</span>
+        <span className="guidance-meta" role="status">{audio.state === "preparing" ? "Loading audio…" : audio.message}</span>
         {audio.hint && <div className="audio-help" role="status">
           <span>Can't hear the guidance? Check your device volume.</span>
           <button type="button" aria-label="Dismiss audio help" onClick={audio.dismissHint}>×</button>

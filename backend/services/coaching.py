@@ -20,7 +20,7 @@ from backend.services.retrieval import RetrievedPassage
 
 generation_request_id = ContextVar("generation_request_id", default=None)
 timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
-PROMPT_VERSION = "coach_v2"
+PROMPT_VERSION = "coach_v2.1"
 PROMPT_TEMPLATE = (Path(__file__).resolve().parents[1] / "prompts/coach_v2.txt").read_text(encoding="utf-8")
 PROMPT_SHA256 = hashlib.sha256(PROMPT_TEMPLATE.encode()).hexdigest()
 PROVIDER_BLOCK_MESSAGE = (
@@ -146,9 +146,9 @@ class CoachingService:
                 "Topic examples and reference age ranges are not an allowlist. If a request is unrelated, "
                 "briefly say this service covers baby care, child development and parenting; do not answer the unrelated task. "
                 "References support generation; missing or incomplete references do not prevent an answer. "
-                "Use relevant excerpts where applicable. Supplement with cautious general knowledge, labelling "
-                "each supplemental part 'General information:'. If no excerpts apply, label the whole answer "
-                "'General information:'. Never attribute general knowledge to the excerpts or invent citations. "
+                "Use relevant excerpts where applicable and supplement with cautious general knowledge. "
+                "Give the answer directly without information-type labels. "
+                "Never attribute general knowledge to the excerpts or invent citations. "
                 "General model knowledge is not verified medical guidance. For uncertain or high-risk medical "
                 "requests explain uncertainty and the assessment needed. Prioritize emergency care for urgent symptoms. "
                 "Never guess medication doses, diagnose definitively, suggest unsafe sleep or feeding practices, "
@@ -163,7 +163,7 @@ class CoachingService:
                 "proposed action with actions already suggested in recent assistant messages. Rewording, "
                 "splitting a previous action into smaller bullets, or rearranging the same actions does not "
                 "make a new suggestion. Offer genuinely additional safe actions; one new action is enough. "
-                "Use labelled general information when the excerpts offer no further ideas. "
+                "Use cautious general knowledge when the excerpts offer no further ideas. "
                 "Do not repeat the list or invent actions to fill a quota. "
                 "For a request to explain an earlier suggestion, give a brief explanation and identify it as "
                 "clarification, not a new action. For a new standalone topic, give 2 to 4 short actions "

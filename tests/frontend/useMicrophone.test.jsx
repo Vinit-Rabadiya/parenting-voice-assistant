@@ -276,7 +276,7 @@ it("recovers from preparation failure", async () => {
   await act(async () => { await result.current.start(); });
   await act(async () => { await nodes[0].feed(new Float32Array(128)); });
   await act(async () => { result.current.stop(); });
-  expect(result.current.error).toContain("Could not prepare");
+  expect(result.current.error).toBe("Recording failed. Please record again.");
   expect(result.current.recording).toBeNull();
   expectReleased();
   await act(async () => { await result.current.start(); });

@@ -105,7 +105,7 @@ def test_coaching_service_includes_only_retrieved_passages_in_prompt():
     assert "Talk with your baby during feeding" in client.models.request["contents"]
     assert "Do not diagnose" in client.models.request["contents"]
     assert "include a brief relevant precaution" in client.models.request["contents"]
-    assert "General information:" in client.models.request["contents"]
+    assert "without information-type labels" in client.models.request["contents"]
     assert "at most 160 words" in client.models.request["contents"]
     assert "Address the requested activity type" in client.models.request["contents"]
     assert "Use an age stated in the current message" in client.models.request["contents"]
@@ -163,7 +163,7 @@ def test_contextual_prompt_distinguishes_additional_advice_from_explanation(ques
     policy = request["config"].system_instruction
     assert "Rewording" in policy
     assert "one new action is enough" in policy
-    assert "Use labelled general information when the excerpts offer no further ideas" in policy
+    assert "Use cautious general knowledge when the excerpts offer no further ideas" in policy
     assert "Do not repeat the list or invent actions" in policy
     assert "clarification, not a new action" in policy
     assert "a follow-up does not require another list of actions" in request["contents"]

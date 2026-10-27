@@ -427,7 +427,7 @@ def test_gemini_unavailable_returns_busy_message_without_saving_answer(client, s
     )
     response = client.post("/coach", json={"child_id": "child-1", "question": "Feeding ideas"})
     assert response.status_code == 503
-    assert response.json()["detail"] == "The coaching service is temporarily busy. Please try again later."
+    assert response.json()["detail"] == "Something went wrong. Please try again."
     assert "status" not in response.json()
     coaching.generate.assert_called_once()
     data.create_interaction.assert_not_called()
@@ -453,7 +453,7 @@ def test_gemini_quota_error_returns_limit_message_without_saving_answer(client, 
     )
     response = client.post("/coach", json={"child_id": "child-1", "question": "Feeding ideas"})
     assert response.status_code == 429
-    assert response.json()["detail"] == "The coaching service request limit has been reached. Please try again later."
+    assert response.json()["detail"] == "Please wait a little before trying again."
     assert "status" not in response.json()
     coaching.generate.assert_called_once()
     data.create_interaction.assert_not_called()

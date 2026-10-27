@@ -86,7 +86,7 @@ it("automatically submits after stop and displays editable transcript", async ()
 // the primary control cannot start new work while setup or conversion is pending.
 it.each([
   ["requesting", "Waiting for microphone…"],
-  ["preparing", "Preparing audio…"],
+  ["preparing", "Please wait…"],
   ["stopping", "Stopping recording…"],
 ])("disables the microphone during %s with appropriate cancellation", (status, label) => {
   microphone.status = status;

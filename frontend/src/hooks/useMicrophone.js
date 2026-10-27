@@ -218,7 +218,7 @@ function useMicrophone() {
             });
             setStatus("idle");
           } catch {
-            fail("Could not prepare the recording. Please record again.");
+            fail("Recording failed. Please record again.");
           }
         }
       };

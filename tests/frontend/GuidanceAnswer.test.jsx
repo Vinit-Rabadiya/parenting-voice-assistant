@@ -7,11 +7,14 @@ import { sendFeedback } from "../../frontend/src/services/caregiving";
 vi.mock("../../frontend/src/services/caregiving", () => ({ sendFeedback: vi.fn() }));
 const message = { id: "answer-1", text: "Talk softly.", status: "answered", citations: [], processing_seconds: 1 };
 
-it("labels saved general information and a reference outage without claiming source support", () => {
-  render(<GuidanceAnswer message={{ ...message, answer_basis: "general_information", reference_status: "unavailable" }} />);
-  expect(screen.getByText(/not verified against reference documents/)).toBeTruthy();
-  expect(screen.getByText(/Reference search is temporarily unavailable/)).toBeTruthy();
+it("shows guidance and preparation time without information-type labels", () => {
+  render(<GuidanceAnswer message={{ ...message, text: "**General information:** Talk softly.", answer_basis: "general_information", reference_status: "unavailable" }} />);
+  expect(screen.getByText("Talk softly.")).toBeTruthy();
+  expect(screen.getByText("Response time: 1.00 seconds.")).toBeTruthy();
+  expect(screen.queryByText(/General information|not verified against|Reference search is temporarily unavailable/)).toBeNull();
   expect(screen.queryByText(/References consulted/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  expect(window.speechSynthesis.speak.mock.calls[0][0].text).toBe("Talk softly.");
 });
 beforeEach(() => {
   vi.resetAllMocks(); sendFeedback.mockResolvedValue({});
@@ -85,12 +88,12 @@ it("allows stopping during preparation and does not automatically restart", asyn
   render(<GuidanceAnswer message={message} fresh />);
   await act(async () => { await vi.advanceTimersByTimeAsync(1800); });
   await act(async () => { await vi.advanceTimersByTimeAsync(1); });
-  expect(screen.getByText("Preparing audio…")).toBeTruthy();
+  expect(screen.getByText("Loading audio…")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Stop audio" }));
   await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
   expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
   expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
-  expect(screen.queryByText("Preparing audio…")).toBeNull();
+  expect(screen.queryByText("Loading audio…")).toBeNull();
 });
 
 it("finishes revealing a long reply promptly and clears resources if removed mid-animation", async () => {
@@ -257,5 +260,5 @@ it.each([
 ])("labels the %s outcome without claiming guidance was generated", (kind, heading) => {
   render(<GuidanceAnswer message={{ ...message, status: "no_evidence", response_kind: kind }} />);
   expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
-  expect(screen.getByText(/No coaching answer was generated/)).toBeTruthy();
+  expect(screen.getByText("Response time: 1.00 seconds.")).toBeTruthy();
 });

@@ -36,6 +36,7 @@ router = APIRouter(prefix="/coach", dependencies=[Depends(require_caregiver_user
 logger = logging.getLogger(__name__)
 # Use Uvicorn's console logger so temporary diagnostics appear at normal INFO level.
 timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
+REQUEST_ERROR = "Something went wrong. Please try again."
 
 
 async def save_coaching_response(data_service: CaregiverDataService, uid: str,
@@ -154,7 +155,7 @@ async def coach(
                     MAX_CONTEXT_MESSAGES, expected_child_id=payload.child_id,
                 )
         except Exception:
-            raise HTTPException(status_code=503, detail="Conversation context could not be loaded. Please try again.") from None
+            raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found for the selected child.")
         context = select_conversation_context(conversation["messages"])
@@ -235,28 +236,28 @@ async def coach(
                     status = "safety_blocked"
                     result = CoachingResult(answer=PROVIDER_BLOCK_MESSAGE if result.blocked else SAFE_RESPONSE, passages=[])
     except ValueError:
-        raise HTTPException(status_code=503, detail="Guidance could not be prepared. Please try again.") from None
+        raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
     except Exception as exc:
         if (stage == "Gemini generation" and isinstance(exc, genai_errors.ClientError)
                 and exc.code == 429):
             logger.warning("Gemini generation request limit reached (primary_model=%s, code=429)", coaching_service.model)
             raise HTTPException(
                 status_code=429,
-                detail="The coaching service request limit has been reached. Please try again later.",
+                detail="Please wait a little before trying again.",
             ) from None
         if (stage == "Gemini generation" and isinstance(exc, genai_errors.ServerError)
                 and exc.code == 503):
             logger.warning("Gemini generation unavailable (primary_model=%s, code=503)", coaching_service.model)
             raise HTTPException(
                 status_code=503,
-                detail="The coaching service is temporarily busy. Please try again later.",
+                detail=REQUEST_ERROR,
             ) from None
         # Provider descriptions may echo partial, escaped or reformatted personal
         # information. Log bounded metadata rather than trying to redact text.
         code = getattr(exc, "code", None)
         logger.error("%s failed: %s (request=%s, code=%s)", stage, type(exc).__name__,
                      request_id, code if type(code) is int else None)
-        raise HTTPException(status_code=502, detail="Guidance generation is unavailable. Please try again.") from None
+        raise HTTPException(status_code=502, detail=REQUEST_ERROR) from None
 
     citations = [
         {"passage_id": item.passage_id, "source_title": item.source_title, "pdf_page": item.pdf_page,
@@ -285,7 +286,7 @@ async def coach(
     except ValueError:
         raise HTTPException(status_code=404, detail="Conversation not found for the selected child.") from None
     except Exception:
-        raise HTTPException(status_code=503, detail="Guidance could not be saved. Please try again.") from None
+        raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
     timing_logger.info(
         "coach_timing request=%s stage=reported_total event=completed seconds=%.3f",
         request_id, time.perf_counter() - started,
