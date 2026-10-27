@@ -37,7 +37,7 @@ export default function MicrophoneControls({ onTranscriptChange, compact = false
   const buttonBusy = (capturing && !recordingNow && !paused) || transcribing;
   const buttonLabel = status === "requesting" ? "Waiting for microphone…"
     : status === "stopping" ? "Stopping recording…"
-      : status === "preparing" ? "Preparing audio…"
+      : status === "preparing" ? "Please wait…"
         : transcribing ? "Transcribing…"
           : recordingNow || paused ? "Stop and transcribe" : "Start recording";
   const microphoneMessages = {
@@ -46,7 +46,7 @@ export default function MicrophoneControls({ onTranscriptChange, compact = false
     recording: "Recording… Speak, then press Stop and transcribe.",
     paused: "Recording paused. Resume, stop and transcribe, or cancel.",
     stopping: "Finishing audio capture…",
-    preparing: "Preparing your audio…",
+    preparing: "Please wait…",
   };
   const transcriptionMessages = {
     transcribing: "Transcribing… Your microphone is off.",

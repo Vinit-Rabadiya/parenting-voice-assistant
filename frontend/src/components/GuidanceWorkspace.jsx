@@ -138,16 +138,16 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
         {chat.moreMessages && <button type="button" disabled={chat.busy} onClick={chat.loadOlderMessages}>Load earlier messages</button>}
         {chat.messages.map((message) => message.role === "user"
           ? <article className="caregiver-message" data-message-id={message.id} key={message.id}><h3>You</h3><p>{message.text}</p>
-              {message.delivery === "cancelled" && <small role="status">Request cancelled. Stopped waiting for guidance.</small>}
-              {message.delivery === "limited" && <small role="status">Request limit reached. No new guidance was generated.</small>}
-              {message.delivery === "unconfirmed" && <small>Answer not confirmed. This message is shown locally; reopen the conversation to check saved history.</small>}
+              {message.delivery === "cancelled" && <small role="status">Request cancelled.</small>}
+              {message.delivery === "limited" && <small role="status">Please wait before sending another message.</small>}
+              {message.delivery === "unconfirmed" && <small>Reopen this conversation to check for a reply before sending again.</small>}
             </article>
           : <GuidanceAnswer key={message.id} message={message} childName={child.name} allowFeedback={!readOnly}
               fresh={message.id === chat.newAnswerId} active={isActive && !chat.generating && !voiceBusy}
               conversationId={message.conversation_id === null ? null : chat.conversationId} />)}
         {!chat.messages.length && <div className="chat-welcome"><h3>What are you doing with your baby today?</h3>
           <p>Describe the moment, or ask for guidance.</p></div>}
-        {chat.generating && <p className="guidance-loading" role="status"><span className="guidance-spinner" aria-hidden="true" />Preparing guidance…</p>}
+        {chat.generating && <p className="guidance-loading" role="status"><span className="guidance-spinner" aria-hidden="true" />One moment…</p>}
       </section>
       {readOnly ? <p className="chat-composer">Read-only access: you can review or delete existing data. Accept the notice above to request coaching.</p> : <section className="question-panel chat-composer" aria-label="Message composer">
         <form onSubmit={submit}>

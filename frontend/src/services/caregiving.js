@@ -1,5 +1,7 @@
 import { auth } from "./firebase";
 
+const REQUEST_ERROR = "Something went wrong. Please try again.";
+
 async function request(path, options = {}) {
   options.signal?.throwIfAborted();
   const user = auth.currentUser;
@@ -7,12 +9,18 @@ async function request(path, options = {}) {
   const token = await user.getIdToken();
   options.signal?.throwIfAborted();
   if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
-  const response = await fetch(`/api${path}`, {
+  let response;
+  try {
+    response = await fetch(`/api${path}`, {
     ...options,
     credentials: "omit",
     cache: "no-store",
     headers: { Authorization: `Bearer ${token}`, ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers },
-  });
+    });
+  } catch (cause) {
+    if (options.signal?.aborted) throw cause;
+    throw new Error(REQUEST_ERROR, { cause });
+  }
   options.signal?.throwIfAborted();
   if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
   const body = await response.json().catch(() => ({}));
@@ -22,7 +30,8 @@ async function request(path, options = {}) {
     if (response.headers?.get("X-Consent-Required") === "true") {
       window.dispatchEvent(new Event("privacy-consent-required"));
     }
-    const detail = typeof body.detail === "string" ? body.detail : "The request could not be completed.";
+    const detail = response.status >= 500 ? REQUEST_ERROR
+      : typeof body.detail === "string" ? body.detail : REQUEST_ERROR;
     const retryHeader = response.headers?.get("Retry-After");
     const seconds = /^\d+$/.test(retryHeader || "") ? Number(retryHeader) : NaN;
     const retryAfter = response.status === 429 && Number.isSafeInteger(seconds) && seconds > 0 ? seconds : null;
@@ -85,7 +94,7 @@ function validateCoachingResponse(value) {
       && value.support_resources.every(item => object(item) && text(item.label) && text(item.service)
         && item.country === "KE" && text(item.availability) && text(item.verified_on)
         && link(item.url, true) && link(item.source_url))));
-  if (!valid) throw new Error("The guidance response could not be read. Reopen this conversation before sending again.");
+  if (!valid) throw new Error("Something went wrong. Reopen this conversation to check for a reply before sending again.");
   return value;
 }
 
@@ -101,7 +110,7 @@ export async function requestCoaching(payload, { signal, timeoutMs = 60000 } = {
     return validateCoachingResponse(response);
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error(`${timedOut ? "Guidance took too long." : "Stopped waiting for guidance."} The server may still save an answer; reopen this conversation before sending again.`, { cause: error });
+      throw new Error(`${timedOut ? "This is taking longer than expected." : "Request cancelled."} Reopen this conversation to check for a reply before sending again.`, { cause: error });
     }
     throw error;
   } finally {

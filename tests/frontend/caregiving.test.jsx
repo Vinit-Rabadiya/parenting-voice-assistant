@@ -27,6 +27,17 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+it("shows a plain failure message instead of internal service details", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503,
+    json: async () => ({ detail: "Internal reference search failure" }) }));
+  await expect(requestCoaching({ question: "Play ideas" })).rejects.toThrow("Something went wrong. Please try again.");
+});
+
+it("shows a plain failure message for connection errors", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+  await expect(requestCoaching({ question: "Play ideas" })).rejects.toThrow("Something went wrong. Please try again.");
+});
+
 function pendingFetch() {
   const fetch = vi.fn((_url, { signal }) => new Promise((_resolve, reject) => {
     signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
@@ -39,18 +50,18 @@ it("times out one coaching request without retrying", async () => {
   vi.useFakeTimers();
   const fetch = pendingFetch();
   const result = requestCoaching({ question: "Feeding ideas" }, { timeoutMs: 60 });
-  const assertion = expect(result).rejects.toThrow("Guidance took too long.");
+  const assertion = expect(result).rejects.toThrow("This is taking longer than expected.");
   await vi.advanceTimersByTimeAsync(60);
   await assertion;
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it("cancels an active coaching request and warns about server completion", async () => {
+it("cancels an active coaching request and asks to check for a reply", async () => {
   const fetch = pendingFetch();
   const controller = new AbortController();
   const result = requestCoaching({ question: "Feeding ideas" }, { signal: controller.signal });
-  const assertion = expect(result).rejects.toThrow("The server may still save an answer");
+  const assertion = expect(result).rejects.toThrow("check for a reply before sending again");
   await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
   controller.abort();
   await assertion;
@@ -61,7 +72,7 @@ it("does not send an already cancelled request", async () => {
   const fetch = pendingFetch();
   const controller = new AbortController();
   controller.abort();
-  await expect(requestCoaching({}, { signal: controller.signal })).rejects.toThrow("Stopped waiting");
+  await expect(requestCoaching({}, { signal: controller.signal })).rejects.toThrow("Request cancelled.");
   expect(fetch).not.toHaveBeenCalled();
 });
 
@@ -79,7 +90,7 @@ it.each([
 ])("rejects malformed guidance without retrying: %j", async (change) => {
   const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...validResponse, ...change }) });
   vi.stubGlobal("fetch", fetch);
-  await expect(requestCoaching({ question: "Feeding ideas" })).rejects.toThrow("response could not be read");
+  await expect(requestCoaching({ question: "Feeding ideas" })).rejects.toThrow("Reopen this conversation");
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
@@ -99,7 +110,7 @@ it("accepts explicitly labelled general information at 24 months without citatio
 it("rejects generated guidance beyond 24 months but accepts an age-range notice", async () => {
   const response = { ...validResponse, child_age_months: 25, citations: [], answer_basis: "general_information" };
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => response }));
-  await expect(requestCoaching({})).rejects.toThrow("response could not be read");
+  await expect(requestCoaching({})).rejects.toThrow("Reopen this conversation");
   const notice = { ...response, status: "no_evidence", response_kind: "age_out_of_scope" };
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => notice }));
   await expect(requestCoaching({})).resolves.toEqual(notice);

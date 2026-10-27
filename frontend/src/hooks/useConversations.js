@@ -95,7 +95,7 @@ export default function useConversations(childId, onBusyChange) {
       } catch (cause) {
         if (mounted.current) setMessages((items) => items.map((item) => item.id === questionId
           ? { ...item, delivery: controller.signal.aborted ? "cancelled" : cause.status === 429 ? "limited" : "unconfirmed" } : item));
-        if (controller.signal.aborted) throw new Error("Request cancelled in this browser. The server may still save an answer; reopen the conversation before sending again.", { cause });
+        if (controller.signal.aborted) throw new Error("Request cancelled. Reopen this conversation to check for a reply before sending again.", { cause });
         throw cause;
       } finally {
         coachingRequest.current = null;

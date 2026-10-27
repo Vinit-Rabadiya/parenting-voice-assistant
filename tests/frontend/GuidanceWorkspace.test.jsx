@@ -49,7 +49,7 @@ it("uses server-defined Kenya vaccination scope without a country selector", asy
   expect(requestCoaching.mock.calls.at(-1)[0]).not.toHaveProperty("vaccination_country");
   expect(requestCoaching.mock.calls.at(-1)[0].support_country).toBeNull();
   expect(screen.getByText("Vaccination country: Kenya")).toBeTruthy();
-  expect(screen.getByText("No AI-generated vaccination advice was provided.")).toBeTruthy();
+  expect(screen.getByText("Check with the vaccination clinic.")).toBeTruthy();
 });
 
 it("allows history review and deletion without mounting input or feedback before consent", async () => {
@@ -143,7 +143,7 @@ it("moves the message into the thread immediately and replaces Send with Stop", 
   expect(screen.getByText("Feeding ideas").closest(".caregiver-message")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Stop waiting" }).querySelector("rect")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Get guidance" })).toBeNull();
-  expect(screen.getAllByText("Preparing guidance…")).toHaveLength(1);
+  expect(screen.getAllByText("One moment…")).toHaveLength(1);
   expect(screen.queryByText("Waiting for guidance…")).toBeNull();
   await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(1));
   fireEvent.change(input, { target: { value: "My next draft" } });
@@ -208,8 +208,8 @@ it("keeps the submitted message in the thread after stopping guidance", async ()
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(1));
   fireEvent.click(screen.getByRole("button", { name: "Stop waiting" }));
-  expect(screen.getByText("Request cancelled. Stopped waiting for guidance.")).toBeTruthy();
-  await screen.findByText(/Request cancelled in this browser/);
+  expect(screen.getByText("Request cancelled.")).toBeTruthy();
+  await screen.findByText("Request cancelled. Reopen this conversation to check for a reply before sending again.");
   expect(input.value).toBe("");
   expect(screen.getByText("Feeding ideas")).toBeTruthy();
   expect(screen.queryByText(/Answer not confirmed/)).toBeNull();
@@ -262,7 +262,7 @@ it("shows an escalation without claiming it is generated coaching", async () => 
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "My baby is choking." } });
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   expect(await screen.findByRole("heading", { name: "Seek urgent medical care" })).toBeTruthy();
-  expect(screen.getByText(/Coaching was skipped/)).toBeTruthy();
+  expect(screen.getByText("Response time: 0.20 seconds.")).toBeTruthy();
   expect(screen.queryByText(/page null/)).toBeNull();
   expect(screen.queryByText(/using age-aware reference material/)).toBeNull();
 });
