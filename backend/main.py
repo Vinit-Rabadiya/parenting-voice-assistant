@@ -9,12 +9,14 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.core.config import settings
 from backend.core.firebase import initialize_firebase
+from backend.core.http_security import configure_http_security
 from backend.api.v1.router import api_router
 from backend.services.speech import SpeechService
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings.validate_deployment()
     # connect to firebase when the server starts.
     app.state.firebase = initialize_firebase()
     try:
@@ -40,6 +42,7 @@ app = FastAPI(
     version=settings.VERSION,
     lifespan=lifespan,
 )
+configure_http_security(app, production=settings.APP_ENV == "production", allowed_hosts=settings.ALLOWED_HOSTS)
 
 # connect the api routes to the main app.
 app.include_router(api_router)

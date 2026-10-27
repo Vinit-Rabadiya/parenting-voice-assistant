@@ -9,6 +9,8 @@ async function request(path, options = {}) {
   if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
   const response = await fetch(`/api${path}`, {
     ...options,
+    credentials: "omit",
+    cache: "no-store",
     headers: { Authorization: `Bearer ${token}`, ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers },
   });
   options.signal?.throwIfAborted();
