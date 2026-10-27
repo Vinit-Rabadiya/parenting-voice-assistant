@@ -15,8 +15,8 @@ references, and listen to the answer.
   baseline milestone display, and optional additional milestones.
 - English voice recording up to 30 seconds, transcription after Stop, and editable text.
 - Typed questions and optional routine context such as feeding, bathing, and play.
-- Qdrant retrieval from 184 selected source-linked passages and Gemini-generated guidance,
-  with labelled general information when references are missing or incomplete.
+- Qdrant retrieval from 184 selected source-linked passages and age-aware Gemini guidance.
+  Baby-care questions can also receive guidance when references are missing or incomplete.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
 - New answers reveal progressively after generation, with one Listen/Stop audio control
   and an automatic playback attempt after the text finishes appearing.
@@ -149,6 +149,13 @@ npm.cmd --prefix frontend ci --include=optional
 `requirements-dev.txt` includes the runtime and data-preparation requirements.
 It also installs lint and test tooling; `requirements.txt` is the runtime install.
 Root npm dependencies install the Husky development hooks.
+
+Python requirement files pin direct package versions. Update them deliberately,
+check a clean installation, and run the application checks before accepting an
+upgrade. These files are not a complete transitive lock: indirect Python packages
+can still resolve differently across platforms or later installations. The optional
+`requirements-evaluation.txt` stack belongs in a separate environment. For Node
+packages, use `npm ci` with the checked-in root and frontend lockfiles.
 
 ### 2. Configure environment files
 
