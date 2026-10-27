@@ -210,6 +210,22 @@ def test_retrieval_failure_is_not_a_no_evidence_response(client, services):
     coaching.generate.assert_called_once()
 
 
+@pytest.mark.parametrize("error", [RuntimeError("request fragment: PRIVATE_CHILD_NAME"),
+                                  ValueError("configuration includes PRIVATE_KEY_FRAGMENT")])
+def test_generation_errors_do_not_expose_provider_text(client, services, caplog, error):
+    _, retrieval, coaching = services
+    retrieval.retrieve.return_value = []
+    # A provider can echo only part of a prompt; exact full-question redaction
+    # cannot protect this fragment. The endpoint must omit the description.
+    error.message = "provider echoed PRIVATE_CHILD_NAME and PRIVATE_KEY_FRAGMENT"
+    coaching.generate.side_effect = error
+    response = client.post("/coach", json={"child_id": "child-1", "question": "Play ideas"})
+    assert response.status_code in {502, 503}
+    for private_value in ("PRIVATE_CHILD_NAME", "PRIVATE_KEY_FRAGMENT"):
+        assert private_value not in response.text
+        assert private_value not in caplog.text
+
+
 @pytest.mark.parametrize("answer,unknown_source", [
     ("Give 5 mg of medicine.", False),
     ("Talk softly [99].", False),

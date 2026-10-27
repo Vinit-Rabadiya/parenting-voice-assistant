@@ -760,3 +760,69 @@ alone are not reference transcripts or validated training examples.
 
 A synthetic demonstration is documented in
 [the coaching evaluation review](data/evaluation/coaching-quality-review.md#aggregate-feedback-improvement-example).
+
+## Deployment security
+
+The API verifies Firebase sessions, verified email, account ownership and applicable
+MFA policy. Private API responses use `Cache-Control: no-store`. Incoming JSON bodies
+are limited to 64 KiB and other bodies to 1 MiB, with a 15-second upload deadline;
+audio validation also enforces the existing 30-second recording limit. The upload
+deadline does not limit model generation. Provider error descriptions are excluded
+from application diagnostics.
+
+Before public deployment:
+
+- Serve the built frontend and API through HTTPS. Configure the hosting platform's
+  security headers, request throttling, concurrency limits and trusted proxy settings.
+  Vite's development and preview servers are not production hosting.
+- Keep backend API keys and Firebase Admin credentials in the host's secret store.
+  Never include them in frontend variables, public files, source control or images.
+- Retain Firestore rules that deny direct client access. The backend uses server
+  credentials, so its IAM permissions must be limited separately.
+- Restrict the public Firebase browser key to the Firebase APIs required by the app;
+  keep Gemini on a separate private key. Add only the intended authentication domains.
+- Enable repository secret scanning and push protection where available.
+- Confirm the model provider's data-handling terms for the configured account and
+  service tier before processing personal information. Gemini's unpaid-service terms
+  prohibit submitting sensitive, confidential or personal information; see the
+  [Gemini API terms](https://ai.google.dev/gemini-api/terms).
+
+Dependency audits and automated tests do not replace checking the deployed host,
+cloud permissions and provider account configuration.
+
+### Production configuration
+
+Local development defaults to `APP_ENV=development`. Production startup requires
+`APP_ENV=production`, an explicit comma-separated `ALLOWED_HOSTS` list of API host
+names, and `GEMINI_PAID_SERVICES_CONFIRMED=true`. Host names must not include a URL
+scheme, port or wildcard. Production requests to an unrecognized host are rejected;
+HTTP requests to an allowed host redirect to HTTPS.
+
+Set the paid-services confirmation only after checking active Cloud Billing and the
+applicable provider terms. This setting records an operator confirmation; it does
+not query billing or change how Google processes data. Free-tier development must
+use fictional, non-personal examples. The confirmation defaults to false.
+
+When HTTPS terminates at a reverse proxy, configure Uvicorn to trust forwarded
+headers only from that proxy. Incorrect proxy settings can cause redirect loops.
+The public hostname and proxy addresses depend on the selected hosting platform.
+
+On Google-managed hosting, `FIREBASE_USE_ADC=true` uses the attached service account.
+Unset `FIREBASE_ADMIN_KEY_PATH` in that mode. Other hosts can mount a private key
+from a secret store using the existing key-path setting. Do not grant the runtime
+service account Owner or Editor merely to inspect cloud settings: use an operator
+account for administration. Runtime access needs Firestore data permissions and
+the Firebase Authentication permissions used for reading accounts, updating MFA
+and deleting accounts; review these separately from operator privileges.
+
+The checked-in `firestore.rules` denies direct client access, and `firebase.json`
+maps that rules file and the existing indexes. The backend remains responsible
+for account isolation because server credentials bypass Firestore rules. Changes
+to these local files are not published automatically. `.dockerignore` excludes
+environment files, common private-key files, local credentials and logs from the
+container build context.
+
+CI includes a Gitleaks scan of new commits with redacted findings. It uses a pinned
+release with checksum verification, does not post comments or upload reports,
+and needs no secret-scanning subscription. This detects leaked secrets after a
+push; it does not replace before-push protection or the cloud credential review.

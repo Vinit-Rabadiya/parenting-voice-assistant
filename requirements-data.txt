@@ -1,2 +1,2 @@
-pypdf==6.19.0
+pypdf==6.21.2
 qdrant-client==1.19.1
