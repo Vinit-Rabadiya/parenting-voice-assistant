@@ -826,3 +826,10 @@ CI includes a Gitleaks scan of new commits with redacted findings. It uses a pin
 release with checksum verification, does not post comments or upload reports,
 and needs no secret-scanning subscription. This detects leaked secrets after a
 push; it does not replace before-push protection or the cloud credential review.
+
+## License
+
+Original project code is licensed under the [ISC License](LICENSE).
+Third-party reference materials, source-derived summaries, dependencies and models
+remain subject to their own terms; see [NOTICE](NOTICE) for attribution and reuse
+conditions. The code license does not grant reuse rights for the reference corpus.

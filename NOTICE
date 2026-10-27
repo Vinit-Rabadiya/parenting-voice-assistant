@@ -1,0 +1,116 @@
+Parenting Voice Assistant
+Third-party materials and attribution
+
+The ISC license in LICENSE applies to original project code. It does not
+relicense third-party publications, reference excerpts, source-derived summaries,
+datasets, model weights, dependencies, logos or other third-party assets.
+Their respective copyright notices, licenses and permission requirements apply.
+Source attribution is not a grant of permission or evidence of endorsement.
+
+This notice covers source families recorded in the repository, including
+research references and candidate materials. Inclusion here does not indicate
+that a source is part of the active retrieval collection.
+
+Reach Up: Parent Manual
+-----------------------
+Copyright (c) 2020 The University of the West Indies.
+Reach Up: An early childhood parenting programme.
+
+The retained manual states Creative Commons Attribution-NonCommercial-ShareAlike
+4.0 International (CC BY-NC-SA 4.0) on PDF pages 2 and 31.
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+https://nurturing-care.org/parent-manual-activities-for-children-up-to-3/
+
+The project selects passages, assigns retrieval metadata and uses source-derived
+summaries. These selections and adaptations are not the original complete manual.
+Applicable non-commercial, attribution and share-alike conditions remain in force
+for that material. The ISC code license does not replace them. The manual's
+separate restrictions on logos and other excluded material also apply.
+
+World Health Organization and UNICEF
+------------------------------------
+Care for Child Development: Counselling Cards, and the WHO and UNICEF source
+pages identified in the reference manifests.
+https://www.unicef.org/media/91181/file/4-CCD-Counselling-Cards.pdf
+
+The joint counselling-card document's reuse permission is not established in
+data/sources.json. WHO's general open-access policy must not be treated as proof
+of a license for that specific joint publication or for third-party material.
+Follow the rights statement of each publication and any applicable adaptation
+notice or permission requirement.
+https://www.who.int/about/policies/publishing/copyright
+
+UNICEF retains copyright in its publications and web material. Its published
+terms generally require written permission for reproduction, adaptation or wider
+redistribution. No such permission is asserted by this repository.
+https://www.unicef.org/reports/about-unicef-publications
+https://www.unicef.org/legal
+
+Kenya Ministry of Health
+------------------------
+Mother & Child Health Handbook; Clinical Guidelines for Level 1 Community Health
+Services (2024); and programme information identified in the source manifests.
+https://www.health.go.ke/sites/default/files/2023-05/Mother%20Child%20Health%20Handbook%20MOH-FOR%20PRINT.pdf
+https://www.health.go.ke/sites/default/files/2025-04/Clinical%20Guidelines%20for%20Level%201%20Community%20Health%20Services.pdf
+
+These publications remain attributable to the Kenya Ministry of Health. A general
+open-content license or redistribution permission has not been established here.
+Availability on an official website does not place the material under ISC.
+
+Public-sector reference content
+-------------------------------
+Contains public sector information licensed under the Open Government Licence v3.0.
+https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+
+NHS website material has source-specific terms, exclusions and attribution
+requirements. The project uses selected summaries rather than a complete,
+unchanged, continuously refreshed copy. Adaptation does not retain the original
+content's clinical approval. The general OGL statement does not cover excluded
+images, trademarks, third-party material or medical-device software.
+https://www.nhs.uk/our-policies/terms-and-conditions/
+
+Birth to Five, 2025 and 2026 editions, Public Health Agency, Northern Ireland:
+the retained PDFs state OGL v3.0 on their first PDF page and exclude photographs
+and illustrations from that license. Those exclusions remain applicable.
+https://www.publichealth.hscni.net/publications/birth-five
+
+Other reference publishers
+--------------------------
+The source manifests also credit:
+
+- Health Service Executive, Ireland: Sharing books with babies and young children.
+  https://www2.hse.ie/babies-children/checks-milestones/communication-development/reading-with-your-baby/
+  Reuse permission is not established by the repository's source metadata.
+
+- Department for Education, Government of South Australia: Splish splash, I'm
+  having a bath. The publisher's copyright policy requires acknowledgement and
+  places conditions on modifications; source-specific terms take precedence.
+  https://www.education.sa.gov.au/parents-and-families/curriculum-and-learning/early-years/learning-with-your-child-greatstart/getting-ready/splish-splash-im-having-bath
+  https://www.education.sa.gov.au/department/research-statistics/conducting-research/copyright
+
+- Sydney Children's Hospitals Network, NSW Government: Travel safety. The
+  publisher's policy restricts reproduction and modification. No additional
+  permission is granted by inclusion in a source manifest.
+  https://www.schn.health.nsw.gov.au/kids-health-hub/safety-and-injury-prevention/outdoor/travel
+  https://www.schn.health.nsw.gov.au/copyright
+
+- Jeong et al. (2021): Parenting interventions to promote early child development
+  in the first three years of life: A global systematic review and meta-analysis.
+  This is a research-bibliography reference; the article's own license applies.
+  https://doi.org/10.1371/journal.pmed.1003602
+
+Software, models and source records
+----------------------------------
+Third-party software and downloaded models retain their own licenses. Preserve
+the notices supplied with those packages and model files when distributing them.
+Hosted-service access is governed separately by the service provider's terms.
+
+Source titles, URLs, page or section identifiers, and available provenance are
+recorded in data/sources.json, data/*reference-expansion.json and
+data/baby-care-source-catalogue.md. Those records and the applicable publisher
+terms determine which materials can be reused; this notice is not a blanket
+license for the reference collection.
+
+The referenced organizations and authors have not endorsed or approved this
+application or its generated answers. Logos and trademarks are not licensed by
+the project's ISC license.
