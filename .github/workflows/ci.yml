@@ -6,7 +6,49 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
 jobs:
+  secret-checks:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install verified Gitleaks release
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          release="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          curl --fail --silent --show-error --location "$release/$archive" -o "$RUNNER_TEMP/gitleaks/$archive"
+          curl --fail --silent --show-error --location "$release/gitleaks_${GITLEAKS_VERSION}_checksums.txt" -o "$RUNNER_TEMP/gitleaks/checksums.txt"
+          cd "$RUNNER_TEMP/gitleaks"
+          grep "  $archive$" checksums.txt | sha256sum --check --status
+          tar -xzf "$archive" gitleaks
+
+      - name: Scan new commits for secrets
+        env:
+          SCAN_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          SCAN_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$SCAN_HEAD" =~ ^[0-9a-f]{40}$ ]]
+          if [[ -z "$SCAN_BASE" || "$SCAN_BASE" =~ ^0{40}$ ]]; then
+            range="$SCAN_HEAD"
+          else
+            [[ "$SCAN_BASE" =~ ^[0-9a-f]{40}$ ]]
+            range="$SCAN_BASE..$SCAN_HEAD"
+          fi
+          "$RUNNER_TEMP/gitleaks/gitleaks" git --redact --no-banner --log-opts="$range" .
+
   backend-checks:
     name: Backend Lint & Tests
     runs-on: ubuntu-latest
