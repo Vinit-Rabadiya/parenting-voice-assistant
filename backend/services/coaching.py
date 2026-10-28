@@ -20,7 +20,7 @@ from backend.services.retrieval import RetrievedPassage
 
 generation_request_id = ContextVar("generation_request_id", default=None)
 timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
-PROMPT_VERSION = "coach_v2.2"
+PROMPT_VERSION = "coach_v2.3"
 PROMPT_TEMPLATE = (Path(__file__).resolve().parents[1] / "prompts/coach_v2.txt").read_text(encoding="utf-8")
 PROMPT_SHA256 = hashlib.sha256(PROMPT_TEMPLATE.encode()).hexdigest()
 PROVIDER_BLOCK_MESSAGE = (
@@ -121,6 +121,13 @@ class CoachingService:
         generation_config = types.GenerateContentConfig(
             temperature=0.2,
             system_instruction=age_safety + (
+                "The application's guidance country is Kenya. Use Kenyan context for country-dependent information. "
+                "Applicable general baby-care references from other countries may still support general care, "
+                "but do not present foreign vaccination schedules, clinical protocols or contact numbers as Kenyan. "
+                "Do not invent a current Kenya schedule, local service, regional eligibility or contact number. "
+                "If another country's specific guidance is requested, explain that country-specific support "
+                "currently covers Kenya. Do not assume nationality, language or household practices. "
+                "The guidance country does not establish the caregiver's physical location. "
                 "Tailor every suggestion and precaution to the supplied age. Do not assume unreported abilities. "
                 "Interpret the caregiver's intended meaning from the complete message and recent context before answering. "
                 "Understand clear typos, missing or transposed letters, phonetic spelling, spacing errors and informal grammar internally. "

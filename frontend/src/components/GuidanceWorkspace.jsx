@@ -70,7 +70,6 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
   const chat = useConversations(child.id, onBusyChange);
   const [question, setQuestion] = useState("");
   const [routine, setRoutine] = useState("");
-  const [supportCountry, setSupportCountry] = useState("");
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const threadRef = useRef(null);
@@ -103,7 +102,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
     stopGuidanceAudio();
     const message = question.trim();
     setQuestion("");
-    await chat.submit(message, routine, supportCountry);
+    await chat.submit(message, routine, "KE");
   }
 
   if (chat.loading) return <ChatLoading />;
@@ -158,17 +157,13 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
               if (!event.repeat) event.currentTarget.form?.requestSubmit();
             }}
             onChange={(event) => setQuestion(event.target.value)} placeholder="Type a message, or use the microphone…" />
-          <details className="composer-options"><summary aria-label="Routine and support location">＋</summary>
+          <details className="composer-options"><summary aria-label="Care options">＋</summary>
             <div className="composer-option-fields">
               <label htmlFor="routine">Routine (optional)</label>
               <select id="routine" value={routine} onChange={(event) => setRoutine(event.target.value)}>
                 <option value="">General caregiving</option><option value="feeding">Feeding</option><option value="bathing">Bathing</option>
                 <option value="play">Play</option><option value="dressing">Dressing</option><option value="reading">Reading</option>
               </select>
-              <label htmlFor="support-country">Support resources location (optional)</label>
-              <select id="support-country" value={supportCountry} onChange={(event) => {
-                stopGuidanceAudio(); setSupportCountry(event.target.value);
-              }}><option value="">Not selected / other country</option><option value="KE">Kenya</option></select>
             </div>
           </details>
           <div className="composer-actions">
