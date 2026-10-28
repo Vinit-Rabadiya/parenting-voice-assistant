@@ -15,8 +15,8 @@ references, and listen to the answer.
   baseline milestone display, and optional additional milestones.
 - English voice recording up to 30 seconds, transcription after Stop, and editable text.
 - Typed questions and optional routine context such as feeding, bathing, and play.
-- Qdrant retrieval from 184 selected source-linked passages and Gemini-generated guidance,
-  with labelled general information when references are missing or incomplete.
+- Qdrant retrieval from 184 selected source-linked passages and age-aware Gemini guidance.
+  Baby-care questions can also receive guidance when references are missing or incomplete.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
 - New answers reveal progressively after generation, with one Listen/Stop audio control
   and an automatic playback attempt after the text finishes appearing.
@@ -149,6 +149,13 @@ npm.cmd --prefix frontend ci --include=optional
 `requirements-dev.txt` includes the runtime and data-preparation requirements.
 It also installs lint and test tooling; `requirements.txt` is the runtime install.
 Root npm dependencies install the Husky development hooks.
+
+Python requirement files pin direct package versions. Update them deliberately,
+check a clean installation, and run the application checks before accepting an
+upgrade. These files are not a complete transitive lock: indirect Python packages
+can still resolve differently across platforms or later installations. The optional
+`requirements-evaluation.txt` stack belongs in a separate environment. For Node
+packages, use `npm ci` with the checked-in root and frontend lockfiles.
 
 ### 2. Configure environment files
 
@@ -826,3 +833,10 @@ CI includes a Gitleaks scan of new commits with redacted findings. It uses a pin
 release with checksum verification, does not post comments or upload reports,
 and needs no secret-scanning subscription. This detects leaked secrets after a
 push; it does not replace before-push protection or the cloud credential review.
+
+## License
+
+Original project code is licensed under the [ISC License](LICENSE).
+Third-party reference materials, source-derived summaries, dependencies and models
+remain subject to their own terms; see [NOTICE](NOTICE) for attribution and reuse
+conditions. The code license does not grant reuse rights for the reference corpus.
