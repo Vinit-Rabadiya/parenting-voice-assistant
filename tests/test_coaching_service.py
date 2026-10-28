@@ -123,6 +123,10 @@ def test_coaching_service_includes_only_retrieved_passages_in_prompt():
     assert "include a brief relevant precaution" in client.models.request["contents"]
     assert "without information-type labels" in client.models.request["contents"]
     assert "at most 160 words" in client.models.request["contents"]
+    assert "Country for guidance: Kenya" in client.models.request["contents"]
+    assert "guidance country is Kenya" in client.models.request["config"].system_instruction
+    assert "does not establish the caregiver's physical location" in client.models.request["config"].system_instruction
+    assert "do not present foreign vaccination schedules" in client.models.request["config"].system_instruction
     assert "Address the requested activity type" in client.models.request["contents"]
     assert "Use an age stated in the current message" in client.models.request["contents"]
     assert "not merely because" in client.models.request["contents"]

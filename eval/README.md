@@ -102,10 +102,11 @@ Both routes bypass retrieval and generation. When child danger signs and caregiv
 concerns coexist, urgent child-care wording takes priority while relevant caregiver
 contacts remain available. Persistence failures do not suppress the response.
 
-`support_country` is optional and currently accepts `KE` or null. The interface
-defaults to no location selected. Kenya contacts appear only when Kenya is
-explicitly selected. No US-only contact is substituted, no location is inferred
-from the profile, and no call or safeguarding report is made automatically.
+`support_country` is optional and currently accepts `KE` or null. The Kenya-focused
+interface sends `KE` automatically and has no country or contact-display control.
+Direct API callers can still send null for general support without Kenya contacts.
+Contacts are labelled for Kenya; physical location is not inferred from the profile,
+and no call or safeguarding report is made automatically.
 The interface shows each service's availability, information source and check date.
 Contact availability is not checked in real time. A general local-healthcare
 referral remains available when no supported location is selected.

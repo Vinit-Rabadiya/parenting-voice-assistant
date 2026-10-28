@@ -199,11 +199,13 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         if age_boundary is not None and age_boundary.kind == "age_out_of_scope":
             record.update(outcome="no_evidence", answer=age_boundary.answer, response_kind=age_boundary.kind)
             return record
-        vaccination = inspect_vaccination(query)
+        vaccination = inspect_vaccination(case["question"], profile["age_months"], topic=query)
         if vaccination is not None:
             record.update(outcome="vaccination_notice", answer=vaccination.answer, vaccination_country="KE")
-            if vaccination.source_url:
-                record["reference_sources"] = [{"title": vaccination.source_title, "url": vaccination.source_url}]
+            record["reference_sources"] = [
+                {"title": source.title, "url": source.url, "pdf_page": source.pdf_page}
+                for source in vaccination.sources
+            ]
             return record
         assessment = professional_assessment_response(case["question"])
         if assessment is not None:

@@ -169,7 +169,7 @@ async def coach(
             age_months, completed_months = context_age, int(context_age)
             age_days = round(context_age * 30.4375)
             outside_age_range = False
-    vaccination = inspect_vaccination(retrieval_query)
+    vaccination = inspect_vaccination(payload.question, age_months, topic=retrieval_query)
     unresolved_follow_up = is_follow_up(payload.question) and retrieval_query == payload.question
     assessment = professional_assessment_response(payload.question)
     boundary = conversation_boundary_response(payload.question, unresolved_follow_up=unresolved_follow_up,
@@ -264,12 +264,12 @@ async def coach(
          "source_url": item.source_url, "title": item.title}
         for item in result.passages
     ]
-    if vaccination is not None and vaccination.source_url:
-        citations.append({
-            "passage_id": "vaccination-" + vaccination.reason,
-            "source_title": vaccination.source_title, "pdf_page": None,
-            "source_url": vaccination.source_url, "title": "General vaccination education",
-        })
+    if vaccination is not None:
+        citations.extend({
+            "passage_id": "vaccination-" + source.key,
+            "source_title": source.title, "pdf_page": source.pdf_page,
+            "source_url": source.url, "title": "Kenya vaccination information",
+        } for source in vaccination.sources)
     response = CoachingResponse(
         interaction_id=None, answer=result.answer,
         response_kind=response_kind,

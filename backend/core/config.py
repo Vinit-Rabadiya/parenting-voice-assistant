@@ -39,6 +39,7 @@ class Settings:
     QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "caregiver_guidance_everyday_v3")
     # Provisional cutoff from recorded development examples; not a confidence percentage.
     RETRIEVAL_MIN_SCORE: float = float(os.getenv("RETRIEVAL_MIN_SCORE", "0.50"))
+    KENYA_VACCINATION_SCHEDULE_ENABLED: bool = boolean_setting("KENYA_VACCINATION_SCHEDULE_ENABLED", "true")
 
     COACH_HOURLY_LIMIT: int = int(os.getenv("COACH_HOURLY_LIMIT", "30"))
     COACH_DAILY_LIMIT: int = int(os.getenv("COACH_DAILY_LIMIT", "100"))

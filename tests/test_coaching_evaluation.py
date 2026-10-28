@@ -105,13 +105,27 @@ def test_capture_records_provider_block_without_retry_or_invented_answer():
 
 
 def test_capture_records_general_vaccine_source_without_model_call(monkeypatch):
-    monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2026, 10, 24))
+    monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2026, 10, 28))
     case, _, retrieval, coaching, models = setup_case()
     case["question"] = "How do vaccines work?"
     record = capture_case(case, profile_dates(date(2026, 10, 24), 0), retrieval, coaching)
     assert record["outcome"] == "vaccination_notice"
     assert "who.int" in record["reference_sources"][0]["url"]
     assert record["answer"]
+    retrieval.retrieve.assert_not_called()
+    models.generate_content.assert_not_called()
+
+
+def test_capture_records_kenya_schedule_updates_and_multiple_sources(monkeypatch):
+    monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2026, 10, 28))
+    monkeypatch.setattr("backend.services.vaccination.settings.KENYA_VACCINATION_SCHEDULE_ENABLED", True)
+    case, _, retrieval, coaching, models = setup_case()
+    case["question"] = "Which vaccines at 9 months?"
+    record = capture_case(case, profile_dates(date(2026, 10, 28), 9), retrieval, coaching)
+    assert record["outcome"] == "vaccination_notice"
+    assert "IPV 2" in record["answer"] and "TCV" in record["answer"]
+    assert len(record["reference_sources"]) == 2
+    assert record["reference_sources"][1]["pdf_page"] == 11
     retrieval.retrieve.assert_not_called()
     models.generate_content.assert_not_called()
 

@@ -37,19 +37,28 @@ async function selectProfile() {
   await waitFor(() => expect(screen.queryByText("Loading conversations…")).toBeNull());
 }
 
-it("uses server-defined Kenya vaccination scope without a country selector", async () => {
-  requestCoaching.mockResolvedValue({ status: "vaccination_notice", answer: "Check with the vaccination clinic.",
-    vaccination_country: "KE", citations: [], processing_seconds: 0.1, interaction_id: null });
+it("uses Kenya by default without country or support-contact controls", async () => {
+  requestCoaching.mockResolvedValue({ status: "vaccination_notice", answer: "At 9 months: MR 1, IPV 2 and TCV. Confirm the next appointment with the clinic.",
+    vaccination_country: "KE", citations: [
+      { passage_id: "vaccination-kenya-schedule", source_title: "WHO: Kenya vaccination schedule", source_url: "https://immunizationdata.who.int/global/wiise-detail-page/vaccination-schedule-for-country_name?ISO_3_CODE=KEN", pdf_page: null, title: "Kenya vaccination information" },
+      { passage_id: "vaccination-kenya-updates", source_title: "WHO Kenya Annual Report 2025", source_url: "https://www.afro.who.int/sites/default/files/2026-04/WHO%20Kenya%20Annual%20Report%202025.pdf", pdf_page: 11, title: "Kenya vaccination information" },
+    ], processing_seconds: 0.1, interaction_id: null });
   render(<GuidanceWorkspace />);
   await selectProfile();
+  expect(screen.queryByLabelText("Country")).toBeNull();
+  expect(screen.queryByText("Other countries (not available yet)")).toBeNull();
+  expect(screen.queryByLabelText("Show Kenya support contacts")).toBeNull();
   expect(screen.queryByLabelText("Vaccination country (optional)")).toBeNull();
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Which vaccines are due?" } });
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   await screen.findByRole("heading", { name: "Vaccination information" });
   expect(requestCoaching.mock.calls.at(-1)[0]).not.toHaveProperty("vaccination_country");
-  expect(requestCoaching.mock.calls.at(-1)[0].support_country).toBeNull();
+  expect(requestCoaching.mock.calls.at(-1)[0].support_country).toBe("KE");
   expect(screen.getByText("Vaccination country: Kenya")).toBeTruthy();
-  expect(screen.getByText("Check with the vaccination clinic.")).toBeTruthy();
+  expect(screen.getByText("At 9 months: MR 1, IPV 2 and TCV. Confirm the next appointment with the clinic.")).toBeTruthy();
+  fireEvent.click(screen.getByText("References consulted (2)"));
+  expect(screen.getByRole("link", { name: /WHO: Kenya vaccination schedule/ }).href).toContain("ISO_3_CODE=KEN");
+  expect(screen.getByRole("link", { name: /WHO Kenya Annual Report 2025, page 11/ }).href).toContain("2025.pdf");
 });
 
 it("allows history review and deletion without mounting input or feedback before consent", async () => {
@@ -330,7 +339,6 @@ it("shows location-labelled support contacts only from the returned resources", 
   });
   render(<GuidanceWorkspace />);
   await selectProfile();
-  fireEvent.change(screen.getByLabelText("Support resources location (optional)"), { target: { value: "KE" } });
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "I need immediate support." } });
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   expect(await screen.findByRole("heading", { name: "Immediate support" })).toBeTruthy();

@@ -1,4 +1,5 @@
 Child age to use: {age_description}
+Country for guidance: Kenya
 Routine: {routine_text}
 Caregiver question: {question}
 {history}

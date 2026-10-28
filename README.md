@@ -15,6 +15,9 @@ references, and listen to the answer.
   baseline milestone display, and optional additional milestones.
 - English voice recording up to 30 seconds, transcription after Stop, and editable text.
 - Typed questions and optional routine context such as feeding, bathing, and play.
+- Guidance defaults to Kenya without a country picker; relevant safety responses include Kenya support contacts.
+- Source-checked Kenya vaccination education covers routine visit ages, vaccine purposes
+  and common side effects. Clinics confirm individual due doses and regional eligibility.
 - Qdrant retrieval from 184 selected source-linked passages and age-aware Gemini guidance.
   Baby-care questions can also receive guidance when references are missing or incomplete.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
@@ -590,8 +593,8 @@ Sources:
 
 The current safety workstream, shared dataset, report commands and completion
 checklist are documented in [eval/README.md](eval/README.md). Caregiver-support
-messages bypass model generation and show Kenya-specific contacts only after an
-explicit location selection. This supplements—not replaces—the input and output
+messages bypass model generation. The Kenya-focused interface requests Kenya
+support contacts automatically when relevant. This supplements—not replaces—the input and output
 checks described above.
 
 Existing issues track retrieval quality and exact age handling, emergency triage

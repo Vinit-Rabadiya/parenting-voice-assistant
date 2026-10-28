@@ -1,7 +1,7 @@
 {
-  "checked_on": "2026-10-24",
+  "checked_on": "2026-10-28",
   "country": "KE",
-  "status": "schedule_not_reconciled_not_approved",
+  "status": "source_checked_education_implemented",
   "sources": [
     {
       "title": "Kenya Ministry of Health: Clinical Guidelines for Level 1 Community Health Services",
@@ -14,7 +14,8 @@
       "url": "https://www.health.go.ke/node/1955",
       "published_on": "2025-07-07",
       "event_on": "2025-07-05",
-      "finding": "Official announcement explicitly identifies routine typhoid conjugate vaccination at nine months. This is evidence of a programme update, not a complete current schedule. The publisher search record was checked on 24 October 2026; direct page retrieval timed out. No complete-schedule approval is inferred."
+      "finding": "Full publisher page opened. Announcement dated 7 July 2025, describing the 5 July launch, explicitly adds routine TCV at nine months. Corroborated by WHO country-reported 2025 schedule and annual report.",
+      "checked_on": "2026-10-28"
     },
     {
       "title": "WHO: Vaccines and immunization: What is vaccination?",
@@ -31,20 +32,74 @@
       "title": "WHO Kenya Annual Report 2025",
       "url": "https://www.afro.who.int/sites/default/files/2026-04/WHO%20Kenya%20Annual%20Report%202025.pdf",
       "publication_year": 2026,
-      "finding": "Publisher search excerpt describes second IPV and routine typhoid conjugate vaccine at nine months, plus malaria programme expansion and product transition. These updates conflict with the incomplete older official table; they do not resolve every current age, product or regional eligibility. The full report was not downloaded in this check."
+      "finding": "Full 82-page WHO report retrieved. PDF pages 10-11 report a second IPV dose at nine months, routine TCV at nine months and malaria programme expansion/R21 transition during 2025. These supplement the 2023 baseline; full current product and regional eligibility reconciliation remains open.",
+      "checked_on": "2026-10-28",
+      "local_pdf": "data/raw/pdfs/who-kenya-annual-report-2025.pdf",
+      "sha256": "30df6fac2f218c453683822d324487de9a0c656a9f2be11339de7be410be31ba",
+      "pdf_pages": [
+        10,
+        11
+      ]
+    },
+    {
+      "title": "Kenya Ministry of Health: National Immunization Policy Guidelines 2023",
+      "url": "http://guidelines.health.go.ke:8000/media/Kenya_National_Immunization_Policy_Guidelines_Version_signed.pdf",
+      "publication_date": "2023-04",
+      "checked_on": "2026-10-28",
+      "local_pdf": "data/raw/pdfs/kenya-national-immunization-policy-guidelines-2023.pdf",
+      "sha256": "7520d93b6c6d78b701217ab15ee44f7878785b635d6a6a4540bf8788d83d0965",
+      "pdf_pages": [
+        3,
+        34,
+        35
+      ],
+      "finding": "Official 100-page baseline retrieved. Routine table on PDF pages 34-35 and antigen chapters were checked. The three-dose rotavirus series at 6, 10 and 14 weeks is corroborated by the WHO 2025 country-reported schedule; section 9.13 distinguishes two-dose Rotarix. Later IPV2/TCV additions and malaria product changes are taken from newer official reporting, not inferred from this baseline.",
+      "reuse_conditions": "PDF page 3 permits review, quotation, reproduction or translation with source acknowledgement; sale and commercial use are excluded."
+    },
+    {
+      "title": "Jacaranda Maternity: Childhood Immunization Schedule in Kenya: A Parent's Complete Guide",
+      "url": "https://www.jacarandamaternity.co.ke/post/childhood-immunization-schedule-in-kenya-a-parent-s-complete-guide",
+      "checked_on": "2026-10-28",
+      "source_role": "secondary_hospital_explainer",
+      "finding": "Page opened directly; no HTML copy stored. Its table lists two rotavirus doses, one IPV entry, and no routine TCV or malaria entries. It must not be used alone as the complete current national schedule. Displayed dates omit the year; no publication year is inferred."
+    },
+    {
+      "title": "Nation: Don't miss a dose: The complete guide to your child's vaccination schedule",
+      "url": "https://nation.africa/kenya/health/don-t-miss-a-dose-the-complete-guide-to-your-child-s-vaccination-schedule-5521710",
+      "checked_on": "2026-10-28",
+      "source_role": "secondary_news_article",
+      "access_status": "http_403",
+      "finding": "Direct access returned HTTP 403. Full article and schedule not inspected; no medical facts are taken from the headline or assumed."
+    },
+    {
+      "title": "WHO Immunization Data Portal: Kenya vaccination schedule",
+      "url": "https://immunizationdata.who.int/global/wiise-detail-page/vaccination-schedule-for-country_name?ISO_3_CODE=KEN",
+      "data_endpoint": "https://xmart-api-public.who.int/WIISE/MT_AD_SCHEDULER?%24filter=ISO_3_CODE+eq+%27KEN%27&%24select=VACCINECODE%2CVACCINE_DESCRIPTION%2CAGEADMINISTERED%2CYEAR%2CTARGETPOP%2CSOURCECOMMENT",
+      "reporting_year": 2025,
+      "checked_on": "2026-10-28",
+      "finding": "Public WHO scheduler records retrieved directly from the endpoint used by the publisher page. All selected routine entries are for 2025. W14 rotavirus, M9 IPV2 and TCV, and M6/M7/M9/M24 malaria visits are explicitly present. Vitamin A is a supplement, not a vaccine; HPV/adult/risk-group COVID entries are outside this infant routine overview. These records report programme ages, not individual eligibility or local stock.",
+      "selected_rows_sha256": "eb955ff525733996f08fb44120766e9a4f42e7a9554b3c943ff11dc7924cfb74"
+    },
+    {
+      "title": "WHO: Brief overview of anaphylaxis as an adverse event following immunization",
+      "url": "https://cdn.who.int/media/docs/default-source/medicines/pharmacovigilance/anaphylaxis-aefi.pdf",
+      "checked_on": "2026-10-28",
+      "pdf_pages": [
+        1,
+        2
+      ],
+      "finding": "Only warning signs and the need for urgent professional care are used. Clinical treatment protocols, injection instructions and medicine doses are excluded."
     }
   ],
   "remaining": [
-    "Obtain and reconcile a current complete official Kenya schedule and later updates, including applicable regional eligibility.",
-    "Verify specific vaccine names, purposes and age restrictions against applicable sources before adding vaccine-specific answers.",
-    "Record effective/review dates before permitting schedule retrieval."
+    "Verify the new schedule and vaccine-specific responses in the signed-in interface, including source links, audio playback, follow-ups and response time."
   ],
   "enabled_general_education": {
-    "checked_on": "2026-10-24",
+    "checked_on": "2026-10-28",
     "review_interval_days": 90,
     "purpose_source": "https://www.who.int/news-room/questions-and-answers/item/vaccines-and-immunization-what-is-vaccination",
     "expected_effects_source": "https://www.unicef.org/parenting/health/parents-frequently-asked-questions-vaccines",
-    "finding": "Original publisher pages were opened and selected sections checked. General immune-system education and temporary injection-site soreness/mild fever are separated from assessment of an individual child. No medicines, personal due dates, catch-up calculations or national schedule are supplied. Original source links are returned with the response and retained through the existing storage path.",
+    "finding": "WHO and UNICEF publisher pages reopened on 28 October. Immune-system education, temporary injection-site soreness/mild fever and a cool cloth are separated from individual symptom assessment. Warning signs use the WHO AEFI overview; the MoH policy distinguishes temporal association from causation. No medication choice, dosage or personal due calculation is supplied.",
     "implementation": "backend/services/vaccination.py; source-check expiry is enforced before general education. Urgent handling and individual-assessment routing run first."
   },
   "validation_note": "Professional validation has not been obtained. It is not an active implementation task; no source check, automated test or editorial assessment is described as clinical approval.",
@@ -55,5 +110,112 @@
     "status": "manual_source_refresh_required_before_publication",
     "audit_command": "python -m scripts.prepare_coverage_review --corpus-dir data/processed/practical-care-activity-candidates --domain-review data/passage-domain-review.json --evaluation-date 2026-10-24 --audit-only",
     "implemented_check": "The offline audit computes publisher review-due flags at the supplied evaluation date. It does not re-fetch sources, approve content, assign a reviewer or activate a collection."
+  },
+  "reconciled_routine_entries": {
+    "reporting_year": 2025,
+    "scope": "Birth through the second birthday inclusive",
+    "age_codes": "B = birth; W = weeks; M = months",
+    "entries": {
+      "BCG": {
+        "name": "BCG (Baccille Calmette Guérin) vaccine",
+        "ages": [
+          "B"
+        ],
+        "programme_note": "Surviving infants (both male and female) meeting the age of administration"
+      },
+      "DTWPHIBHEPB": {
+        "name": "DTwP-Hib-HepB (Whole cell) vaccine",
+        "ages": [
+          "W6",
+          "W10",
+          "W14"
+        ],
+        "programme_note": "Surviving infants (both male and female) meeting the age of administration"
+      },
+      "IPV": {
+        "name": "IPV (Inactivated polio vaccine)",
+        "ages": [
+          "W14",
+          "M9"
+        ],
+        "programme_note": "Surviving infants (both male and female) meeting the age of administration"
+      },
+      "MALARIA": {
+        "name": "Malaria vaccine",
+        "ages": [
+          "M6",
+          "M7",
+          "M9",
+          "M24"
+        ],
+        "programme_note": "Offered in 8 counties with prevalence of malaria- Kisumu, Homabay, Siaya, Migori, Vihiga, Kakamega, Busia, Bungoma to the Surviving infants, (both male and female) meeting the age of administration"
+      },
+      "MR": {
+        "name": "MR (Measles and rubella) vaccine",
+        "ages": [
+          "M9",
+          "M18"
+        ],
+        "programme_note": "Surviving infants (both male and female) meeting the age of administration"
+      },
+      "OPV": {
+        "name": "OPV (Oral polio vaccine)",
+        "ages": [
+          "B",
+          "W6",
+          "W10",
+          "W14"
+        ],
+        "programme_note": "Surviving infants (both male and female) meeting the age of administration"
+      },
+      "PCV10": {
+        "name": "PCV-10 (Pneumococcal conjugate vaccine 10-valent) vaccine",
+        "ages": [
+          "W6",
+          "W10",
+          "W14"
+        ],
+        "programme_note": "Surviving infants (both male and female) meeting the age of administration"
+      },
+      "ROTAVIRUS_1": {
+        "name": "RV-1 (Rotavirus 1-valent) vaccine",
+        "ages": [
+          "W6",
+          "W10",
+          "W14"
+        ],
+        "programme_note": "Surviving infants (both male and female) meeting the age of administration"
+      },
+      "TYPHOID_CONJ": {
+        "name": "Typhoid conjugate vaccine",
+        "ages": [
+          "M9"
+        ],
+        "programme_note": "Surviving infants (both male and female) meeting the age of administration"
+      },
+      "YF": {
+        "name": "YF (Yellow fever) vaccine",
+        "ages": [
+          "M9"
+        ],
+        "programme_note": "Offered in 4 eligible counties-Turkana, Elgeyo Marakwet, Baringo and West Pokot to the Surviving infants, (both male and female) meeting the age of administration"
+      }
+    },
+    "regional_reconciliation": "WHO scheduler names eight malaria programme counties and four yellow-fever-risk counties. WHO annual report describes 2025 malaria expansion to twelve additional sub-counties and R21 transition without a complete updated facility map. Replies therefore retain conditional programme/risk-area eligibility and ask the clinic to confirm the local area/product; they do not infer eligibility from country, profile or residence.",
+    "excluded": "Vitamin A is not a vaccine. Travel, outbreak campaigns, optional private vaccines, HPV and unspecified COVID age indications are not presented as infant routine appointments."
+  },
+  "conflict_resolutions": {
+    "rotavirus": "Use WHO country-reported W6/W10/W14 series, corroborated by 2023 policy section 9.13. Older two-dose summaries cannot override this; Rotarix is explicitly distinguished as a different two-dose product. Do not convert individual series.",
+    "polio": "Use W14 first IPV and M9 second IPV from WHO country reporting and annual report. Do not repeat the annual report wording that the first IPV was introduced in 2025; the 2023 policy already includes it.",
+    "typhoid": "Use TCV at M9 from the full MoH July 2025 announcement, WHO country schedule and annual report.",
+    "malaria": "Use reported programme ages M6/M7/M9/M24 only with eligibility conditions. Record R21 transition but do not assign a product, county-wide entitlement, substitution or catch-up plan to a child.",
+    "yellow_fever": "M9 only in designated risk areas. Country default does not imply regional eligibility."
+  },
+  "activation": {
+    "implementation": "backend/services/vaccination.py",
+    "enabled_setting": "KENYA_VACCINATION_SCHEDULE_ENABLED=true",
+    "rollback": "Set KENYA_VACCINATION_SCHEDULE_ENABLED=false and restart the backend. Routine/specific-vaccine requests return a clinic-and-record response without falling through to model-generated schedules. General purpose and expected-effects education remain separate.",
+    "freshness": "Schedule and general education checks expire after 90 days; future check dates are invalid. Stale schedule facts are withheld without a model request.",
+    "calls": "No network, Qdrant or model call for recognized checked vaccine-purpose, routine-schedule or expected-effects responses."
   }
 }
