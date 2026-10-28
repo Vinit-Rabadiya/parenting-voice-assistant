@@ -85,3 +85,19 @@ def test_young_infant_explicit_celsius_readings(reading):
 ])
 def test_numeric_rule_does_not_infer_units_or_apply_to_other_ages_and_objects(question, months):
     assert "young_infant_temperature" not in inspect_input(question, months).reasons
+
+
+@pytest.mark.parametrize("question,urgent", [
+    ("My baby's lips are swollen after vaccination.", True),
+    ("My baby has swelling of the face.", True),
+    ("My child's throat has become swollen.", True),
+    ("My baby has no swelling of the face.", False),
+    ("My baby's lips are not swollen.", False),
+    ("My baby has soreness at the injection site.", False),
+])
+def test_facial_airway_swelling_is_distinct_from_injection_site_soreness(question, urgent):
+    decision = inspect_input(question, 6)
+    assert decision.escalate == urgent
+    if urgent:
+        assert decision.reasons == ("facial_airway_swelling",)
+        assert decision.citations[0]["pdf_page"] == 2

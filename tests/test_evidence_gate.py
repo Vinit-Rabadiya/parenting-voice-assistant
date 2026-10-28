@@ -87,7 +87,7 @@ def test_vaccination_notice_skips_retrieval_generation_and_preserves_country(cli
     assert response.status_code == 200
     assert response.json()["status"] == "vaccination_notice"
     assert response.json()["vaccination_country"] == "KE"
-    assert response.json()["citations"] == []
+    assert len(response.json()["citations"]) == 2
     retrieval.retrieve.assert_not_called()
     coaching.generate.assert_not_called()
     assert data.create_interaction.call_args.args[-1] == "vaccination_notice"
@@ -100,14 +100,14 @@ def test_vaccination_notice_skips_retrieval_generation_and_preserves_country(cli
     ("What side effects can vaccines have?", "unicef.org"),
 ])
 def test_general_vaccine_education_returns_citation_without_model_call(client, services, question, domain, monkeypatch):
-    monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2026, 10, 24))
+    monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2026, 10, 28))
     data, retrieval, coaching = services
     response = client.post("/coach", json={"child_id": "child-1", "question": question})
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "vaccination_notice"
     assert body["vaccination_country"] == "KE"
-    assert len(body["citations"]) == 1
+    assert body["citations"]
     assert domain in body["citations"][0]["source_url"]
     assert body["citations"][0]["pdf_page"] is None
     retrieval.retrieve.assert_not_called()
@@ -115,13 +115,88 @@ def test_general_vaccine_education_returns_citation_without_model_call(client, s
     data.create_interaction.assert_called_once()
 
 
-def test_danger_sign_precedes_vaccination_notice(client, services):
+@pytest.mark.parametrize("question", [
+    "My baby has difficulty breathing after vaccination.",
+    "My baby's face is swollen after vaccination.",
+])
+def test_danger_sign_precedes_vaccination_notice(client, services, question):
     _, retrieval, coaching = services
     response = client.post("/coach", json={"child_id": "child-1",
-                                          "question": "My baby has difficulty breathing after vaccination.",
+                                          "question": question,
                                           "vaccination_country": "KE"})
     assert response.status_code == 200
     assert response.json()["status"] == "escalated"
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_kenya_schedule_sources_are_saved_and_a_follow_up_keeps_the_topic(client, services):
+    data, retrieval, coaching = services
+    data.get_conversation.return_value = {"messages": []}
+    data.save_conversation_turn.return_value = "answer-1"
+    question = "Which vaccines at 9 months?"
+    body = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
+                                      "question": question}).json()
+    assert body["status"] == "vaccination_notice"
+    assert "IPV 2" in body["answer"] and "TCV" in body["answer"]
+    stored = data.save_conversation_turn.call_args.args[-1]
+    assert stored["citations"] == body["citations"]
+    assert stored["vaccination_country"] == "KE"
+    assert len({source["passage_id"] for source in stored["citations"]}) == 2
+    data.get_conversation.return_value = {"messages": [
+        {"role": "user", "text": question}, {"role": "assistant", **stored},
+    ]}
+    follow_up = "What side effects can they have?"
+    result = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
+                                        "question": follow_up}).json()
+    assert result["status"] == "vaccination_notice"
+    assert "Temporary soreness" in result["answer"]
+    assert "9 months:" not in result["answer"]
+    assert data.save_conversation_turn.call_args.args[3] == follow_up
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+@pytest.mark.parametrize("age,kind", [(24, None), (25, "age_out_of_scope")])
+def test_schedule_respects_the_second_birthday_boundary(client, services, age, kind):
+    data, retrieval, coaching = services
+    data.get_child.return_value = {"age_months": age, "completed_months": age,
+                                   "age_days": age * 30, "in_scope": age <= 24}
+    body = client.post("/coach", json={"child_id": "child-1", "question": "Which vaccines are due?"}).json()
+    assert body["response_kind"] == kind
+    if kind:
+        assert body["citations"] == []
+        assert body["vaccination_country"] is None
+    else:
+        assert body["status"] == "vaccination_notice" and body["citations"]
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_schedule_rollback_never_falls_through_to_model_generated_dates(client, services, monkeypatch):
+    monkeypatch.setattr("backend.services.vaccination.settings.KENYA_VACCINATION_SCHEDULE_ENABLED", False)
+    _, retrieval, coaching = services
+    body = client.post("/coach", json={"child_id": "child-1", "question": "Which vaccines at nine months?"}).json()
+    assert body["status"] == "vaccination_notice"
+    assert body["citations"] == []
+    assert "TCV" not in body["answer"]
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_vaccine_schedule_uses_the_selected_profile_on_each_request(client, services):
+    data, retrieval, coaching = services
+    payload = {"child_id": "child-1", "question": "Which vaccines are due?"}
+    data.get_child.return_value = {"age_months": 9.0, "completed_months": 9,
+                                   "age_days": 274, "in_scope": True}
+    older = client.post("/coach", json=payload).json()
+    assert "9 months:" in older["answer"] and "At birth:" not in older["answer"]
+    data.get_child.return_value = {"age_months": 0.5, "completed_months": 0,
+                                   "age_days": 15, "in_scope": True}
+    younger = client.post("/coach", json={**payload, "child_id": "child-2"}).json()
+    assert "At birth:" in younger["answer"] and "9 months:" not in younger["answer"]
+    assert younger["child_age_months"] == 0.5
+    data.get_child.assert_called_with("user-1", "child-2")
     retrieval.retrieve.assert_not_called()
     coaching.generate.assert_not_called()
 
@@ -137,6 +212,8 @@ def services(monkeypatch):
     from backend.core.config import settings
 
     monkeypatch.setattr(settings, "RETRIEVAL_MIN_SCORE", 0.50)
+    monkeypatch.setattr(settings, "KENYA_VACCINATION_SCHEDULE_ENABLED", True)
+    monkeypatch.setattr("backend.services.vaccination.current_date", lambda: date(2026, 10, 28))
     data, retrieval, coaching = MagicMock(), MagicMock(), MagicMock()
     data.get_child.return_value = {"age_months": 6.0, "completed_months": 6, "age_days": 183, "in_scope": True}
     data.create_interaction.return_value = "interaction-1"

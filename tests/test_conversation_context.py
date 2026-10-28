@@ -126,3 +126,15 @@ def test_generic_follow_up_after_named_clarification_keeps_original_topic():
         + pair("What does top and tailing mean?", "Wash selected areas outside the bath.")
     )
     assert contextual_retrieval_query("Tell me more", context).startswith("I am bathing my baby.")
+
+
+def test_sourced_vaccine_education_allows_follow_up_but_unsourced_notices_do_not():
+    messages = pair("What is TCV?", "TCV protects against typhoid.", status="vaccination_notice")
+    assert select_conversation_context(messages) == []
+    messages[-1]["citations"] = [{"source_url": "https://www.health.go.ke/"}]
+    context = select_conversation_context(messages)
+    assert len(context) == 2
+    for question in ["What does that mean?", "What side effects can it have?"]:
+        assert contextual_retrieval_query(question, context) == f"What is TCV?\nFollow-up: {question}"
+    messages[-1]["safety"] = "escalate"
+    assert select_conversation_context(messages) == []
