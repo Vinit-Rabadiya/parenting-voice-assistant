@@ -44,6 +44,13 @@ URGENT_ILLNESS = {
     "source_url": "https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/",
     "title": "Immediate assessment: blue or grey lips and a rash that does not fade under pressure",
 }
+ANAPHYLAXIS = {
+    "passage_id": "safety-who-allergic-airway-swelling",
+    "source_title": "WHO: Anaphylaxis as an adverse event following immunization",
+    "pdf_page": 2,
+    "source_url": "https://cdn.who.int/media/docs/default-source/medicines/pharmacovigilance/anaphylaxis-aefi.pdf",
+    "title": "Warning signs: facial swelling and airway symptoms require urgent assessment",
+}
 CELSIUS = re.compile(r"(?<![\w.,])(?P<value>\d{2}(?:[.,]\d+)?)\s*(?:(?:°|degrees?)\s*)?(?:celsius|c)\b")
 
 
@@ -62,6 +69,7 @@ def reported_high_infant_temperature(text: str) -> bool:
 
 # Keep a source per category rather than attributing every rule to a single excerpt.
 RULES = (
+    ("facial_airway_swelling", r"\b(?:sw(?:ollen|elling)(?: of)? (?:(?:the|his|her|their) )?(?:face|lips?|tongue|throat)|(?:face|lips?|tongue|throat) (?:is |are |has |have |looks? |become |became |has become |have become )?sw(?:ollen|elling))\b", ANAPHYLAXIS),
     ("abnormal_vomit", r"\b(?:(?:green|yellow-green|bloody) vomit|(?:vomit|vomiting|throwing up) (?:is |looks |looks like )?(?:green|yellow-green|blood)|blood in (?:(?:his|her|their|the) )?vomit)\b", VOMITING),
     ("blue_grey_lips", r"\b(?:(?:blue|grey|gray) (?:lips|tongue)|(?:lips|tongue) (?:are|look|turned|have turned) (?:blue|grey|gray))\b", URGENT_ILLNESS),
     ("non_fading_rash", r"\brash (?:that )?(?:does not|doesn't|will not|won't) fade (?:when (?:i |you )?press(?:ed)?|under pressure)\b", URGENT_ILLNESS),

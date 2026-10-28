@@ -15,6 +15,9 @@ def is_follow_up(question: str) -> bool:
         r"(?:can|could) you explain (?:that|this)|how (?:do|can) i do (?:that|this)|"
         r"(?:another|one more) (?:idea|activity|example)(?: please)?|something else|"
         r"tell me more|anything else(?: i can (?:try|do))?|please explain (?:that|this)|"
+        r"what (?:does|do) (?:that|this|it|they) mean|"
+        r"what side[ -]?effects? can (?:it|they|that|this) (?:have|cause)|"
+        r"what are (?:its|their) side[ -]?effects?|"
         r"(?:is|was) (?:that|this|it) safe|how (?:often|long|much)|for how long|"
         r"(?:that|this|it) (?:did not|didn't|does not|doesn't) (?:help|work)|"
         r"(?:that|this|it) (?:is not|isn't|still isn't) (?:helping|working)|"
@@ -25,7 +28,7 @@ def is_follow_up(question: str) -> bool:
 
 
 def select_conversation_context(messages: list[dict]) -> list[dict[str, str]]:
-    """Keep bounded answered/clarification pairs; stop at a safety/error boundary."""
+    """Keep bounded answers/clarifications; stop at a safety/error boundary."""
     selected: list[dict[str, str]] = []
     characters = 0
     for index in range(len(messages) - 2, -1, -2):
@@ -33,6 +36,9 @@ def select_conversation_context(messages: list[dict]) -> list[dict[str, str]]:
         usable = (assistant.get("status") == "answered" or (
             assistant.get("status") == "no_evidence"
             and assistant.get("response_kind") == "clarification"
+        ) or (
+            assistant.get("status") == "vaccination_notice"
+            and bool(assistant.get("citations"))
         ))
         if (user.get("role") != "user" or assistant.get("role") != "assistant"
                 or not usable
