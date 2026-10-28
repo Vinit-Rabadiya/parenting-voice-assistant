@@ -112,17 +112,16 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
     <aside className="chat-sidebar" aria-label="Conversation history" id="conversation-sidebar">
       <div className="sidebar-brand">Caregiver coaching</div>
       <section className="conversation-history" aria-label="Conversations">
-        <button type="button" disabled={readOnly || chat.busy || voiceBusy || chat.loading} onClick={() => {
+        <button type="button" disabled={readOnly || chat.busy || voiceBusy} onClick={() => {
           chat.newChat(); setQuestion(""); setRoutine(""); setSidebarOpen(false);
         }}>New chat</button>
         <h2 className="history-label">Your conversations</h2>
-        {chat.loading && <p role="status">Loading conversations…</p>}
         {chat.historyError && <><p role="alert">History could not be loaded: {chat.historyError}</p>
           <button type="button" disabled={chat.busy || voiceBusy} onClick={chat.loadOlderConversations}>Retry history</button></>}
-        {!chat.loading && !chat.historyError && !chat.conversations.length && <p>No saved conversations for this child yet.</p>}
+        {!chat.historyError && !chat.conversations.length && <p>No saved conversations for this child yet.</p>}
         <ul className="conversation-list">{chat.conversations.map((item) => <ConversationListItem
           key={item.id} conversation={item} active={chat.conversationId === item.id} workspaceActive={isActive}
-          disabled={chat.busy || voiceBusy || chat.loading} onDelete={chat.remove}
+          disabled={chat.busy || voiceBusy} onDelete={chat.remove}
           onOpen={async (id) => { if (await chat.open(id)) { setQuestion(""); setSidebarOpen(false); } }} />)}</ul>
         {chat.moreConversations && <button type="button" disabled={chat.busy || voiceBusy} onClick={chat.loadOlderConversations}>Load older conversations</button>}
       </section>
@@ -177,7 +176,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
               onCaptureStateChange={setVoiceBusy} disabled={chat.busy} />}
             {chat.generating ? <button type="button" className="send-message" aria-label="Stop waiting" title="Stop waiting" onClick={chat.cancelGeneration}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1" /></svg>
-            </button> : <button type="submit" className="send-message" aria-label="Get guidance" title="Send message" disabled={chat.busy || voiceBusy || chat.loading || question.trim().length < 2 || question.length > 1200}>
+            </button> : <button type="submit" className="send-message" aria-label="Get guidance" title="Send message" disabled={chat.busy || voiceBusy || question.trim().length < 2 || question.length > 1200}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5m-6 6 6-6 6 6" /></svg>
             </button>}
           </div>

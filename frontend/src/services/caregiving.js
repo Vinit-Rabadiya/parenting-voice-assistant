@@ -50,10 +50,10 @@ async function request(path, options = {}) {
 }
 
 export const listChildren = (signal) => request("/children", { signal });
-export const getAccountUsage = (signal) => request("/me/usage", { signal, cache: "no-store" });
-export const getAccountSecurity = () => request("/me/security", { cache: "no-store" });
+export const getAccountUsage = (signal) => request("/me/usage", { signal });
+export const getAccountSecurity = () => request("/me/security");
 export const disableAccountMfa = () => request("/me/security/mfa/disable", { method: "POST" });
-export const getFeedbackSummary = (signal) => request("/admin/feedback/summary", { signal, cache: "no-store" });
+export const getFeedbackSummary = (signal) => request("/admin/feedback/summary", { signal });
 export const getPrivacyConsent = (signal) => request("/privacy/consent", { signal });
 export const acceptPrivacyConsent = (version, signal) => request("/privacy/consent", {
   method: "POST", signal,
