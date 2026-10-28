@@ -8,25 +8,34 @@ MAX_CONTEXT_CHARACTERS = 3000
 
 
 def is_follow_up(question: str) -> bool:
-    normalized = " ".join(question.lower().split()).rstrip("?.!")
+    normalized = " ".join(question.lower().replace("\u2019", "'").split()).rstrip("?.!")
     return re.fullmatch(
         r"(?:what else(?: can i (?:try|do))?|(?:any )?more (?:ideas|suggestions|examples)|"
         r"(?:can|could) you (?:give|suggest) (?:me )?(?:another|more) (?:idea|ideas|activity|activities|example|examples)|"
         r"(?:can|could) you explain (?:that|this)|how (?:do|can) i do (?:that|this)|"
         r"(?:another|one more) (?:idea|activity|example)(?: please)?|something else|"
-        r"tell me more|anything else(?: i can (?:try|do))?|please explain (?:that|this))",
+        r"tell me more|anything else(?: i can (?:try|do))?|please explain (?:that|this)|"
+        r"(?:is|was) (?:that|this|it) safe|how (?:often|long|much)|for how long|"
+        r"(?:that|this|it) (?:did not|didn't|does not|doesn't) (?:help|work)|"
+        r"(?:that|this|it) (?:is not|isn't|still isn't) (?:helping|working)|"
+        r"(?:he|she|they|my baby) still (?:won't|will not|doesn't|does not) "
+        r"(?:take|like|want|try) (?:it|that|this))",
         normalized,
     ) is not None
 
 
 def select_conversation_context(messages: list[dict]) -> list[dict[str, str]]:
-    """Keep complete recent answered pairs; stop at a safety/error boundary."""
+    """Keep bounded answered/clarification pairs; stop at a safety/error boundary."""
     selected: list[dict[str, str]] = []
     characters = 0
     for index in range(len(messages) - 2, -1, -2):
         user, assistant = messages[index:index + 2]
+        usable = (assistant.get("status") == "answered" or (
+            assistant.get("status") == "no_evidence"
+            and assistant.get("response_kind") == "clarification"
+        ))
         if (user.get("role") != "user" or assistant.get("role") != "assistant"
-                or assistant.get("status") != "answered"
+                or not usable
                 or assistant.get("safety", "not_flagged") != "not_flagged"):
             break
         question, answer = user.get("text"), assistant.get("text")
@@ -35,13 +44,21 @@ def select_conversation_context(messages: list[dict]) -> list[dict[str, str]]:
         pair_size = len(question) + len(answer)
         if characters + pair_size > MAX_CONTEXT_CHARACTERS or len(selected) + 2 > MAX_CONTEXT_MESSAGES:
             break
-        selected[:0] = [{"role": "user", "text": question}, {"role": "assistant", "text": answer}]
+        previous_answer = {"role": "assistant", "text": answer}
+        if assistant.get("response_kind") == "clarification":
+            previous_answer["response_kind"] = "clarification"
+        selected[:0] = [{"role": "user", "text": question}, previous_answer]
         characters += pair_size
     return selected
 
 
 def contextual_retrieval_query(question: str, context: list[dict[str, str]]) -> str:
     """Add a caregiver topic only for explicit follow-ups, never prior AI claims."""
+    # A request for clarification is not a resolved activity or factual answer.
+    # Keep it available to generation, but do not use its ambiguous input as a
+    # retrieval anchor or jump back to an older topic across that clarification.
+    if context and context[-1].get("response_kind") == "clarification":
+        return question
     clarification = clarifies_recent_answer(question, context)
     if is_follow_up(question) or clarification:
         for index in range(len(context) - 1, -1, -1):

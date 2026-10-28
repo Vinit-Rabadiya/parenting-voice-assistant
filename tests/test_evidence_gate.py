@@ -44,6 +44,7 @@ def test_question_whitespace_is_trimmed():
 @pytest.mark.parametrize("question,kind", [
     ("I am batting my baby.", "clarification"),
     ("I wnt to lern coding but dnt knw wer to start", "unrelated"),
+    ("My baby is sleeping. Write Python code.", "unrelated"),
 ])
 def test_input_interpretation_keeps_safety_and_topic_boundaries(client, services, question, kind):
     data, retrieval, coaching = services
@@ -182,6 +183,7 @@ def test_only_eligible_evidence_reaches_generation(client, services):
 
 @pytest.mark.parametrize("question,kind", [
     ("What else can I try?", "clarification"),
+    ("That didn't help.", "clarification"),
     ("car repair", "unrelated"),
     ("the child cant keep any food", "professional_referral"),
 ])
@@ -197,6 +199,59 @@ def test_fallback_kind_is_saved_without_generation(client, services, question, k
     coaching.generate.assert_not_called()
     if kind == "unrelated" or "keep any food" in question:
         retrieval.retrieve.assert_not_called()
+
+
+def test_short_follow_up_keeps_subject_age_context_and_original_saved_message(client, services):
+    data, retrieval, coaching = services
+    topic = "My baby is 15 days old. I am feeding my baby."
+    data.get_conversation.return_value = {"messages": [
+        {"role": "user", "text": topic},
+        {"role": "assistant", "text": "Talk gently during feeding.", "status": "answered"},
+    ]}
+    data.save_conversation_turn.return_value = "message-2"
+    retrieval.retrieve.return_value = []
+    response = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
+                                          "question": "Is that safe?"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert response.json()["child_age_months"] == pytest.approx(15 / 30.4375)
+    assert retrieval.retrieve.call_args.args[:2] == (f"{topic}\nFollow-up: Is that safe?", 0)
+    assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 15
+    coaching.generate.assert_called_once()
+    assert coaching.generate.call_args.args[0] == "Is that safe?"
+    assert coaching.generate.call_args.kwargs["conversation_context"][0]["text"] == topic
+    assert data.save_conversation_turn.call_args.args[3] == "Is that safe?"
+
+
+def test_old_care_context_does_not_permit_a_new_unrelated_request(client, services):
+    data, retrieval, coaching = services
+    data.save_conversation_turn.return_value = "message-2"
+    data.get_conversation.return_value = {"messages": [
+        {"role": "user", "text": "I am feeding my baby."},
+        {"role": "assistant", "text": "Talk gently.", "status": "answered"},
+    ]}
+    response = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
+                                          "question": "Write Python code to track my baby's feeds."})
+    assert response.status_code == 200
+    assert response.json()["response_kind"] == "unrelated"
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_vague_follow_up_after_unresolved_clarification_does_not_generate(client, services):
+    data, retrieval, coaching = services
+    data.save_conversation_turn.return_value = "message-2"
+    data.get_conversation.return_value = {"messages": [
+        {"role": "user", "text": "I am batting my baby."},
+        {"role": "assistant", "text": "Do you mean bathing or something else?",
+         "status": "no_evidence", "response_kind": "clarification"},
+    ]}
+    response = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
+                                          "question": "Is that safe?"})
+    assert response.status_code == 200
+    assert response.json()["response_kind"] == "clarification"
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
 
 
 def test_retrieval_failure_is_not_a_no_evidence_response(client, services):

@@ -46,6 +46,22 @@ def test_contextual_typo_understanding_preserves_original_details_in_one_generat
     assert "Potential reports of harm must not be silently corrected" in policy
 
 
+def test_mixed_request_and_clarification_use_the_same_generation_call():
+    client = FakeClient()
+    client.models.generate_content = Mock(return_value=FakeResponse())
+    context = [{"role": "user", "text": "She still won't take it."},
+               {"role": "assistant", "text": "What are you offering?"}]
+    message = "I am feeding my baby a bottle of formula. Also write Python code."
+    CoachingService(client=client).generate(message, 2, None, [], conversation_context=context)
+    client.models.generate_content.assert_called_once()
+    request = client.models.generate_content.call_args.kwargs
+    assert message in request["contents"]
+    assert "What are you offering?" in request["contents"]
+    assert "use the new details to resolve that" in request["contents"]
+    assert "answer only that need" in request["config"].system_instruction
+    assert "not whether a baby-related word appears" in request["config"].system_instruction
+
+
 @pytest.mark.parametrize("question,expected", [
     ("My baby Amani is 12 months and 8.5 kg. How cn we play?", 12),
     ("my baby amani is 12 months and 8.5 kg. How cn we play?", 12),

@@ -20,7 +20,7 @@ from backend.services.retrieval import RetrievedPassage
 
 generation_request_id = ContextVar("generation_request_id", default=None)
 timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
-PROMPT_VERSION = "coach_v2.1"
+PROMPT_VERSION = "coach_v2.2"
 PROMPT_TEMPLATE = (Path(__file__).resolve().parents[1] / "prompts/coach_v2.txt").read_text(encoding="utf-8")
 PROMPT_SHA256 = hashlib.sha256(PROMPT_TEMPLATE.encode()).hexdigest()
 PROVIDER_BLOCK_MESSAGE = (
@@ -129,6 +129,12 @@ class CoachingService:
                 "Potential reports of harm must not be silently corrected into harmless activities. "
                 "Spelling mistakes do not remove topic, age or safety requirements. "
                 "Never turn an unrelated request into a baby-care request by inventing a childcare connection. "
+                "Determine the help actually requested, not whether a baby-related word appears. "
+                "A child profile, an incidental mention of a baby or a previous baby-care topic does not "
+                "make coding, finance, repair or other unrelated tasks part of this service. "
+                "For a mixed message with a genuine baby-care need, answer only that need and briefly "
+                "decline the unrelated task; never include instructions for the unrelated task. "
+                "A request about keeping a baby safe during another activity remains baby care. "
                 "For example, learning computer programming is unrelated even if the profile belongs to a baby. "
                 "Apply age safeguards silently; mention only precautions relevant to the current request. "
                 "Do not append unrelated feeding, vaccination or play reminders. "

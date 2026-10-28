@@ -26,6 +26,31 @@ def test_mixed_baby_care_request_is_not_rejected_by_unrelated_keyword():
     assert not clearly_unrelated("Keep my baby safe while I repair my car")
 
 
+@pytest.mark.parametrize("message", [
+    "I have a baby. Write Python code.",
+    "My baby is sleeping; how do I fix my internet router?",
+    "Write Python code to track my baby's feeds.",
+    "My baby has a toy. What is the weather forecast?",
+    "Write Python code that prints 'feed my baby'.",
+])
+def test_incidental_child_mentions_do_not_permit_unrelated_tasks(message):
+    assert conversation_boundary_response(message).kind == "unrelated"
+
+
+@pytest.mark.parametrize("message", [
+    "What should my baby wear for this weather forecast?",
+    "Is programming suitable for my toddler?",
+    "My baby has a rash. Also write Python code.",
+    "I need advice about feeding, not programming.",
+    "My baby cries whenever I repair my car.",
+    "My child is scared by car repair noises.",
+    "Is coding suitable for my 18-month-old?",
+    "How can I soothe my baby while my partner repairs the car?",
+])
+def test_genuine_care_and_mixed_requests_reach_model_scope_handling(message):
+    assert conversation_boundary_response(message) is None
+
+
 def test_unknown_message_reaches_model_scope_handling():
     assert conversation_boundary_response("What should I do?") is None
 

@@ -16,6 +16,21 @@ def test_recognizes_explicit_follow_ups(question):
     assert is_follow_up(question)
 
 
+@pytest.mark.parametrize("question", [
+    "That didn't help.", "It is not working", "Is that safe?", "How often?",
+    "For how long?", "She still won\u2019t take it.",
+])
+def test_short_follow_ups_keep_the_latest_caregiver_topic(question):
+    context = select_conversation_context(pair("I am feeding my baby.", "Talk gently."))
+    assert contextual_retrieval_query(question, context) == f"I am feeding my baby.\nFollow-up: {question}"
+
+
+def test_short_follow_up_uses_new_topic_instead_of_an_older_activity():
+    context = select_conversation_context(pair() + pair("I am bathing my baby.", "Keep supporting the head."))
+    assert contextual_retrieval_query("Is that safe?", context).startswith("I am bathing my baby.")
+    assert contextual_retrieval_query("That didn't help.", []) == "That didn't help."
+
+
 @pytest.mark.parametrize("question", ["I am feeding my baby", "How do I fix a car?", "My baby cannot breathe", "What is the weather?"])
 def test_new_topics_and_danger_reports_are_not_generic_follow_ups(question):
     assert not is_follow_up(question)
@@ -40,6 +55,24 @@ def test_limits_text_without_cutting_a_message_in_half():
 @pytest.mark.parametrize("status", ["no_evidence", "safety_blocked", "escalated", "crisis_support", "caregiver_support"])
 def test_does_not_reuse_context_before_a_safety_or_unsuccessful_answer(status):
     assert select_conversation_context(pair() + pair(status=status)) == []
+
+
+def test_clarification_context_is_available_but_cannot_bridge_a_safety_boundary():
+    clarification = pair("She still won't take it.", "What are you offering?", status="no_evidence")
+    clarification[-1]["response_kind"] = "clarification"
+    context = select_conversation_context(pair(status="escalated") + clarification)
+    assert context == [{"role": "user", "text": "She still won't take it."},
+                       {"role": "assistant", "text": "What are you offering?", "response_kind": "clarification"}]
+    clarification[-1]["safety"] = "escalate"
+    assert select_conversation_context(clarification) == []
+
+
+def test_unresolved_clarification_does_not_become_a_reference_search_topic():
+    clarification = pair("I am batting my baby.", "Do you mean bathing or something else?", status="no_evidence")
+    clarification[-1]["response_kind"] = "clarification"
+    context = select_conversation_context(pair("I am feeding my baby.") + clarification)
+    assert contextual_retrieval_query("Is that safe?", context) == "Is that safe?"
+    assert contextual_retrieval_query("Bathing my baby.", context) == "Bathing my baby."
 
 
 def test_drops_non_context_fields_and_rejects_malformed_pairs():
