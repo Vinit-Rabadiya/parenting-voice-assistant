@@ -59,8 +59,8 @@ The pack contains 47 candidate passages from 12 additional source pages:
 development at 2, 4, 6, 9, 12, 18, and 24 months; everyday interaction;
 feeding; bathing; and sleep. Domains include cognitive, language, social-emotional,
 gross/fine motor, nutrition, responsive caregiving, and safety.
-Immunisation sources are listed as pending, not included in retrieval. Official
-country-specific schedule reconciliation and professional review remain necessary.
+Immunisation sources in this candidate pack are not included in retrieval.
+The separate source-checked Kenya vaccination router is documented below.
 
 Prepare and inspect a separate candidate corpus without network calls:
 
@@ -591,24 +591,39 @@ This scope is not inferred from the separate crisis-support location.
 Kenya context is retained with vaccination notices in conversation history and
 legacy interactions. Existing history metadata is preserved rather than rewritten.
 
-`backend/services/vaccination.py` currently routes recognised English vaccine
-questions to a fixed `vaccination_notice`: source-checked general education,
-individual clinical assessment or Kenya schedule information awaiting reconciliation. These responses
-do not call Qdrant or Gemini and do not supply vaccine schedules, catch-up doses
-or individual reaction assessments. Existing recognised danger/crisis routing
-runs first. The notice is stored through the same response path as other chat
-messages; normal coaching is unchanged. Keyword routing is not comprehensive
-medical triage. General purpose and expected-effects responses cite WHO and
-UNICEF respectively. They do not assess a reported symptom or predict a child's
-reaction. Source checks expire after 90 days; stale or future-dated checks fall
-back to the unavailable-reference notice. This adds no model call or live browsing.
+`backend/services/vaccination.py` returns source-linked `vaccination_notice`
+responses for routine appointment ages, named vaccine purposes and expected
+effects. Kenya's WHO country-reported 2025 schedule was retrieved on 28 October
+2026 and reconciled with the 2023 national policy and later official programme
+updates. It includes the three-dose rotavirus series, second IPV and TCV at nine
+months. Malaria and yellow fever entries always retain programme/risk-area
+conditions; the clinic confirms local eligibility and product availability.
+Vitamin A is not listed as a vaccine. Travel vaccines, campaign eligibility and
+private optional vaccines are not presented as routine infant appointments.
+Without an age in the message, schedule replies show the routine visits around
+the selected profile's age. An explicit requested age overrides that display;
+asking for the full schedule retains the birth-to-second-birthday overview.
 
-`data/evaluation/vaccination-source-review.json` records the current source
-reconciliation gap. The older guideline and later programme announcements do
-not establish a complete current schedule. The project maintainer rechecks sources
-at least every 90 days and after programme changes or source conflicts. Professional
-validation is unavailable and documented separately, not claimed by these checks.
-Specific vaccine and schedule coverage remains under #100; common concerns under #102.
+The endpoint checks danger/crisis reports and the birth-to-second-birthday scope
+before delivering education. Missed doses, individual reactions, contraindications
+and catch-up decisions still receive a clinic referral. Routine visit ages never
+establish which vaccines an individual child needs. The responses use no Qdrant,
+model or web request. Citations, Kenya metadata, playback and feedback use the
+existing chat/storage paths. Sourced vaccination notices can provide bounded
+follow-up context; unsourced referral/withdrawal notices cannot. The current
+message selects intent and symptoms, while earlier text supplies only the topic.
+
+`data/evaluation/vaccination-source-review.json` records URLs, reporting/publication
+dates, PDF pages, the retrieved schedule's checksum and conflict resolutions.
+The maintainer rechecks sources at least every 90 days and after programme
+changes. Future or expired schedule checks withdraw the specific facts and return
+a clinic-and-record response without generating replacement dates. Set
+`KENYA_VACCINATION_SCHEDULE_ENABLED=false` and restart the backend to withdraw
+schedule and named-vaccine replies immediately; checked general-purpose and
+expected-effects education remain separate. Re-enable only after resolving the
+source concern. Source review and automated checks do not constitute clinical
+validation. Vaccination-specific acceptance is tracked in #100; broader common
+concerns are tracked in #76.
 
 ### Optional local reranking comparison
 
@@ -695,8 +710,9 @@ The 187-passage candidate audit identifies no sleep-tagged references eligible a
 exactly 24 months. The original 106 passages have no developmental-domain metadata;
 their domains need editorial classification rather than inference from routine tags.
 Parent/colleague wording, independent relevance review and live retrieval
-evaluation remain outstanding under #74. Qualified health review and current Kenya
-schedule reconciliation remain outstanding under #100; no clinical approval is implied.
+evaluation were outstanding at this candidate checkpoint. Current Kenya vaccination
+routing and source reconciliation are documented above; final vaccination-specific
+acceptance is tracked in #100. No clinical approval is implied.
 
 ### Activity v5 coverage checkpoint — 24 October 2026
 
@@ -830,8 +846,8 @@ The NHS formula-preparation and young-child sleep pages were checked on
 Original URLs and applicability restrictions are retained with the candidates.
 
 The [Kenya Ministry of Health programme announcement](https://www.health.go.ke/node/1955)
-identifies routine typhoid vaccination at nine months. That specific update does
-not establish a complete current national schedule. The source-review record is
-`data/evaluation/vaccination-source-review.json`. Specific schedule answers remain
-disabled until current source reconciliation is recorded. The source-checked
-general-purpose and expected-effects responses above do not provide a schedule.
+identifies routine typhoid vaccination at nine months. It is corroborated by the
+WHO country-reported schedule and WHO Kenya Annual Report 2025; it is not used
+as a complete schedule on its own. The reconciliation and conditional regional
+entries are recorded in `data/evaluation/vaccination-source-review.json` and used
+by the vaccination routing described above.
