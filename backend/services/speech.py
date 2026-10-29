@@ -33,7 +33,9 @@ class SpeechService:
             # transcribe using the model already loaded by the constructor.
             segments, _ = self._model.transcribe(
                 audio_buffer,
-                language="en",
+                # Detect the spoken language and retain it in the transcript.
+                language=None,
+                task="transcribe",
                 beam_size=1,
                 vad_filter=True,
             )

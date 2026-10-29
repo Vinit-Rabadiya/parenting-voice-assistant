@@ -43,27 +43,35 @@ def test_invalid_audio_is_rejected_before_inference():
         model_class.return_value.transcribe.assert_not_called()
 
 # check that successful transcription returns the correct text and timing.
-def test_successful_transcription_returns_text_and_timing(valid_audio):
+@pytest.mark.parametrize("model_name,fragments,expected", [
+    ("tiny.en", [" My baby is ", " six months old. "], "My baby is six months old."),
+    ("small", [" Mtoto wangu ", " analia. "], "Mtoto wangu analia."),
+    ("small", [" Mtoto wangu analia, ", " what can I do? "], "Mtoto wangu analia, what can I do?"),
+])
+def test_successful_transcription_returns_text_and_timing(valid_audio, model_name, fragments, expected):
     with patch("backend.services.speech.WhisperModel") as model_class:
         # fake segments let us check text assembly without running inference.
         model = model_class.return_value
         model.transcribe.return_value = (
-            iter([SimpleNamespace(text=" My baby is "), SimpleNamespace(text=" six months old. ")]),
+            iter(SimpleNamespace(text=fragment) for fragment in fragments),
             None,
         )
-        service = SpeechService("tiny.en")
+        service = SpeechService(model_name)
 
         # fixed clock readings make the elapsed-time check predictable.
         with patch("backend.services.speech.time.perf_counter", side_effect=[100.0, 102.5]):
             result = service.transcribe(valid_audio)
 
         assert isinstance(result, TranscriptionResponse)
-        assert result.text == "My baby is six months old."
+        assert result.text == expected
         assert result.audio_seconds == 1.0
         assert result.processing_seconds == 2.5
 
         # confirm the original recording reaches the model as a readable buffer.
         model.transcribe.assert_called_once()
+        assert model.transcribe.call_args.kwargs == {
+            "language": None, "task": "transcribe", "beam_size": 1, "vad_filter": True,
+        }
         audio_buffer = model.transcribe.call_args.args[0]
         assert audio_buffer.read() == valid_audio
 
