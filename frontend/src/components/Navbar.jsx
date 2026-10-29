@@ -3,8 +3,9 @@ import "./Navbar.css";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
+import EmergencyContacts from "./EmergencyContacts";
 
-export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, onSignup, onAccount, onHome }) {
+export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, onSignup, onAccount, onHome, onEmergencyChange }) {
   const { logout } = useAuth();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -37,6 +38,7 @@ export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, o
     <header className={`site-navbar${accountAccess?.role === "administrator" ? " site-navbar--admin" : ""}`}>
       <button type="button" className="site-brand" onClick={onHome}>Parenting Voice Assistant</button>
       <nav aria-label="Account">
+        <EmergencyContacts onOpenChange={onEmergencyChange} />
         {isAuthenticated ? (
           <>
             <div className="navbar-identity">
