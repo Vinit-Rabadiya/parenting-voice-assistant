@@ -3,6 +3,8 @@
 import pytest
 
 from backend.services.crisis_safety import inspect_crisis
+from backend.services.kenya_contacts import emergency_resources
+from backend.schemas.coaching import SupportResource
 
 
 @pytest.mark.parametrize("question,kind", [
@@ -59,3 +61,21 @@ def test_country_must_be_explicit_and_contacts_show_availability():
 def test_child_safety_resources_are_not_mislabeled_as_general_counselling():
     result = inspect_crisis("I might hurt my baby.", "KE")
     assert any(r["service"] == "Kenya National Child Helpline" for r in result.resources)
+
+
+def test_medical_directory_keeps_hospital_contacts_distinct_from_emergency_numbers():
+    resources = emergency_resources("KE", include_hospitals=True)
+    for resource in resources:
+        SupportResource(**resource)
+        assert resource["source_url"].startswith("https://")
+    assert {r["label"] for r in resources if r["category"] == "emergency"} == {"999", "112"}
+    assert all(r.get("location") for r in resources if r["category"] == "hospital")
+    assert len({r["url"] for r in resources}) == len(resources)
+    assert not any(r["category"] == "hospital" for r in emergency_resources("KE"))
+    assert emergency_resources(None, include_hospitals=True) == ()
+
+
+def test_contact_records_cannot_mutate_the_shared_directory():
+    resources = emergency_resources("KE", include_hospitals=True)
+    resources[0]["label"] = "changed"
+    assert emergency_resources("KE")[0]["label"] == "999"
