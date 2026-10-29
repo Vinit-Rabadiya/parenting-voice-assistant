@@ -1,5 +1,9 @@
 # defines the result built by the speech service and serialized by the speech endpoint.
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+SpeechLanguage = Literal["auto", "en", "sw"]
 
 class TranscriptionResponse(BaseModel):
     # field bounds validate durations; processing time is not the full browser request time.

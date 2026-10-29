@@ -23,6 +23,20 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+it("reads formatted guidance without speaking markers or changing the displayed answer", () => {
+  const text = "### Feeding\n* **Talk** gently.\n- Wait 5-10 seconds; do not force a response.\n1. Keep reading for 1.5 minutes.\nSee [a guide](https://example.test/guide).\n***\n_Listen_ and `respond`.";
+  const saved = Object.freeze({ ...message, text });
+  const view = render(<GuidanceAnswer message={saved} />);
+  expect(screen.getByRole("heading", { name: "Feeding" })).toBeTruthy();
+  expect(view.container.querySelector("strong").textContent).toBe("Talk");
+  expect(screen.getByRole("link", { name: "a guide" }).href).toBe("https://example.test/guide");
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  expect(window.speechSynthesis.speak.mock.calls[0][0].text).toBe(
+    "Feeding\nTalk gently.\nWait 5-10 seconds; do not force a response.\nKeep reading for 1.5 minutes.\nSee a guide.\n\nListen and respond.",
+  );
+  expect(saved.text).toBe(text);
+});
+
 it("keeps the answer readable when browser audio is unavailable", () => {
   vi.stubGlobal("speechSynthesis", undefined);
   render(<GuidanceAnswer message={message} />);
@@ -207,7 +221,7 @@ it("respects reduced motion, preserves formatted content and never executes mark
   expect(view.container.querySelector("script")).toBeNull();
   await act(async () => { await vi.advanceTimersByTimeAsync(10); });
   await act(async () => { await vi.advanceTimersByTimeAsync(1); });
-  expect(window.speechSynthesis.speak.mock.calls[0][0].text).toBe(text);
+  expect(window.speechSynthesis.speak.mock.calls[0][0].text).toBe("Try this\n\nTalk gently.\nSee a guide.\n<script>alert(1)</script>");
 });
 
 it("saves a numeric rating and reasons without inventing a boolean value", async () => {

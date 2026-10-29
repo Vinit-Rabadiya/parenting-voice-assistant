@@ -31,7 +31,7 @@ class Settings:
     HOST: str = os.getenv("HOST", "127.0.0.1")
     PORT: int = int(os.getenv("PORT", 8000))
 
-    STT_MODEL: str = os.getenv("STT_MODEL", "tiny.en")
+    STT_MODEL: str = os.getenv("STT_MODEL", "base")
 
     # read the qdrant connection values loaded from the root .env.
     QDRANT_URL: str | None = os.getenv("QDRANT_URL")

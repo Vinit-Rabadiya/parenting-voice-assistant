@@ -25,7 +25,7 @@ export default function LandingPage({ isAuthenticated, userId, accountAccess, on
       ) : (
         <section className="landing-voice landing-sign-in" aria-labelledby="voice-entry-title">
           <h2 id="voice-entry-title">What’s on your mind?</h2>
-          <p id="voice-entry-help">Log in to record up to 30 seconds of English speech and review the transcript.</p>
+          <p id="voice-entry-help">Log in to record up to 30 seconds of speech and review the transcript.</p>
           <MicrophoneButton label="Log in to use microphone" onClick={onLogin} describedBy="voice-entry-help" />
         </section>
       )}

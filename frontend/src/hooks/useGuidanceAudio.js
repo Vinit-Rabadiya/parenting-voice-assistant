@@ -6,6 +6,18 @@ export function stopGuidanceAudio() {
   currentPlayback?.stop();
 }
 
+function speechText(text) {
+  // Remove presentation markers only from playback, preserving the saved answer.
+  return text
+    .replace(/\[([^\]]+)\]\(https?:\/\/[^\s)]+\)/g, "$1")
+    .replace(/^[ \t]*[-*_]{3,}[ \t]*$/gm, "")
+    .replace(/^[ \t]*(?:#{1,6}|>|[-*•]|\d+[.)])[ \t]+/gm, "")
+    .replace(/\\([*`_])/g, "$1")
+    .replace(/[*`]+/g, "")
+    .replace(/(__|_)(\S(?:[\s\S]*?\S)?)\1/g, "$2")
+    .trim();
+}
+
 export default function useGuidanceAudio(text, { automatic = false, ready = true, active = true } = {}) {
   const [state, setState] = useState("stopped");
   const [message, setMessage] = useState("");
@@ -41,7 +53,7 @@ export default function useGuidanceAudio(text, { automatic = false, ready = true
     }
     let attempt;
     try {
-      const utterance = new window.SpeechSynthesisUtterance(text);
+      const utterance = new window.SpeechSynthesisUtterance(speechText(text));
       utterance.rate = 0.95;
       utterance.volume = 1;
       attempt = { utterance, stop: () => stop(), timer: null };
