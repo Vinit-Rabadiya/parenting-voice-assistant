@@ -23,34 +23,6 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-it("shows emergency phone links on an urgent medical response", () => {
-  render(<GuidanceAnswer message={{ ...message, status: "escalated",
-    text: "Seek urgent medical care now.", support_resources: ["999", "112"].map((number) => ({
-      label: number, url: `tel:${number}`, service: `Kenya emergency services (${number})`,
-      country: "KE", availability: "For emergencies.", source_url: "https://disastermanagement.go.ke/",
-      verified_on: "2026-10-29",
-    })),
-  }} />);
-  expect(screen.getByRole("heading", { name: "Seek urgent medical care" })).toBeTruthy();
-  expect(screen.getByRole("link", { name: "999" }).getAttribute("href")).toBe("tel:999");
-  expect(screen.getByRole("link", { name: "112" }).getAttribute("href")).toBe("tel:112");
-});
-
-it("lists hospitals by town separately from emergency and ambulance contacts", () => {
-  render(<GuidanceAnswer message={{ ...message, status: "escalated", support_resources: [
-    { label: "999", url: "tel:999", service: "Kenya emergency services", category: "emergency" },
-    { label: "0721 225 285", url: "tel:+254721225285", service: "St John Ambulance Kenya", category: "ambulance" },
-    { label: "020 272 6300", url: "tel:+254202726300", service: "Kenyatta National Hospital", category: "hospital", location: "Nairobi" },
-  ] }} />);
-  expect(screen.getByRole("link", { name: "999" })).toBeTruthy();
-  expect(screen.getByRole("link", { name: "0721 225 285" })).toBeTruthy();
-  const summary = screen.getByText("Hospital contacts in Kenya (1)");
-  expect(summary.closest("details").open).toBe(false);
-  fireEvent.click(summary);
-  expect(screen.getByRole("link", { name: "020 272 6300" }).getAttribute("href")).toBe("tel:+254202726300");
-  expect(screen.getByText(/Kenyatta National Hospital — Nairobi/)).toBeTruthy();
-});
-
 it("reads formatted guidance without speaking markers or changing the displayed answer", () => {
   const text = "### Feeding\n* **Talk** gently.\n- Wait 5-10 seconds; do not force a response.\n1. Keep reading for 1.5 minutes.\nSee [a guide](https://example.test/guide).\n***\n_Listen_ and `respond`.";
   const saved = Object.freeze({ ...message, text });

@@ -460,61 +460,6 @@ def test_danger_report_for_aged_out_managed_profile_still_returns_referral(clien
     coaching.generate.assert_not_called()
 
 
-@pytest.mark.parametrize("question", [
-    "My baby is having blood in her eyes.", "My baby cannot breathe.",
-])
-@pytest.mark.parametrize("conversation_id", [None, "conversation-1"])
-def test_child_emergency_in_kenya_includes_clickable_contacts_without_generation(client, services, question, conversation_id):
-    data, retrieval, coaching = services
-    data.save_conversation_turn.return_value = "answer-1"
-    response = client.post("/coach", json={
-        "child_id": "child-1", "question": question, "support_country": "KE",
-        "conversation_id": conversation_id,
-    })
-    body = response.json()
-    assert response.status_code == 200
-    assert body["status"] == "escalated"
-    emergency = [resource for resource in body["support_resources"] if resource["category"] == "emergency"]
-    hospitals = [resource for resource in body["support_resources"] if resource["category"] == "hospital"]
-    assert {resource["url"] for resource in emergency} == {"tel:999", "tel:112"}
-    assert {resource["location"] for resource in hospitals} == {"Nairobi", "Eldoret", "Kisumu", "Mombasa"}
-    assert any(resource["category"] == "ambulance" for resource in body["support_resources"])
-    assert all(resource["source_url"] == "https://disastermanagement.go.ke/"
-               for resource in emergency)
-    retrieval.retrieve.assert_not_called()
-    coaching.generate.assert_not_called()
-    if conversation_id is None:
-        assert data.create_interaction.call_args.args[-1] == "escalated"
-    else:
-        stored = data.save_conversation_turn.call_args.args[-1]
-        assert stored["support_resources"] == body["support_resources"]
-        assert body["conversation_id"] == conversation_id
-        data.create_interaction.assert_not_called()
-
-
-def test_medical_contacts_do_not_assume_kenya_when_country_is_not_supplied(client, services):
-    response = client.post("/coach", json={
-        "child_id": "child-1", "question": "My baby is having blood in her eyes.",
-    })
-    assert response.json()["status"] == "escalated"
-    assert response.json()["support_resources"] == []
-
-
-def test_unspecified_swallowed_button_gets_immediate_advice_and_verified_contacts(client, services):
-    _, retrieval, coaching = services
-    response = client.post("/coach", json={
-        "child_id": "child-1", "question": "My baby swallowed a button", "support_country": "KE",
-    })
-    body = response.json()
-    assert response.status_code == 200
-    assert body["status"] == "escalated"
-    assert body["answer"].startswith("Contact a health professional now")
-    assert "?" not in body["answer"]
-    assert "tel:999" in {resource["url"] for resource in body["support_resources"]}
-    retrieval.retrieve.assert_not_called()
-    coaching.generate.assert_not_called()
-
-
 def test_referral_is_returned_even_when_interaction_storage_fails(client, services, caplog):
     import logging
 
@@ -570,8 +515,6 @@ def test_combined_child_danger_and_caregiver_crisis_preserves_both_paths(client,
     assert response.json()["status"] == "escalated"
     assert response.json()["support_resources"]
     assert response.json()["citations"]
-    urls = [resource["url"] for resource in response.json()["support_resources"]]
-    assert len(urls) == len(set(urls))
 
 
 def test_caregiver_support_survives_storage_failure(client, services):

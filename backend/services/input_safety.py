@@ -10,13 +10,6 @@ ESCALATION_MESSAGE = (
     "contact local emergency services immediately. Do not wait for coaching guidance. "
     "This system cannot diagnose the cause or assess how severe it is."
 )
-SWALLOWED_OBJECT_MESSAGE = (
-    "Contact a health professional now about the swallowed object, even if your baby seems comfortable. "
-    "If it could be a battery, magnet or sharp object, go to the nearest emergency department immediately. "
-    "If your baby is choking, struggling to breathe, cannot swallow or is difficult to wake, "
-    "call emergency services now. Do not make your baby vomit. "
-    "If available, take a similar object or its packaging to show the clinician."
-)
 KENYA = {
     "passage_id": "c2de5ff8ec6a9d2cebb8", "source_title": "Mother & Child Health Handbook",
     "pdf_page": 45, "source_url": "https://www.health.go.ke/sites/default/files/2023-05/Mother%20Child%20Health%20Handbook%20MOH-FOR%20PRINT.pdf",
@@ -58,26 +51,6 @@ ANAPHYLAXIS = {
     "source_url": "https://cdn.who.int/media/docs/default-source/medicines/pharmacovigilance/anaphylaxis-aefi.pdf",
     "title": "Warning signs: facial swelling and airway symptoms require urgent assessment",
 }
-EYE_BLEEDING = {
-    "passage_id": "safety-nhs-eye-bleeding", "source_title": "NHS: Eye injuries",
-    "pdf_page": None, "source_url": "https://www.nhs.uk/conditions/eye-injuries/",
-    "title": "Urgent assessment for blood coming from an eye",
-}
-POISONING = {
-    "passage_id": "safety-nhs-poisoning", "source_title": "NHS: Poisoning",
-    "pdf_page": None, "source_url": "https://www.nhs.uk/conditions/poisoning/",
-    "title": "Immediate assessment after suspected exposure to a harmful substance",
-}
-BURNS = {
-    "passage_id": "safety-nhs-burns-scalds", "source_title": "NHS: Burns and scalds",
-    "pdf_page": None, "source_url": "https://www.nhs.uk/conditions/burns-and-scalds/",
-    "title": "Prompt assessment for burns and scalds in a young child",
-}
-SWALLOWED_OBJECT = {
-    "passage_id": "safety-aap-swallowed-object", "source_title": "American Academy of Pediatrics: Swallowed foreign object",
-    "pdf_page": None, "source_url": "https://www.healthychildren.org/English/tips-tools/Symptom-Checker/Pages/symptomviewer.aspx?symptom=Swallowed+Foreign+Object",
-    "title": "Prompt advice for children under two and emergency assessment for high-risk objects or symptoms",
-}
 CELSIUS = re.compile(r"(?<![\w.,])(?P<value>\d{2}(?:[.,]\d+)?)\s*(?:(?:°|degrees?)\s*)?(?:celsius|c)\b")
 
 
@@ -96,12 +69,6 @@ def reported_high_infant_temperature(text: str) -> bool:
 
 # Keep a source per category rather than attributing every rule to a single excerpt.
 RULES = (
-    ("heavy_bleeding", r"\b(?:(?:heavy|severe|uncontrolled|uncontrollable) bleeding|bleeding (?:heavily|a lot)|bleeding (?:that )?(?:will not|won't|does not|doesn't) stop|losing a lot of blood|cut (?:that )?(?:will not|won't|does not|doesn't) stop bleeding)\b", INJURY),
-    ("poisoning", r"\b(?:poisoned|(?:swallowed|ingested|drank|drunk|ate|eaten) (?:(?:a|an|some|the) )?(?:poison|bleach|detergent|kerosene|paraffin|pesticide|cleaning fluid)|(?:swallowed|had|took|given) too much (?:medicine|medication|paracetamol)|overdos(?:e|ed))\b", POISONING),
-    ("swallowed_battery_magnet", r"\b(?:swallowed|swallows|ingested) (?:(?:a|an|the|some|two) )?(?:(?:button|coin|small|strong) )?(?:batter(?:y|ies)|magnets?)\b", INJURY),
-    ("swallowed_object", r"\b(?:swallowed|swallows|ingested) (?:(?:a|an|the|some|another|small|plastic|clothing|metal) ){0,3}(?:buttons?(?!\s+batter(?:y|ies)\b)|coins?|beads?|toy(?: parts?)?|objects?|something)\b", SWALLOWED_OBJECT),
-    ("burn_scald", r"\b(?:(?:burned|burnt)(?!\s+out\b)|scalded|(?:chemical|electrical|large|deep|severe) burns?|(?:has|have|got|suffered) (?:a )?(?:burn|scald))\b", BURNS),
-    ("eye_bleeding", r"\b(?:blood (?:in|from|(?:is )?coming (?:from|out of)) (?:(?:his|her|their|the|(?:my|our|the) (?:baby|child)'s) )?eyes?|bleeding (?:in|from) (?:(?:his|her|their|the|(?:my|our|the) (?:baby|child)'s) )?eyes?|eyes? (?:is |are )?bleeding|bloody tears)\b", EYE_BLEEDING),
     ("facial_airway_swelling", r"\b(?:sw(?:ollen|elling)(?: of)? (?:(?:the|his|her|their) )?(?:face|lips?|tongue|throat)|(?:face|lips?|tongue|throat) (?:is |are |has |have |looks? |become |became |has become |have become )?sw(?:ollen|elling))\b", ANAPHYLAXIS),
     ("abnormal_vomit", r"\b(?:(?:green|yellow-green|bloody) vomit|(?:vomit|vomiting|throwing up) (?:is |looks |looks like )?(?:green|yellow-green|blood)|blood in (?:(?:his|her|their|the) )?vomit)\b", VOMITING),
     ("blue_grey_lips", r"\b(?:(?:blue|grey|gray) (?:lips|tongue)|(?:lips|tongue) (?:are|look|turned|have turned) (?:blue|grey|gray))\b", URGENT_ILLNESS),
@@ -127,11 +94,6 @@ class InputSafetyDecision:
     def escalate(self):
         return bool(self.reasons)
 
-    @property
-    def answer(self) -> str:
-        # Any additional danger sign retains the immediate emergency response.
-        return SWALLOWED_OBJECT_MESSAGE if self.reasons == ("swallowed_object",) else ESCALATION_MESSAGE
-
 
 def inspect_input(question: str, completed_months: int) -> InputSafetyDecision:
     text = question.lower().replace("\u2019", "'")
@@ -154,11 +116,7 @@ def inspect_input(question: str, completed_months: int) -> InputSafetyDecision:
             # Narrow exclusions only: do not suppress a whole question just because
             # it also contains a negated or preventative phrase elsewhere.
             negated = re.search(r"\b(?:no|not|without|isn't|is not|doesn't have|does not have|has no|has not had|not having)(?: an?)?\s*$", prefix)
-            prevention = re.search(
-                r"\b(?:prevent|preventing|avoid|risk of)"
-                r"(?:\s+(?:(?:my|our|the|a|his|her|their)\s+)?(?:baby|child|infant)"
-                r"(?:\s+(?:from|getting|being)){0,2})?\s*$", prefix,
-            )
+            prevention = re.search(r"\b(?:prevent|preventing|avoid|risk of)\s*$", prefix)
             if negated or prevention:
                 continue
             reasons.append(code)

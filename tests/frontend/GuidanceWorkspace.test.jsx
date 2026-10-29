@@ -34,7 +34,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 async function selectProfile() {
   fireEvent.click(screen.getByRole("button", { name: "Select test profile" }));
-  await screen.findByRole("button", { name: "New chat" });
+  await waitFor(() => expect(screen.queryByText("Loading conversations…")).toBeNull());
 }
 
 it("uses Kenya by default without country or support-contact controls", async () => {

@@ -23,9 +23,8 @@ from backend.services.retrieval import RetrievalService
 from backend.services.evidence import select_evidence
 from backend.services.care_response import professional_assessment_response, conversation_boundary_response
 from backend.services.response_safety import SAFE_RESPONSE, SafetyDecision, inspect_response
-from backend.services.input_safety import inspect_input
+from backend.services.input_safety import ESCALATION_MESSAGE, inspect_input
 from backend.services.crisis_safety import inspect_crisis
-from backend.services.kenya_contacts import emergency_resources
 from backend.services.vaccination import inspect_vaccination
 from backend.services.conversation_context import (
     MAX_CONTEXT_MESSAGES, contextual_retrieval_query, is_follow_up, select_conversation_context,
@@ -127,12 +126,7 @@ async def coach(
         citations = list(triage.citations)
         # A child danger sign takes priority; caregiver resources are still retained.
         status = "escalated" if triage.escalate else crisis.kind
-        answer = triage.answer if triage.escalate else crisis.answer
-        # Reuse the contact directory and avoid duplicate numbers for combined reports.
-        resources = {resource["url"]: resource for resource in (
-            *(emergency_resources(payload.support_country, include_hospitals=True) if triage.escalate else ()),
-            *crisis.resources,
-        )}
+        answer = ESCALATION_MESSAGE if triage.escalate else crisis.answer
         # No retrieval or generation is needed for this fixed referral message.
         response = CoachingResponse(
             interaction_id=None, answer=answer,
@@ -140,7 +134,7 @@ async def coach(
             child_age_months=age_months,
             processing_seconds=round(time.perf_counter() - triage_started, 3),
             status=status, safety="not_flagged" if status == "caregiver_support" else "escalate",
-            support_resources=list(resources.values()),
+            support_resources=list(crisis.resources),
         )
         try:
             with timed_stage(request_id, "interaction_save"):

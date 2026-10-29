@@ -11,20 +11,18 @@ import AdminPage from "./pages/AdminPage";
 import { Navbar } from "./components/Navbar";
 import useAccountAccess from "./hooks/useAccountAccess";
 import { stopGuidanceAudio } from "./hooks/useGuidanceAudio";
-import EmergencyContacts from "./components/EmergencyContacts";
 
 function MainContent() {
   const { user, checkingAuth, signupResult, setSignupResult } = useAuth();
   const [screen, setScreen] = useState("home");
   const [previousUserId, setPreviousUserId] = useState(user?.uid ?? null);
   const [dataRevision, setDataRevision] = useState(0);
-  const [emergencyOpen, setEmergencyOpen] = useState(false);
   const accountAccess = useAccountAccess(user);
   const administrator = accountAccess.verified && accountAccess.role === "administrator";
 
   // wait for firebase to finish checking who is signed in.
   if (checkingAuth) {
-    return <div className="access-loading-screen"><p>Checking sign-in...</p></div>;
+    return <p>Checking sign-in...</p>;
   }
 
   // logout from any screen returns to the public landing page.
@@ -56,7 +54,6 @@ function MainContent() {
         <span className="access-spinner" aria-hidden="true" /><span className="visually-hidden">Loading…</span>
       </div> : <><p role="status">Unable to connect.</p>
         <button type="button" onClick={accountAccess.retry}>Retry connection</button></>}
-      {!accountAccess.checking && <EmergencyContacts />}
     </div>;
   }
 
@@ -66,7 +63,6 @@ function MainContent() {
         isAuthenticated={Boolean(user)}
         displayName={user?.displayName || user?.email}
         accountAccess={accountAccess}
-        onEmergencyChange={setEmergencyOpen}
         onHome={() => setScreen("home")}
         onLogin={() => setScreen("login")}
         onSignup={() => setScreen("signup")}
@@ -79,9 +75,8 @@ function MainContent() {
           isAuthenticated={Boolean(user)}
           userId={user?.uid}
           accountAccess={accountAccess}
-          isActive={screen === "home" && !emergencyOpen}
+          isActive={screen === "home"}
           onLogin={() => setScreen("login")}
-          onSignup={() => setScreen("signup")}
         />
       </main>
       )}
