@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { useState } from "react";
+import { readChildSelection, saveChildSelection } from "../../frontend/src/services/childSelection";
 import ChildProfiles from "../../frontend/src/components/ChildProfiles";
 import { createChild, deleteChild, listChildren, updateChild } from "../../frontend/src/services/caregiving";
 
@@ -16,6 +18,7 @@ const originalDialogMethods = Object.fromEntries(["showModal", "close"].map((nam
 
 beforeEach(() => {
   vi.resetAllMocks();
+  localStorage.clear();
   listChildren.mockResolvedValue([child, otherChild]);
   // jsdom does not implement native dialog focus trapping or its modal methods.
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
@@ -128,4 +131,56 @@ it("still requires confirmation before deleting a profile", async () => {
   expect(screen.getByText("Babbles")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Delete child profile" }));
   expect(deleteChild).not.toHaveBeenCalled();
+});
+
+function SelectionHarness({ userId = "account-a" }) {
+  const [selected, setSelected] = useState(null);
+  return <ChildProfiles userId={userId} selectedChild={selected} onSelect={setSelected} />;
+}
+
+it("restores the last chosen profile after remounting from the authenticated list", async () => {
+  const view = render(<SelectionHarness />);
+  await openPicker();
+  fireEvent.click(screen.getByRole("button", { name: /Another child/ }));
+  expect(readChildSelection("account-a")).toBe(otherChild.id);
+  view.unmount();
+  render(<SelectionHarness />);
+  expect(await screen.findByRole("button", { name: /Another child/ })).toBeTruthy();
+});
+
+it("does not restore another account's profile or trust an unknown stored ID", async () => {
+  saveChildSelection("account-a", otherChild.id);
+  saveChildSelection("account-b", "deleted-or-foreign-child");
+  render(<SelectionHarness userId="account-b" />);
+  expect(await screen.findByRole("button", { name: /Example/ })).toBeTruthy();
+  expect(readChildSelection("account-b")).toBe(child.id);
+  expect(readChildSelection("account-a")).toBe(otherChild.id);
+});
+
+it("clears a stale selection when the account has no children", async () => {
+  saveChildSelection("account-a", child.id);
+  listChildren.mockResolvedValue([]);
+  render(<SelectionHarness />);
+  await screen.findByRole("button", { name: /Choose child profile/ });
+  expect(readChildSelection("account-a")).toBeNull();
+});
+
+it("updates the remembered selection after deleting the selected child", async () => {
+  saveChildSelection("account-a", child.id);
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  deleteChild.mockResolvedValue(undefined);
+  render(<SelectionHarness />);
+  await openPicker();
+  fireEvent.click(screen.getByRole("button", { name: "View child details" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete child profile" }));
+  await waitFor(() => expect(readChildSelection("account-a")).toBe(otherChild.id));
+});
+
+it("keeps profiles usable when browser storage is blocked", async () => {
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("Blocked"); });
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Blocked"); });
+  render(<SelectionHarness />);
+  await openPicker();
+  fireEvent.click(screen.getByRole("button", { name: /Another child/ }));
+  expect(screen.getByRole("button", { name: /Another child/ })).toBeTruthy();
 });

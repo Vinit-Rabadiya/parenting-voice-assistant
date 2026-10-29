@@ -1,3 +1,4 @@
+import { readChildSelection, saveChildSelection } from "../../frontend/src/services/childSelection";
 import { useEffect, useState } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -214,6 +215,7 @@ it("cleans up on account replacement and logout", () => {
 });
 
 it("clears the retained workspace after saved-data deletion", () => {
+  saveChildSelection("caregiver", "child-id");
   state.user = { uid: "caregiver", emailVerified: true };
   render(<App />);
   fireEvent.change(screen.getByLabelText("Test chat draft"), { target: { value: "Private draft" } });
@@ -222,6 +224,7 @@ it("clears the retained workspace after saved-data deletion", () => {
   fireEvent.click(screen.getByRole("button", { name: "Simulate saved data deletion" }));
   fireEvent.click(screen.getByRole("button", { name: "Back to home" }));
   expect(screen.getByLabelText("Test chat draft").value).toBe("");
+  expect(readChildSelection("caregiver")).toBeNull();
   expect(microphoneReleased).toHaveBeenCalledTimes(1);
 });
 

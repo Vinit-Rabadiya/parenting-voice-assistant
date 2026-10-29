@@ -11,6 +11,7 @@ import AdminPage from "./pages/AdminPage";
 import { Navbar } from "./components/Navbar";
 import useAccountAccess from "./hooks/useAccountAccess";
 import { stopGuidanceAudio } from "./hooks/useGuidanceAudio";
+import { saveChildSelection } from "./services/childSelection";
 import EmergencyContacts from "./components/EmergencyContacts";
 
 function MainContent() {
@@ -97,7 +98,7 @@ function MainContent() {
           key={`account-${user.uid}`}
           email={user.email}
           accountAccess={accountAccess}
-          onDataDeleted={() => setDataRevision((value) => value + 1)}
+          onDataDeleted={() => { saveChildSelection(user.uid, null); setDataRevision((value) => value + 1); }}
           // pass email status only if it belongs to this user.
           verificationEmailRequested={
             signupResult?.user.uid === user.uid
