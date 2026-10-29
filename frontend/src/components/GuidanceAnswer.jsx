@@ -12,6 +12,8 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
   const answer = message.text.replace(/(^|\n)[ \t]*(?:#{1,6}[ \t]+)?(?:\*\*)?General information(?:\*\*)?[ \t]*:(?:\*\*)?[ \t]*(?:\r?\n)?/gi, "$1");
   const result = { ...message, answer,
     processing_seconds: message.processing_seconds ?? 0, citations: message.citations || [] };
+  const contacts = (result.support_resources || []).filter((resource) => resource.category !== "hospital");
+  const hospitals = (result.support_resources || []).filter((resource) => resource.category === "hospital");
   const messageId = message.message_id === null ? null : message.message_id || message.id;
   const targetId = allowFeedback && (message.interaction_id || (conversationId && messageId));
   const [feedbackStatus, setFeedbackStatus] = useState(message.feedback ? "Feedback saved." : "");
@@ -40,6 +42,13 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
     } catch (cause) { setFeedbackStatus(cause.message); }
     finally { setSaving(false); }
   }
+
+  const contactItem = (resource) => <li key={resource.url}>
+    {resource.service}{resource.location ? ` — ${resource.location}` : ""}: <a href={resource.url}>{resource.label}</a>
+    <p>{resource.availability}</p>
+    <a href={resource.source_url} target="_blank" rel="noreferrer">Service information</a>
+    <p>Contact checked: {resource.verified_on}</p>
+  </li>;
 
   return (<section className="guidance-answer" data-message-id={message.id} aria-labelledby={headingId}>
       <h2 id={headingId}>{result.status === "crisis_support" ? "Immediate support"
@@ -70,13 +79,14 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         Vaccination country: {result.vaccination_country === "KE" ? "Kenya" : "Another country"}
       </p>}
       {result.support_resources?.length > 0 && <section aria-label="Support contacts">
-        <h3>Kenya support contacts</h3><p>These contacts apply to Kenya. No call or report is made automatically.</p>
-        <ul>{result.support_resources.map((resource) => <li key={resource.service}>
-          {resource.service}: <a href={resource.url}>{resource.label}</a>
-          <p>{resource.availability}</p>
-          <a href={resource.source_url} target="_blank" rel="noreferrer">Service information</a>
-          <p>Resource information checked: {resource.verified_on}</p>
-        </li>)}</ul>
+        <h3>{result.status === "escalated" ? "Kenya emergency contacts" : "Kenya support contacts"}</h3>
+        <p>Tap a number to call. No call or report is made automatically.</p>
+        <ul>{contacts.map(contactItem)}</ul>
+        {hospitals.length > 0 && <details className="hospital-contacts">
+          <summary>Hospital contacts in Kenya ({hospitals.length})</summary>
+          <p>Use your nearest emergency department. These general hospital contacts are listed by town.</p>
+          <ul>{hospitals.map(contactItem)}</ul>
+        </details>}
       </section>}
       {result.citations.length > 0 && <details className="answer-sources"><summary>References consulted ({result.citations.length})</summary><ul>{result.citations.map((citation) => <li key={citation.passage_id}><a href={citation.source_url} target="_blank" rel="noreferrer">{citation.source_title}{citation.pdf_page != null ? `, page ${citation.pdf_page}` : ""}: {citation.title}</a></li>)}</ul></details>}
       {targetId && <div className="feedback"><p>Was this helpful?</p>

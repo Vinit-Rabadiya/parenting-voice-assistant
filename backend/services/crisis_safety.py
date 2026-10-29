@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 import re
 
+from backend.services.kenya_contacts import emergency_resources
+
 
 SELF_HARM = re.compile(
     r"\b(?:kill(?:ing)? myself|hurt(?:ing)? myself|harm(?:ing)? myself|end(?:ing)? my life|take my own life|"
@@ -19,7 +21,7 @@ DISTRESS = re.compile(
 )
 NEGATION = re.compile(r"\b(?:not|never|don't|do not|not going to|don't want to|do not want to|no thoughts of|prevent|preventing|risk of)\s*$", re.I)
 
-# Verified 20 October 2026. Contacts are shown only for explicitly selected Kenya;
+# Each contact records its verification date. Contacts are shown only for selected Kenya;
 # availability is not checked in real time and these are not emergency guarantees.
 BEFRIENDERS = {
     "label": "+254 722 178177", "url": "tel:+254722178177?oai_link_source=model_response_hotline",
@@ -33,14 +35,6 @@ CHILDLINE = {
     "country": "KE", "availability": "24 hours a day, according to the service directory.",
     "source_url": "https://childrenservices.go.ke/services", "verified_on": "2026-10-20",
 }
-EMERGENCY = {
-    "label": "999", "url": "tel:999", "service": "Kenya police emergency line",
-    "country": "KE", "availability": "For immediate danger; connection is not guaranteed by this application.",
-    "source_url": "https://www.nationalpolice.go.ke/sites/default/files/2025-01/NPS%20Service%20Standards.pdf",
-    "verified_on": "2026-10-20",
-}
-
-
 @dataclass(frozen=True)
 class CrisisDecision:
     kind: str | None
@@ -87,7 +81,7 @@ def inspect_crisis(question: str, support_country: str | None = None) -> CrisisD
     resources = []
     if support_country == "KE":
         if urgent:
-            resources.append(EMERGENCY.copy())
+            resources.extend(emergency_resources(support_country))
         if self_harm or distress:
             resources.append(BEFRIENDERS.copy())
         if child_harm:

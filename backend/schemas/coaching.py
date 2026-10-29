@@ -32,6 +32,8 @@ class SupportResource(BaseModel):
     label: str
     url: str
     service: str
+    category: Literal["emergency", "ambulance", "hospital", "support"] = "support"
+    location: str | None = None
     country: Literal["KE"]
     availability: str
     source_url: str
