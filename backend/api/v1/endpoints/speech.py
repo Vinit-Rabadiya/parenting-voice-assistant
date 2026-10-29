@@ -7,7 +7,7 @@ from starlette.concurrency import run_in_threadpool
 from backend.api.dependencies import get_speech_service
 from backend.core.security import require_caregiver_user
 from backend.api.consent import require_processing_consent
-from backend.schemas.speech import TranscriptionResponse
+from backend.schemas.speech import SpeechLanguage, TranscriptionResponse
 from backend.services.speech import SpeechService
 from backend.services.speech_errors import InvalidAudioError, SpeechServiceError
 
@@ -26,6 +26,7 @@ router = APIRouter(
 async def transcribe_audio(
     request: Request,
     service: SpeechService = Depends(get_speech_service),
+    language: SpeechLanguage = "en",
 ) -> TranscriptionResponse:
     """receive recorded audio and return its transcript."""
     content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
@@ -62,7 +63,7 @@ async def transcribe_audio(
 
     try:
         # run blocking transcription outside the event loop.
-        return await run_in_threadpool(service.transcribe, audio_bytes)
+        return await run_in_threadpool(service.transcribe, audio_bytes, language=language)
     except InvalidAudioError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except SpeechServiceError as exc:

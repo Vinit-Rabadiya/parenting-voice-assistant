@@ -103,8 +103,27 @@ def test_valid_audio_returns_transcript(signed_in_client, speech_service, wav_au
         "text": "My baby is six months old.", "audio_seconds": 1.0,
         "processing_seconds": 0.25,
     }
-    speech_service.transcribe.assert_called_once_with(wav_audio)
+    speech_service.transcribe.assert_called_once_with(wav_audio, language="en")
     assert signed_in_client.app.state.speech_limiter.borrowed_tokens == 0
+
+
+@pytest.mark.parametrize("language", ["en", "sw", "auto"])
+def test_selected_language_reaches_service(signed_in_client, speech_service, wav_audio, language):
+    response = signed_in_client.post(
+        f"/speech/transcribe?language={language}", content=wav_audio,
+        headers={"Content-Type": "audio/wav"},
+    )
+    assert response.status_code == 200
+    speech_service.transcribe.assert_called_once_with(wav_audio, language=language)
+
+
+def test_unsupported_language_is_rejected_before_inference(signed_in_client, speech_service, wav_audio):
+    response = signed_in_client.post(
+        "/speech/transcribe?language=invalid", content=wav_audio,
+        headers={"Content-Type": "audio/wav"},
+    )
+    assert response.status_code == 422
+    speech_service.transcribe.assert_not_called()
 
 
 # incorrect or absent content types must be rejected before inference.
@@ -119,7 +138,7 @@ def test_unsupported_content_type_is_rejected(signed_in_client, speech_service, 
 # valid headers cannot bypass the real audio validator.
 @pytest.mark.parametrize("audio", [b"", b"not a wav"], ids=["empty", "malformed"])
 def test_invalid_audio_returns_422(signed_in_client, speech_service, audio):
-    speech_service.transcribe.side_effect = validate_audio
+    speech_service.transcribe.side_effect = lambda audio, **_: validate_audio(audio)
     response = signed_in_client.post(
         "/speech/transcribe", content=audio, headers={"Content-Type": "audio/wav"},
     )
@@ -212,7 +231,7 @@ def test_concurrent_request_returns_429(signed_in_client, speech_service, wav_au
     release = Event()
     expected = speech_service.transcribe.return_value
 
-    def slow_transcription(audio):
+    def slow_transcription(audio, language="auto"):
         started.set()
         if not release.wait(timeout=10):
             raise SpeechServiceError("test worker timed out")

@@ -52,6 +52,7 @@ def test_successful_transcription_returns_text_and_timing(valid_audio, model_nam
     with patch("backend.services.speech.WhisperModel") as model_class:
         # fake segments let us check text assembly without running inference.
         model = model_class.return_value
+        model.model.is_multilingual = not model_name.endswith(".en")
         model.transcribe.return_value = (
             iter(SimpleNamespace(text=fragment) for fragment in fragments),
             None,
@@ -70,10 +71,44 @@ def test_successful_transcription_returns_text_and_timing(valid_audio, model_nam
         # confirm the original recording reaches the model as a readable buffer.
         model.transcribe.assert_called_once()
         assert model.transcribe.call_args.kwargs == {
-            "language": None, "task": "transcribe", "beam_size": 1, "vad_filter": True,
+            "language": "en", "task": "transcribe", "multilingual": False,
+            "beam_size": 3, "temperature": 0.0, "best_of": 1,
+            "condition_on_previous_text": False, "vad_filter": True,
         }
         audio_buffer = model.transcribe.call_args.args[0]
         assert audio_buffer.read() == valid_audio
+
+
+@pytest.mark.parametrize("language", ["en", "sw"])
+def test_selected_language_bypasses_detection_without_translation(valid_audio, language):
+    with patch("backend.services.speech.WhisperModel") as model_class:
+        model = model_class.return_value
+        model.transcribe.return_value = (iter([]), SimpleNamespace(language=language))
+        SpeechService("base").transcribe(valid_audio, language=language)
+        options = model.transcribe.call_args.kwargs
+        assert options["language"] == language
+        assert options["task"] == "transcribe"
+        assert options["multilingual"] is False
+
+
+def test_english_only_model_does_not_silently_ignore_kiswahili(valid_audio):
+    with patch("backend.services.speech.WhisperModel") as model_class:
+        model_class.return_value.model.is_multilingual = False
+        with pytest.raises(SpeechServiceError, match="multilingual speech model"):
+            SpeechService("tiny.en").transcribe(valid_audio, language="sw")
+        model_class.return_value.transcribe.assert_not_called()
+
+
+def test_speech_diagnostics_do_not_log_transcript(valid_audio, caplog):
+    with patch("backend.services.speech.WhisperModel") as model_class:
+        model_class.return_value.transcribe.return_value = (
+            iter([SimpleNamespace(text="private caregiver message")]),
+            SimpleNamespace(language="sw"),
+        )
+        with caplog.at_level("INFO", logger="uvicorn.error"):
+            SpeechService("base").transcribe(valid_audio, language="sw")
+        assert "model=base language=sw detected_language=sw" in caplog.text
+        assert "private caregiver message" not in caplog.text
 
 # check that no recognized words produces an empty transcript.
 def test_no_speech_segments_returns_empty_text(valid_audio):

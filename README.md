@@ -178,7 +178,7 @@ HOST=127.0.0.1
 PORT=8000
 FIREBASE_PROJECT_ID=your-firebase-project-id
 FIREBASE_ADMIN_KEY_PATH=.secrets/firebase-admin.json
-STT_MODEL=tiny.en
+STT_MODEL=base
 QDRANT_URL=https://your-cluster-url.qdrant.io
 QDRANT_API_KEY=your-qdrant-api-key
 QDRANT_COLLECTION=caregiver_guidance_everyday_v3
@@ -190,6 +190,11 @@ GEMINI_FALLBACK_MODEL=gemini-3.8-flash
 The documented Uvicorn command explicitly sets the bind address and port. The
 `HOST` and `PORT` application settings do not override those command-line options.
 If changing the backend port, also update the Vite development proxy target.
+
+Speech recognition uses the `base` model on CPU and transcribes in English.
+Review the transcript before sending. Recognition accuracy and processing time
+depend on the recording and hardware. Restart the backend after changing
+`STT_MODEL`.
 
 For verification, `npm.cmd run lint` runs only Python/frontend lint and
 `npm.cmd test` runs only Python/frontend tests. `npm.cmd run check` retains the
