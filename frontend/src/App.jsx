@@ -81,6 +81,7 @@ function MainContent() {
           accountAccess={accountAccess}
           isActive={screen === "home" && !emergencyOpen}
           onLogin={() => setScreen("login")}
+          onSignup={() => setScreen("signup")}
         />
       </main>
       )}

@@ -151,18 +151,26 @@ it("keeps the workspace hidden after a failed connection and offers retry", () =
   expect(retry).toHaveBeenCalledTimes(1);
 });
 
-// visitors see the voice entry point without mounting microphone resources.
-it("opens login from the guest microphone action and returns home", () => {
+// Public account actions do not mount recording controls before authentication.
+it("opens login from the public landing page and returns home", () => {
   render(<App />);
-  expect(screen.getByRole("heading", { name: "Start with your voice." })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Support for your baby’s first two years." })).toBeTruthy();
   expect(microphoneMounted).not.toHaveBeenCalled();
-  const guestMicrophone = screen.getByRole("button", { name: "Log in to use microphone" });
-  expect(guestMicrophone.querySelector("svg")).not.toBeNull();
-  fireEvent.click(guestMicrophone);
+  expect(screen.queryByRole("button", { name: /microphone|Start recording/i })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Log in to your account" }));
   expect(screen.getByText("Login form")).toBeTruthy();
   expect(microphoneMounted).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Back to home" }));
-  expect(screen.getByRole("button", { name: "Sign up" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Create account" })).toBeTruthy();
+});
+
+it("opens callable emergency contacts from the landing page without signing in", () => {
+  render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: "Emergency" }));
+  const dialog = screen.getByRole("dialog", { name: "Emergency contacts — Kenya" });
+  expect(within(dialog).getByRole("link", { name: /Call Kenya emergency services \(999\)/ }).getAttribute("href")).toBe("tel:999");
+  expect(screen.queryByText("Login form")).toBeNull();
+  expect(microphoneMounted).not.toHaveBeenCalled();
 });
 
 // different header actions must initialize the intended existing auth form.
@@ -202,7 +210,7 @@ it("cleans up on account replacement and logout", () => {
   state.user = null;
   rerender(<App />);
   expect(microphoneReleased).toHaveBeenCalledTimes(2);
-  expect(screen.getByRole("button", { name: "Log in to use microphone" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Create account" })).toBeTruthy();
 });
 
 it("clears the retained workspace after saved-data deletion", () => {
@@ -229,7 +237,7 @@ it("shows account onboarding after signup with the correct verification flag", (
 });
 
 // firebase publishes the signed-in user after login, including a resolved mfa challenge.
-it.each(["Log in", "Log in to use microphone", "Sign up"])(
+it.each(["Log in", "Log in to your account", "Sign up", "Create account"])(
   "opens the microphone automatically after verified authentication from %s",
   (entry) => {
     const { rerender } = render(<App />);
@@ -268,7 +276,7 @@ it("returns to the microphone after logout from account and subsequent login", (
   const navigation = within(screen.getByRole("navigation", { name: "Account" }));
   expect(navigation.getByRole("button", { name: "Log in", exact: true })).toBeTruthy();
   expect(navigation.getByRole("button", { name: "Sign up" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Start with your voice." })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Support for your baby’s first two years." })).toBeTruthy();
   expect(screen.queryByText("Login form")).toBeNull();
   expect(screen.queryByRole("button", { name: "Back to home" })).toBeNull();
   fireEvent.click(navigation.getByRole("button", { name: "Log in", exact: true }));
