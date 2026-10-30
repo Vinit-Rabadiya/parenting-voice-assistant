@@ -193,7 +193,7 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         tick = time.perf_counter()
         stage = "input_safety"
         crisis = inspect_crisis(case["question"])
-        triage = inspect_input(case["question"], profile["completed_months"])
+        triage = inspect_input(case["question"], profile["completed_months"], child_age_days=profile["age_days"])
         record["caregiver_safety"] = {"kind": crisis.kind, "reasons": list(crisis.reasons)}
         record["input_safety"] = {"escalate": triage.escalate, "reasons": list(triage.reasons)}
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
