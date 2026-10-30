@@ -1,5 +1,124 @@
 # Coaching quality review
 
+## Conversation review - 30 October 2026
+
+The current application collection, `caregiver_guidance_everyday_v3`, contains
+184 passages from 25 sources. A read-only comparison confirmed that every remote
+payload matches the local release, SHA-256
+`956089a645fddbdca41d37c92495355d958e47942037a1f06f1ae17b0c2d009e`.
+No collection, model, generation control or evidence threshold was changed.
+
+### Observed answers and corrections
+
+The existing 40 development questions and 12 additional fictional cases were
+captured through the actual retrieval/generation services. The additional cases
+cover newborn interaction, a conflicting age label, sleep, a first birthday,
+food textures, milk regurgitation, nappy rash, Kenya vaccination and follow-ups.
+This is development review, not a held-out accuracy study or clinical approval.
+
+| Observation | Correction and verification |
+| --- | --- |
+| Short follow-ups lost an earlier stated child age. | Recognise requests such as "How many times a day?" and pronoun-led updates. Preserve a stated subject age separately from profile age snapshots; ordinary profiles continue using their current calendar age. |
+| A young-infant fever follow-up used the older profile's safety rules. | Recheck the existing danger rules after resolving a conversation age. The API test also verifies that failed storage cannot suppress the referral. |
+| A toddler food request with a three-month profile received infant feeding advice. | Ask which age is intended. The live sequence "18 months" then "What else can I try?" used 18 months for both answers, without modifying the profile. |
+| The evaluator omitted age-label boundaries and some stored conversation metadata. | Reuse the application's age/context decisions and carry clarification, source and explicit-age metadata into follow-up captures. Keep the input profile separate from the resolved subject age in the evidence. |
+| Food follow-ups could switch to conversation activities. | Reinforce the requested type of help. The last food-alternative capture supplied additional foods, although it still added talking advice. |
+| Definitions and ordinary first turns were forced toward activity lists. | Match the response format to the request. The captured definition explains the term directly. |
+
+The initial 52-case capture contains 44 generated replies, five fixed topic or
+assessment boundaries, one Kenya vaccination notice and two urgent referrals.
+No request errors or provider content blocks occurred. No age-ineligible retrieved
+passages were observed against the pinned release. These counts are routing
+observations, not accuracy scores. Generated replies took 1.436-5.039 service
+seconds, with a median of 2.387 seconds in that run.
+
+The final seven-case age/context verification includes the corrected age sequence,
+a six-week-old fever follow-up and the original mealtime/turn-taking requests at
+15 days. Both 15-day requests received newborn-appropriate suggestions; turn-taking
+described gentle sounds and pauses without requiring a response. The young-infant
+fever follow-up used the fixed urgent route without generation. A separate final
+two-case check reviewed food alternatives and first-food wording.
+
+One local capture, `eval/results/conversation-quality-20261030.json`, holds the
+questions, answers, references, configuration and timings. Its exploratory
+`verification` section is marked with its evaluation limitations; corrected routing
+is recorded in `final_verification`. `topic_verification` records the final prompt
+revision. Earlier captures were retained rather than relabelled as successful.
+No private conversations were used. Timings exclude authentication, database
+persistence, recording and playback. A 45-second SDK timeout was used only for
+these evaluation requests; application timeouts and retry behaviour are unchanged.
+
+### Request continuity correction
+
+A three-turn food check exposed a separate defect: the age was retained, but
+search used only "18 months" after the age clarification. The resulting excerpts
+concerned play rather than the pending meal request. A further prompt instruction
+alone did not resolve that loss of the requested task.
+
+The application now carries the caregiver-authored request separately from the
+latest reply. An age clarification is identified structurally; replies such as
+"18 months" and "She is 2 weeks old" complete that request. Both retrieval and
+generation use the same pending request. The bounded conversation stores this
+request alongside the stated age, so it remains available after the original
+turn leaves the recent-message window. A new standalone topic replaces it.
+Generated assistant text is not used as the request or as reference evidence.
+Existing fixed age-clarification messages remain readable without a data migration.
+Only the latest required request is carried into generation, within the existing
+3,000-character context budget; there is no additional model call.
+
+The live `request_continuity_verification` capture uses prompt `coach_v2.6`:
+
+| Turn | Observed result | Service seconds |
+| --- | --- | --- |
+| Toddler food request with a three-month profile | Asked for the intended age | 0.001 |
+| "18 months" | Food suggestions at 18 months; search retained the original food request | 7.693 |
+| "What else can I try?" | Additional foods rather than play or talking activities | 9.854 |
+| The same follow-up after earlier off-topic answers | Recovered the caregiver's food request from the permitted history | 8.398 |
+| New router-repair request | Applied the unrelated-topic boundary | 0.000 |
+| Newborn sleep request with an older profile, then "2 weeks" | Asked for age, then answered the newborn sleep request | 0.006 / 4.256 |
+
+These are development observations about request continuity and response timing,
+not clinical ratings or a latency guarantee. Existing records remain in the same
+local capture; no additional report file was created.
+
+### Signed-in interface check
+
+The food clarification sequence also completed through the signed-in chat interface:
+
+| Message | Observed result | Displayed response seconds |
+| --- | --- | --- |
+| "What food can I make for my toddler?" | Requested the intended age because the profile was younger than one year | 6.27 |
+| "18 months" | Offered family-food examples for the stated age | 10.65 |
+| "What else can I try?" | Offered additional foods rather than switching to play or communication activities | 8.42 |
+
+This confirms request and age continuity for this exchange. The first generated
+answer still adds an unrequested eating schedule and talking advice; these remain
+answer-quality findings. Source controls and feedback controls were displayed.
+Playback, saved feedback and history restoration were not exercised by this check.
+This record does not complete the separate workflow acceptance checklist in #66.
+
+### Review boundaries
+
+The source inventory has complete passage IDs, titles, URLs, age annotations and
+text for all 184 records. The existing three-PDF baseline and its 14 overlapping
+same-source selections remain intact: containment alone does not establish that
+one age-specific selection can replace another. Clinical candidate packs were
+not activated. The existing inventory still identifies limited sleep coverage at
+the exact second birthday and soothing coverage after six months.
+
+Actual answers still need further review under #76/#42. First-food answers can
+supply unrequested quantities and assert readiness too directly despite prompt
+instructions. The nappy-rash answer selected an active ingredient and application
+amount; the reflux answer supplied a duration not established by its excerpts and
+omitted the sleep-position distinction. Passing the limited output checks did not
+establish that these details were appropriate. These are retained findings, not
+resolved medical-accuracy claims. Source checks included the NHS pages on
+[first foods](https://www.nhs.uk/baby/weaning-and-feeding/babys-first-solid-foods/),
+[reflux](https://www.nhs.uk/conditions/reflux-in-babies/) and
+[nappy rash](https://www.nhs.uk/baby/caring-for-a-newborn/nappy-rash/).
+No clinical approval or complete baby-care coverage is claimed. Final signed-in
+text/voice/history/source/playback/feedback acceptance remains tracked once in #66.
+
 ## Additional project-authored questions
 
 These fictional questions provide additional development coverage for issue #74.
