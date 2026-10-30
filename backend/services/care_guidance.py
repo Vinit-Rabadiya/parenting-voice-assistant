@@ -15,11 +15,27 @@ from backend.services.retrieval import RetrievedPassage
 
 REFERENCE_PATH = Path(__file__).resolve().parents[2] / "data/common-care-guidance.json"
 TOPICS = {
-    "reflux": r"\b(?:reflux|regurgitat\w*|spit(?:s|ting)? up|spitting)\b|\b(?:milk|feeds?)\b.{0,45}\b(?:comes? back|coming back|back up|brought up)\b|\bbring(?:s|ing)? up\b.{0,25}\bmilk\b",
+    "reflux": r"\b(?:reflux|regurgitat\w*|spit(?:s|ting)? up|spitting)\b|\b(?:milk|feeds?)\b.{0,45}\b(?:comes? back|coming back|dribbles? back|back up|brought up)\b|\bbring(?:s|ing)? up\b.{0,25}\bmilk\b|\bbrings? (?:some )?milk back\b",
     "nappy_rash": r"\b(?:nappy|diaper)[ -]?(?:area )?(?:rash|soreness|irritation)\b|\b(?:bottom|nappy area|diaper area)\b.{0,30}\b(?:sore|red|irritated)\b|\b(?:sore|red|irritated)\b.{0,55}\b(?:bottom|nappy area|diaper area)\b",
     "sleep": r"\b(?:sleep|sleeping|bedtime|night waking)\b|\bwake[sn]?\b.{0,25}\b(?:night|often)\b|\bwaking\b.{0,25}\bnight\b|\bsettle\b.{0,30}\bnight\b",
     "feeding": r"\b(?:food|foods|meals?|feeding|breastfeed\w*|formula|mealtime|recipes?)\b",
+    "stomach_upset": r"\b(?:vomit\w*|diarrh[oe]+a|(?:loose|watery) (?:stools?|poo)|being sick)\b",
+    "fever": r"\b(?:fever|high temperature|thermometer)\b|\b(?:baby|child)\b.{0,20}\bfeels? hot\b",
+    "cough_cold": r"\b(?:cough\w*|runny nose|blocked nose|stuffy nose|a cold|has a cold)\b",
+    "teething": r"\b(?:teething|sore gums?|gum (?:pain|discomfort)|tooth coming|teeth (?:coming|come through))\b|\bsooth\w*\s+(?:(?:my|their|the|sore)\s+)?gums?\b",
+    "stools": r"\b(?:constipat\w*|hard (?:poo|stool)|painful stools?|stool changes?)\b",
+    "jaundice": r"\b(?:jaundice|yellow(?:ing)? (?:skin|eyes)|eyes (?:are |look )?yellow)\b",
+    "oral_care": r"\b(?:brush\w*.{0,20}teeth|clean\w*.{0,20}teeth|toothbrush|toothpaste|dental care)\b",
+    "outings": r"\b(?:sunshine|sun safety|direct sun|outdoor|sunhat|hot weather|outing|going outside)\b",
+    "records": r"\b(?:health record|growth record|clinic visit|health review|clinic appointment|growth chart)\b",
+    "soothing": r"\b(?:crying|cries|sooth\w*|comfort\w*)\b",
+    "behaviour": r"\b(?:tantrum\w*|frustrat\w*|big feelings)\b",
+    "development_concern": r"\b(?:lost (?:a |an |the |their )?(?:skill|ability)|stopped (?:talking|walking|babbling)|developmental (?:concern|delay)|development concern|not reaching milestones)\b",
+    "birthday": r"\b(?:second birthday|turn(?:s|ing)? two|2nd birthday)\b",
+    "teething_illness": r"\bteething\b.{0,70}\b(?:diarrh[oe]+a|loose stools?|fever|vomit\w*)\b|\b(?:diarrh[oe]+a|loose stools?|fever|vomit\w*)\b.{0,70}\bteething\b",
+    "food_refusal": r"\b(?:fussy eat\w*|picky eat\w*|refus\w*.{0,25}(?:solids|food)|(?:food|solids).{0,25}refus\w*)\b",
 }
+HEALTH_TOPICS = {"reflux", "nappy_rash", "stomach_upset", "fever", "cough_cold", "teething", "teething_illness", "stools", "jaundice", "development_concern"}
 INTERACTION = re.compile(r"\b(?:talk|talking|communicat\w*|language|sing|singing|bond|bonding|pretend|teddy|doll)\b", re.I)
 FOOD_IDEAS = re.compile(r"\b(?:(?:what|which) (?:(?:soft|first|finger|family|healthy) )?foods?|meal ideas?|food ideas?|recipes?|cook|cooking|prepare|make for|serve)\b", re.I)
 SCHEDULE_REQUEST = re.compile(r"\b(?:how often|how many (?:times|meals|feeds|snacks)|schedule|timetable|frequency|times (?:a|per) day)\b", re.I)
@@ -28,8 +44,8 @@ TIMING_REQUEST = re.compile(r"\b(?:how long|how much sleep|how many hours|what t
 NUMBER = r"(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|half|quarter|twice|thrice)"
 MEAL_SCHEDULE = re.compile(rf"\b{NUMBER}(?:\s+to\s+{NUMBER})?\s+(?:(?:small|main|regular|nutritious)\s+)?(?:meals?|feeds?|snacks?|eating occasions|times\s+(?:a|per)\s+day)\b|\b(?:twice|thrice) (?:a|per) day\b", re.I)
 FOOD_AMOUNT = re.compile(rf"\b{NUMBER}(?:\s+to\s+{NUMBER})?\s+(?:a\s+)?(?:table\s?spoons?|tea\s?spoons?|spoonfuls?|cups?|grams?)\b", re.I)
-TREATMENT_PRODUCT = re.compile(r"\b(?:apply(?:ing)?|us(?:e|ing)|try(?:ing)?|spread(?:ing)?|put(?:ting)?|recommend(?:ing)?|giv(?:e|ing)|add(?:ing)?|switch(?:ing)?)\b[^.!?\n]{0,90}\b(?:zinc oxide|hydrocortisone|steroids?|antifungals?|antibiotics?|medicated|creams?|ointments?|lotions?|thickeners?|thickened formula|anti[- ]reflux formula|hypoallergenic formula|probiotics?|gripe water)\b", re.I)
-FEED_CHANGE = re.compile(r"\b(?:smaller (?:amounts|feeds)|more (?:often|frequently)|(?:reduce|reducing)\b[^.!?\n]{0,35}\b(?:feed|milk))\b", re.I)
+TREATMENT_PRODUCT = re.compile(r"\b(?:apply(?:ing)?|us(?:e|ing)|try(?:ing)?|spread(?:ing)?|put(?:ting)?|recommend(?:ing)?|giv(?:e|ing)|add(?:ing)?|switch(?:ing)?)\b[^.!?\n]{0,90}\b(?:zinc oxide|hydrocortisone|steroids?|antifungals?|antibiotics?|medicated|creams?|ointments?|lotions?|thickeners?|thickened formula|anti[- ]reflux formula|hypoallergenic formula|probiotics?|gripe water|laxatives?|decongestants?|cough syrup|teething gels?)\b", re.I)
+FEED_CHANGE = re.compile(r"\b(?:smaller (?:amounts|feeds)|more (?:often|frequent(?:ly)?)|frequent(?:ly)?[^.!?\n]{0,70}\b(?:feeds?|meals?|amounts?)|(?:reduce|reducing)\b[^.!?\n]{0,35}\b(?:feed|milk))\b", re.I)
 CARE_DURATION = re.compile(rf"\b{NUMBER}(?:\s*(?:-|to)\s*{NUMBER})?\s+(?:(?:a|an)\s+)?(?:minutes?|hours?|days?|weeks?)\b(?!\s*[- ]?old\b)", re.I)
 OFF_TOPIC_ACTIVITY = re.compile(r"\b(?:talk|chat|sing) (?:with|to) (?:your |the )?(?:baby|child|toddler)|\b(?:language development|naming foods|name (?:the |different )?foods)\b", re.I)
 REFERRAL = re.compile(r"\b(?:health (?:worker|professional|facility)|doctor|clinician|clinic|medical (?:care|advice|assessment))\b", re.I)
@@ -94,12 +110,14 @@ class CareGuidance:
                 rules.append("Do not supply feeding quantities: none were requested.")
             if self.food_ideas:
                 rules.append("Give food examples; do not add talking, singing or play activities.")
-        if self.topic in {"reflux", "nappy_rash"}:
+        if self.topic in HEALTH_TOPICS:
             rules.append("Give basic care and conditional assessment advice. Do not select creams, active ingredients or treatment durations.")
-        if self.topic == "reflux":
+        if self.topic in {"reflux", "cough_cold"}:
             rules.append("Do not change feed amounts or frequency; individual feeding changes need professional advice.")
         if self.topic == "nappy_rash":
             rules.append("Include assessment for rash with fever, worsening or persistent symptoms; do not assume fever is present.")
+        if self.topic == "teething_illness":
+            rules.append("Do not suggest that teething, drooling or swallowed saliva explains diarrhoea, vomiting or fever.")
         if self.topic == "sleep" and not self.allow_timing:
             rules.append("Do not add sleep-hour targets or timed bedtime steps: none were requested.")
         if self.infant and self.topic in {"reflux", "sleep"}:
@@ -120,19 +138,30 @@ class CareGuidance:
             if (self.first_solids
                     and not re.search(r"\b(?:if|when|once|already)\b[^.!?\n]{0,90}\b(?:ready|readiness|steady|solids)\b", answer, re.I)):
                 reasons.append("missing_first_food_readiness")
-        if self.topic in {"reflux", "nappy_rash"}:
+        if self.topic in HEALTH_TOPICS:
             if positive_match(TREATMENT_PRODUCT, answer):
                 reasons.append("treatment_product_selection")
             if CARE_DURATION.search(answer):
                 reasons.append("unsupported_care_duration")
             if not REFERRAL.search(answer):
                 reasons.append("missing_assessment_boundary")
+        if self.topic == "cough_cold":
+            nasal = re.compile(r"\b(?:use|using|give|giving|put|putting)\b[^.!?\n]{0,70}\b(?:saline|nasal drops|nose drops)\b", re.I)
+            for match in nasal.finditer(answer):
+                prefix = answer[max(0, match.start() - 120):match.start()]
+                professional_first = re.search(r"\b(?:pharmacist|clinician|health professional)\b[^.!?\n]{0,80}\bbefore\s*$", prefix, re.I)
+                negated = re.search(r"\b(?:do not|don't|never|avoid|not)\s*$", prefix, re.I)
+                if not professional_first and not negated:
+                    reasons.append("individual_nasal_product_instruction")
+                    break
         if self.topic == "nappy_rash" and not re.search(r"\b(?:fever|high temperature)\b", answer, re.I):
             reasons.append("missing_rash_fever_boundary")
-        if self.topic == "reflux" and positive_match(FEED_CHANGE, answer):
+        if self.topic in {"reflux", "cough_cold"} and positive_match(FEED_CHANGE, answer):
             reasons.append("individual_feeding_change")
         if self.topic == "sleep" and not self.allow_timing and CARE_DURATION.search(answer):
             reasons.append("unrequested_sleep_timing")
+        if self.topic == "teething_illness" and re.search(r"\b(?:drool\w*|saliva)\b[^.!?\n]{0,65}\b(?:digesti\w*|diarrh\w*|loose stools)\b|\bteething (?:can |may |sometimes )?(?:cause|affect|lead to)\b", answer, re.I):
+            reasons.append("unsupported_teething_explanation")
         if self.infant and self.topic in {"reflux", "sleep"} and not SAFE_SLEEP.search(answer):
             reasons.append("missing_sleep_position_precaution")
         if self.infant and self.topic in {"reflux", "sleep"} and positive_match(UNSAFE_SLEEP, answer):
@@ -148,10 +177,12 @@ def get_care_guidance(question: str, age_months: float, context: list[dict] | No
     matched = [topic for topic, pattern in TOPICS.items() if re.search(pattern, text, re.I)]
     # Feeding is often mentioned in reflux or sleep reports; it must not replace
     # the concern. Multiple distinct concerns stay with the general care pipeline.
-    concerns = [topic for topic in matched if topic in {"reflux", "nappy_rash"}]
+    concerns = [topic for topic in matched if topic in HEALTH_TOPICS]
+    if "teething_illness" in concerns:
+        concerns = ["teething_illness"]
     if len(concerns) > 1:
         return None
-    topic = concerns[0] if concerns else "sleep" if "sleep" in matched else "feeding" if matched else None
+    topic = concerns[0] if concerns else "sleep" if "sleep" in matched else next((topic for topic in reversed(TOPICS) if topic in matched), None)
     food_ideas = bool(FOOD_IDEAS.search(text))
     if re.search(r"\b(?:for myself|for me|what (?:should|can) i (?:eat|drink)|my (?:sleep|insomnia))\b|\bi (?:cannot|can't|am not|don't) sleep\b|\bi have (?:a )?(?:reflux|heartburn|rash)\b", text, re.I):
         return None

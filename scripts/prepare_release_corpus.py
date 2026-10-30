@@ -13,6 +13,76 @@ from scripts.build_reference_expansion import compile_expansion, fingerprint, re
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def extend_basic_care_release(base, manifest, pack):
+    """Index the bounded runtime care selections, preserving every released record."""
+    from backend.services.care_guidance import load_references
+    if pack != load_references():
+        raise ValueError("Care references must match the validated application input.")
+    if any(p.get("clinical_review_required") or p.get("review_status") == "candidate_not_expert_validated"
+           or p.get("release_status") == "blocked_pending_health_review" for p in base):
+        raise ValueError("Base release contains blocked candidate content.")
+    sources = list(manifest["sources"])
+    selected = list(base)
+    for key, source in pack["sources"].items():
+        items = [(entry, reference) for entry in pack["entries"] for reference in entry["references"]
+                 if reference["source"] == key]
+        if not items:
+            raise ValueError("Unused basic-care source.")
+        sid = "basic-care-" + key
+        if any(s["source_id"] == sid for s in sources):
+            raise ValueError("Basic-care sources already exist in the base release.")
+        digest = fingerprint({"source": source, "selections": items})
+        title = source["publisher"] + ": " + source["title"]
+        sources.append({"source_id": sid, "title": title, "publisher": source["publisher"],
+                        "source_url": source["url"], "sha256": digest, "source_format": "web_summary",
+                        "sections": sorted({r["section"] for _, r in items}),
+                        "checked_on": pack["checked_on"], "language": "en"})
+        for entry, reference in items:
+            topic = entry["topic"]
+            selected.append({
+                "passage_id": f"basic-care-{entry['id']}-{key}", "source_id": sid,
+                "source_title": title, "publisher": source["publisher"], "source_url": source["url"],
+                "source_sha256": digest, "source_format": "web_summary", "pdf_page": None,
+                "source_section": reference["section"], "title": reference["section"], "text": reference["text"],
+                "content_sha256": hashlib.sha256(reference["text"].encode()).hexdigest(),
+                "source_age": {"label": f"{entry['min_months']} to under {entry['max_months_exclusive']} months",
+                               "min_months": entry["min_months"], "max_months_exclusive": entry["max_months_exclusive"]},
+                "project_scope": {"min_months": 0, "max_months_inclusive": 24},
+                "topic": topic, "developmental_domain": "nutrition" if topic == "feeding" else "safety" if topic in {"sleep", "outings"} else "common_concerns" if topic in {"reflux", "nappy_rash", "stomach_upset", "fever", "cough_cold", "teething", "stools", "jaundice", "development_concern"} else "responsive_caregiving",
+                "routines": ["feeding"] if topic == "feeding" else [],
+                "checked_on": pack["checked_on"], "review_status": "editorially_selected_not_expert_validated",
+                "release_status": "basic_care_editorial_release", "clinical_review_required": False,
+                "content_scope": pack["scope"], "reuse_status": "Short paraphrase; attribution retained",
+            })
+    if len({p["passage_id"] for p in selected}) != len(selected):
+        raise ValueError("Duplicate release passage IDs.")
+    return selected, {"schema_version": 1, "sources": sources}
+
+
+def prepare_basic_care_release(base_dir, output_dir):
+    from backend.services.care_guidance import load_references
+    path = base_dir / "passages.jsonl"
+    base = load_passages(path)
+    validate_source_references(base, base_dir / "sources.json")
+    pack = load_references()
+    selected, sources = extend_basic_care_release(base, json.loads((base_dir / "sources.json").read_text(encoding="utf-8")), pack)
+    if output_dir.exists():
+        raise ValueError("Output exists; preserve the previous release.")
+    output_dir.mkdir(parents=True)
+    text = "".join(json.dumps(p, ensure_ascii=False) + "\n" for p in selected)
+    (output_dir / "passages.jsonl").write_text(text, encoding="utf-8", newline="\n")
+    (output_dir / "sources.json").write_text(json.dumps(sources, indent=2) + "\n", encoding="utf-8")
+    validate_source_references(load_passages(output_dir / "passages.jsonl"), output_dir / "sources.json")
+    report = {"schema_version": 1, "base_corpus_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+              "corpus_sha256": hashlib.sha256(text.encode()).hexdigest(), "passage_count": len(selected),
+              "source_count": len(sources["sources"]), "added_passage_count": len(selected) - len(base),
+              "care_pack_sha256": fingerprint(pack), "index_built": False, "review_status": pack["review_kind"],
+              "clinical_candidates_activated": False}
+    (output_dir / "preparation-report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    (output_dir / "coverage.md").write_text(coverage_markdown(selected, current_date()), encoding="utf-8")
+    return report
+
+
 def revise_source(candidate, manifest, pack, revision, original_ids):
     """Refresh wording only; preserve passage identity, scope and clinical gates."""
     if fingerprint(pack) != revision["pack_sha256"]:
@@ -117,8 +187,12 @@ def main():
     parser.add_argument("--base", type=Path, default=ROOT / "data/processed/rag/passages.jsonl")
     parser.add_argument("--review", type=Path, default=ROOT / "data/everyday-release-review.json")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "data/processed/everyday-release-v3")
+    parser.add_argument("--base-release", type=Path, help="Extend a released corpus with validated basic-care references.")
     args = parser.parse_args()
     try:
+        if args.base_release is not None:
+            print(json.dumps(prepare_basic_care_release(args.base_release, args.output_dir), indent=2))
+            return
         plan = json.loads(args.review.read_text(encoding="utf-8"))
         candidate_path = args.candidate_dir / "passages.jsonl"
         if hashlib.sha256(args.base.read_bytes()).hexdigest() != plan["base_corpus_sha256"]:
