@@ -16,12 +16,13 @@ from google.genai import errors, types
 from backend.core.config import settings
 from backend.services.age import AGE_SCOPE_MESSAGE
 from backend.services.conversation_context import caregiver_request
+from backend.services.care_guidance import get_care_guidance
 from backend.services.retrieval import RetrievedPassage
 
 
 generation_request_id = ContextVar("generation_request_id", default=None)
 timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
-PROMPT_VERSION = "coach_v2.6"
+PROMPT_VERSION = "coach_v2.7"
 PROMPT_TEMPLATE = (Path(__file__).resolve().parents[1] / "prompts/coach_v2.txt").read_text(encoding="utf-8")
 PROMPT_SHA256 = hashlib.sha256(PROMPT_TEMPLATE.encode()).hexdigest()
 PROVIDER_BLOCK_MESSAGE = (
@@ -103,6 +104,9 @@ class CoachingService:
             "or give practical steps as appropriate. A definition, clarification or follow-up "
             "does not need an activity list. For activity ideas, give up to 4 distinct actions."
         )
+        care_guidance = get_care_guidance(question, child_age_months, conversation_context)
+        if care_guidance is not None:
+            answer_format += "\nRequest-specific care rules:\n" + care_guidance.instructions
         age_description = (f"{round(child_age_months * 30.4375)} days old (newborn)"
                            if child_age_months < 1 else f"{child_age_months:g} months old")
         age_safety = (

@@ -21,8 +21,9 @@ from backend.services.coaching import CoachingResult, CoachingService, generatio
 from backend.services.usage import UsageControlService
 from backend.services.retrieval import RetrievalService
 from backend.services.evidence import select_evidence
+from backend.services.care_guidance import select_care_references
 from backend.services.care_response import professional_assessment_response, conversation_boundary_response
-from backend.services.response_safety import SAFE_RESPONSE, SafetyDecision, inspect_response
+from backend.services.response_safety import SAFE_RESPONSE, review_coaching_result
 from backend.services.input_safety import inspect_input
 from backend.services.crisis_safety import inspect_crisis
 from backend.services.kenya_contacts import emergency_resources
@@ -222,11 +223,13 @@ async def coach(
         stage = "Evidence selection"
         with timed_stage(request_id, "evidence_selection"):
             evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
+            if boundary is None and vaccination is None and assessment is None:
+                evidence = select_care_references(payload.question, age_months, context, evidence)
         timing_logger.info(
             "coach_timing request=%s passages=%d evidence=%d evidence_characters=%d",
             request_id, len(passages), len(evidence), sum(len(item.text) for item in evidence),
         )
-        if evidence:
+        if evidence and reference_status != "unavailable":
             reference_status = "matched"
         status = "no_evidence"
         response_kind = None
@@ -251,11 +254,10 @@ async def coach(
                 )
             stage = "Response safety"
             with timed_stage(request_id, "response_safety"):
-                decision = (SafetyDecision(True, ("provider_content_block",)) if result.blocked else
-                            inspect_response(result.answer, result.passages, evidence, age_months))
+                result, decision = review_coaching_result(result, evidence, age_months, payload.question, context)
                 timing_logger.info(
                     "coaching_safety request=%s outcome=%s reasons=%s",
-                    request_id, "blocked" if decision.blocked else "passed",
+                    request_id, "blocked" if decision.blocked else "replaced_with_basic_care" if decision.replaced_with_basic_care else "passed",
                     ",".join(decision.reasons) or "none",
                 )
                 if decision.blocked:

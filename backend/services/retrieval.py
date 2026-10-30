@@ -25,6 +25,7 @@ class RetrievedPassage:
     source_age_label: str
     routines: list[str]
     applicability_conditions: list[str] = dataclass_field(default_factory=list)
+    selection_method: str = "vector_retrieval"
 
 
 def is_age_eligible(source_age: dict[str, Any], child_age_months: float, *, child_age_days: int | None = None) -> bool:

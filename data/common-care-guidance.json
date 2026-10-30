@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-30",
+  "review_kind": "source_checked_basic_care_not_clinical_validation",
+  "scope": "Selected practical care and precautions. No diagnosis, medicine selection, doses, treatment timings or individual vaccination decisions. General-care selections omit overseas service numbers and local protocols.",
+  "sources": {
+    "nhs-first-foods": {"publisher": "NHS", "title": "Your baby's first solid foods", "url": "https://www.nhs.uk/baby/weaning-and-feeding/babys-first-solid-foods/"},
+    "unicef-food-6-12": {"publisher": "UNICEF", "title": "Feeding your baby: 6-12 months", "url": "https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-6-12-months"},
+    "unicef-food-1-2": {"publisher": "UNICEF", "title": "Feeding your baby: 1-2 years", "url": "https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-1-2-years"},
+    "nhs-reflux": {"publisher": "NHS", "title": "Reflux in babies", "url": "https://www.nhs.uk/conditions/reflux-in-babies/"},
+    "nhs-nappy-rash": {"publisher": "NHS", "title": "Nappy rash", "url": "https://www.nhs.uk/baby/caring-for-a-newborn/nappy-rash/"},
+    "nhs-sleep-routine": {"publisher": "NHS", "title": "Helping your baby to sleep", "url": "https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/"},
+    "nhs-safe-sleep": {"publisher": "NHS", "title": "Sudden infant death syndrome (SIDS)", "url": "https://www.nhs.uk/baby/caring-for-a-newborn/sudden-infant-death-syndrome-sids/"}
+  },
+  "entries": [
+    {
+      "id": "milk-feeding", "topic": "feeding", "min_months": 0, "max_months_exclusive": 6,
+      "references": [
+        {"source": "nhs-first-foods", "section": "Feeding your baby: from 0 to 6 months", "text": "Before around six months, breast milk or first infant formula supplies your baby's nutrition. Solid foods are introduced from around six months when the baby shows readiness; ask a health professional for individual advice if your baby was premature or feeding is difficult."}
+      ]
+    },
+    {
+      "id": "first-foods", "topic": "feeding", "min_months": 6, "max_months_exclusive": 12,
+      "references": [
+        {"source": "unicef-food-6-12", "section": "Your baby's first foods", "text": "For a baby already ready for solids, try soft foods such as thick porridge, mashed vegetables, ripe fruit or mashed legumes alongside breast milk or infant formula. Let the baby explore new tastes at their own pace and stop when they show they have had enough."},
+        {"source": "nhs-first-foods", "section": "Signs your baby is ready; safety and hygiene", "text": "Around six months, readiness includes sitting with a steady head, coordinating food to the mouth and swallowing it. Age alone does not confirm these abilities; seek individual advice if your baby was premature. Keep the baby safely upright and stay with them while eating. Adapt textures to their abilities and avoid hard choking hazards."}
+      ]
+    },
+    {
+      "id": "toddler-foods", "topic": "feeding", "min_months": 12, "max_months_exclusive": 25,
+      "references": [
+        {"source": "unicef-food-1-2", "section": "What to feed your child", "text": "Offer varied family foods prepared for your child's abilities: soft cooked vegetables, ripe fruit, well-cooked eggs, mashed beans or lentils, and tender meat or fish with bones removed. Chop, mash or soften foods so they can manage them. Let them practise feeding themselves without pressure."},
+        {"source": "nhs-first-foods", "section": "Safety and hygiene", "text": "Keep your child upright and stay close while they eat. Remove bones and hard pits. Prepare food safely and avoid whole nuts and other hard choking hazards."}
+      ]
+    },
+    {
+      "id": "infant-regurgitation", "topic": "reflux", "min_months": 0, "max_months_exclusive": 12,
+      "references": [
+        {"source": "nhs-reflux", "section": "Things you can try; when to get medical help", "text": "Bringing up some milk can happen after a feed, but this message cannot establish the cause. Ask a health professional about feeding position, hold your baby upright while awake during and after feeding, and burp them during feeds. For sleep, place them flat on their back; do not raise the head of the cot. Seek prompt medical assessment for painful or persistent symptoms, poor weight gain or new symptoms after six months. Forceful, green or bloody vomit, inability to keep fluids down or refusal to feed needs urgent care."}
+      ]
+    },
+    {
+      "id": "older-regurgitation", "topic": "reflux", "min_months": 12, "max_months_exclusive": 25,
+      "references": [
+        {"source": "nhs-reflux", "section": "When to get medical help", "text": "Ongoing milk regurgitation or reflux-like symptoms after the first birthday need a health professional's assessment. Do not assume it is ordinary infant reflux, especially with feeding or weight concerns. Seek urgent care for forceful, green or bloody vomit, inability to keep fluids down, severe distress or refusal to feed."}
+      ]
+    },
+    {
+      "id": "nappy-skin-care", "topic": "nappy_rash", "min_months": 0, "max_months_exclusive": 25,
+      "references": [
+        {"source": "nhs-nappy-rash", "section": "Things you can do; when to get medical help", "text": "Wetness, rubbing or irritating products can contribute to nappy-area soreness, but a rash cannot be diagnosed through chat. Change wet or dirty nappies promptly, clean gently with water or fragrance-free alcohol-free wipes, and dry gently. Allow time without a nappy when practical and avoid tight nappies, irritating soaps and talcum powder. Ask a pharmacist about suitable products rather than selecting a treatment here. Have a health professional assess a rash that persists, worsens, spreads, causes marked discomfort or occurs with fever."}
+      ]
+    },
+    {
+      "id": "infant-sleep", "topic": "sleep", "min_months": 0, "max_months_exclusive": 12,
+      "references": [
+        {"source": "nhs-sleep-routine", "section": "Night and day; establishing a bedtime routine", "text": "Try a calm, familiar bedtime sequence with quiet care, dimmer light and a soft voice at night. Babies have different waking and feeding patterns, so a routine does not guarantee uninterrupted sleep."},
+        {"source": "nhs-safe-sleep", "section": "How to reduce the risk of SIDS", "text": "Place your baby on their back on a firm, flat sleep surface in a clear, separate cot. Keep pillows, loose bedding and soft toys out of the cot. During the first six months, keep the cot in the same room as you for sleep."}
+      ]
+    },
+    {
+      "id": "toddler-sleep", "topic": "sleep", "min_months": 12, "max_months_exclusive": 25,
+      "references": [
+        {"source": "nhs-sleep-routine", "section": "Establishing a bedtime routine", "text": "Keep a familiar, calming bedtime sequence, such as changing into night clothes, sharing a quiet story and dimming the light. Reduce excitement before bed and keep nighttime care quiet. Sleep patterns vary; a routine does not promise an uninterrupted night."}
+      ]
+    }
+  ]
+}

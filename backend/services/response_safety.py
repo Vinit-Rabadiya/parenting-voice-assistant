@@ -1,10 +1,15 @@
 """Limited output guardrails, not clinical validation or semantic fact checking."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import isfinite
 import re
+from typing import TYPE_CHECKING
 
 from backend.services.retrieval import RetrievedPassage
+from backend.services.care_guidance import get_care_guidance
+
+if TYPE_CHECKING:
+    from backend.services.coaching import CoachingResult
 
 
 SAFE_RESPONSE = (
@@ -50,6 +55,7 @@ def directly_negated(answer, match):
 class SafetyDecision:
     blocked: bool
     reasons: tuple[str, ...]
+    replaced_with_basic_care: bool = False
 
 
 def inspect_response(answer: str, returned_passages: list[RetrievedPassage],
@@ -97,3 +103,25 @@ def inspect_response(answer: str, returned_passages: list[RetrievedPassage],
             reasons.append("conflicting_age_claim")
             break
     return SafetyDecision(blocked=bool(reasons), reasons=tuple(reasons))
+
+
+def review_coaching_result(result: "CoachingResult", evidence: list[RetrievedPassage],
+                           child_age_months: float, question: str,
+                           context: list[dict] | None = None) -> tuple["CoachingResult", SafetyDecision]:
+    """Review once, replacing a failed care answer only with permitted source text."""
+    # A source fallback must never circumvent a provider safety refusal.
+    if result.blocked:
+        return result, SafetyDecision(True, ("provider_content_block",))
+    decision = inspect_response(result.answer, result.passages, evidence, child_age_months)
+    guidance = get_care_guidance(question, child_age_months, context)
+    if guidance is None or not all(reference in evidence for reference in guidance.references):
+        return result, decision
+    findings = guidance.findings(result.answer)
+    if not findings and not decision.blocked:
+        return result, decision
+    replacement = replace(result, answer=guidance.fallback, passages=guidance.references,
+                          answer_basis="reference_assisted")
+    replacement_check = inspect_response(replacement.answer, replacement.passages, evidence, child_age_months)
+    if replacement_check.blocked:
+        return result, SafetyDecision(True, decision.reasons + findings + replacement_check.reasons)
+    return replacement, SafetyDecision(False, decision.reasons + findings, replaced_with_basic_care=True)
