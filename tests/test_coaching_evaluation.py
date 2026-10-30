@@ -192,6 +192,40 @@ def test_capture_follow_up_retains_explicit_older_child_age():
     models.generate_content.assert_not_called()
 
 
+def test_capture_follow_up_checks_the_subject_age_and_records_it():
+    case, _, retrieval, coaching, models = setup_case(score=0)
+    case["question"] = "She feels feverish."
+    messages = [{"role": "user", "text": "My 6-week-old baby feeds frequently."},
+                {"role": "assistant", "text": "Watch their feeding cues.", "status": "answered"}]
+    record = capture_case(case, profile_dates(date(2026, 10, 30), 12), retrieval, coaching, messages=messages)
+    assert record["outcome"] == "escalated"
+    assert record["subject_age"]["age_months"] == pytest.approx(42 / 30.4375)
+    assert record["subject_age"]["source"] == "conversation"
+    assert record["profile"]["age_months"] == 12
+    assert "young_infant_fever" in record["input_safety"]["reasons"]
+    retrieval.retrieve.assert_not_called()
+    models.generate_content.assert_not_called()
+
+
+def test_capture_uses_the_same_age_clarification_route_as_the_application():
+    case, _, retrieval, coaching, models = setup_case(score=0)
+    case["question"] = "What food can I make for my toddler?"
+    profile = profile_dates(date(2026, 10, 30), 3)
+    first = capture_case(case, profile, retrieval, coaching)
+    assert first["response_kind"] == "clarification"
+    models.generate_content.assert_not_called()
+    messages = [{"role": "user", "text": case["question"]},
+                {"role": "assistant", "text": first["answer"], "status": first["outcome"],
+                 "response_kind": first["response_kind"]}]
+    case = {**case, "question": "18 months"}
+    record = capture_case(case, profile, retrieval, coaching, messages=messages)
+    assert record["outcome"] == "answered"
+    assert record["subject_age"]["age_months"] == 18
+    assert retrieval.retrieve.call_args.args[1] == 18
+    assert retrieval.retrieve.call_args.args[0].startswith("What food can I make for my toddler?")
+    assert record["caregiver_request"] == "What food can I make for my toddler?"
+
+
 def test_development_capture_reuses_pinned_dates_and_excludes_held_out(tmp_path):
     path = tmp_path / "queries.jsonl"
     base = {"date_of_birth": "2026-04-23", "evaluation_date": "2026-10-23",

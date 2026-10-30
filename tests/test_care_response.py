@@ -85,3 +85,12 @@ def test_individual_clinical_requests_are_distinct_from_general_information(mess
 
 def test_possible_explanations_are_not_automatically_treated_as_diagnosis_requests():
     assert professional_assessment_response("What might contribute to hard stools in a toddler?") is None
+
+
+@pytest.mark.parametrize("message,age", [
+    ("What food can I make for my toddler?", 3),
+    ("How can I hold my newborn?", 12),
+])
+def test_conflicting_developmental_label_requires_an_age_clarification(message, age):
+    assert conversation_boundary_response(message, child_age_months=age).kind == "clarification"
+    assert conversation_boundary_response(message, child_age_months=12 if age == 3 else 0) is None

@@ -278,7 +278,8 @@ def test_fallback_kind_is_saved_without_generation(client, services, question, k
         retrieval.retrieve.assert_not_called()
 
 
-def test_short_follow_up_keeps_subject_age_context_and_original_saved_message(client, services):
+@pytest.mark.parametrize("question", ["Is that safe?", "How many times a day?", "She refuses it."])
+def test_short_follow_up_keeps_subject_age_context_and_original_saved_message(client, services, question):
     data, retrieval, coaching = services
     topic = "My baby is 15 days old. I am feeding my baby."
     data.get_conversation.return_value = {"messages": [
@@ -288,16 +289,79 @@ def test_short_follow_up_keeps_subject_age_context_and_original_saved_message(cl
     data.save_conversation_turn.return_value = "message-2"
     retrieval.retrieve.return_value = []
     response = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
-                                          "question": "Is that safe?"})
+                                          "question": question})
     assert response.status_code == 200
     assert response.json()["status"] == "answered"
     assert response.json()["child_age_months"] == pytest.approx(15 / 30.4375)
-    assert retrieval.retrieve.call_args.args[:2] == (f"{topic}\nFollow-up: Is that safe?", 0)
+    assert retrieval.retrieve.call_args.args[:2] == (f"{topic}\nFollow-up: {question}", 0)
     assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 15
     coaching.generate.assert_called_once()
-    assert coaching.generate.call_args.args[0] == "Is that safe?"
+    assert coaching.generate.call_args.args[0] == question
     assert coaching.generate.call_args.kwargs["conversation_context"][0]["text"] == topic
-    assert data.save_conversation_turn.call_args.args[3] == "Is that safe?"
+    assert data.save_conversation_turn.call_args.args[3] == question
+
+
+def test_follow_up_danger_check_uses_the_younger_child_age_even_if_storage_fails(client, services):
+    data, retrieval, coaching = services
+    data.get_conversation.return_value = {"messages": [
+        {"role": "user", "text": "My 6-week-old baby feeds frequently."},
+        {"role": "assistant", "text": "Watch their feeding cues.", "status": "answered"},
+    ]}
+    data.save_conversation_turn.side_effect = RuntimeError("Storage unavailable")
+    response = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
+                                          "question": "She feels feverish.", "support_country": "KE"})
+    body = response.json()
+    assert response.status_code == 200
+    assert body["status"] == "escalated"
+    assert body["child_age_months"] == pytest.approx(42 / 30.4375)
+    assert body["support_resources"]
+    assert body["citations"]
+    assert body["message_id"] is None
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+@pytest.mark.parametrize("reply,age,status", [("18 months", 18, "answered"), ("3 years", 36, "no_evidence")])
+def test_age_clarification_then_short_age_reply_uses_the_right_child(client, services, reply, age, status):
+    data, retrieval, coaching = services
+    data.get_child.return_value = {"age_months": 3, "completed_months": 3, "age_days": 92, "in_scope": True}
+    data.get_conversation.return_value = {"messages": []}
+    data.save_conversation_turn.return_value = "message-2"
+    question = "What food can I make for my toddler?"
+    first = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
+                                       "question": question}).json()
+    assert first["response_kind"] == "clarification"
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+    data.get_conversation.return_value = {"messages": [
+        {"role": "user", "text": question},
+        {"role": "assistant", "text": first["answer"], "status": first["status"],
+         "response_kind": first["response_kind"]},
+    ]}
+    body = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
+                                      "question": reply}).json()
+    assert body["child_age_months"] == age
+    assert body["status"] == status
+    if status == "answered":
+        assert coaching.generate.call_args.args[1] == age
+        assert retrieval.retrieve.call_args.args[0] == f"{question}\nFollow-up: {reply}"
+        stored = data.save_conversation_turn.call_args.args[5]
+        assert stored["subject_age_override"] == age
+        assert stored["caregiver_request"] == question
+        # The initial question can leave the bounded context; the stated age
+        # remains attached to subsequent permitted turns, not to the profile.
+        data.get_conversation.return_value = {"messages": [
+            {"role": "user", "text": reply},
+            {"role": "assistant", **stored},
+        ]}
+        later = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
+                                           "question": "What else can I try?"}).json()
+        assert later["child_age_months"] == age
+        assert later["status"] == "answered"
+        assert retrieval.retrieve.call_args.args[0] == f"{question}\nFollow-up: What else can I try?"
+    else:
+        assert body["response_kind"] == "age_out_of_scope"
+        coaching.generate.assert_not_called()
 
 
 def test_old_care_context_does_not_permit_a_new_unrelated_request(client, services):
