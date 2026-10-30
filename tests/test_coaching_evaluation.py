@@ -155,26 +155,41 @@ def test_capture_reuses_vaccination_and_unrelated_boundaries(question, outcome):
     models.generate_content.assert_not_called()
 
 
-def test_capture_answers_caregiving_statement_without_evidence():
+def test_local_care_references_support_feeding_when_vector_evidence_is_missing():
     case, _, retrieval, coaching, models = setup_case(score=0)
     case["question"] = "I am feeding my baby"
     record = capture_case(case, profile_dates(date(2026, 10, 20), 6), retrieval, coaching)
     assert record["outcome"] == "answered"
-    assert record["answer_basis"] == "general_information"
+    assert record["answer_basis"] == "reference_assisted"
+    assert record["vector_evidence"] == []
+    assert all(p["selection_method"] == "source_checked_basic_care" for p in record["supplied_evidence"])
+    models.generate_content.assert_called_once()
+
+
+def test_capture_records_the_delivered_basic_care_replacement_and_its_sources():
+    case, _, retrieval, coaching, models = setup_case(score=0)
+    case["question"] = "My baby has a nappy rash."
+    models.generate_content.return_value = SimpleNamespace(text="Apply zinc oxide cream for three days.")
+    record = capture_case(case, profile_dates(date(2026, 10, 30), 6), retrieval, coaching)
+    assert record["outcome"] == "answered"
+    assert record["safety"]["replaced_with_basic_care"]
+    assert "treatment_product_selection" in record["safety"]["reasons"]
+    assert "zinc oxide" not in record["answer"]
+    assert record["delivered_references"] == record["supplied_evidence"]
     models.generate_content.assert_called_once()
 
 
 def test_no_evidence_follow_up_retains_the_permitted_caregiver_topic():
     case, _, retrieval, coaching, models = setup_case(score=0)
     case["question"] = "What else can I try?"
-    messages = [{"role": "user", "text": "I am feeding my baby"},
-                {"role": "assistant", "text": "Talk softly.", "status": "answered"}]
+    messages = [{"role": "user", "text": "We are sharing a picture book."},
+                {"role": "assistant", "text": "Name the pictures.", "status": "answered"}]
     record = capture_case(case, profile_dates(date(2026, 10, 24), 6), retrieval, coaching,
                           messages=messages)
     assert record["outcome"] == "answered"
     assert record["answer_basis"] == "general_information"
-    assert "I am feeding my baby" in record["search_query"]
-    assert "Talk softly." not in record["search_query"]
+    assert "We are sharing a picture book." in record["search_query"]
+    assert "Name the pictures." not in record["search_query"]
     assert record["supplied_evidence"] == []
     models.generate_content.assert_called_once()
 

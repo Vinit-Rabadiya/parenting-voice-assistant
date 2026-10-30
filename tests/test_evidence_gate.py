@@ -379,6 +379,29 @@ def test_old_care_context_does_not_permit_a_new_unrelated_request(client, servic
     coaching.generate.assert_not_called()
 
 
+@pytest.mark.parametrize("question,bad_answer", [
+    ("I am feeding my baby.", "Give two tablespoons at every meal, twice a day."),
+    ("My baby has a nappy rash.", "Apply zinc oxide cream twice a day."),
+    ("My baby has reflux.", "Hold upright for twenty to thirty minutes. Contact a doctor."),
+    ("My baby keeps waking during the night.", "Let your baby sleep on their front."),
+])
+def test_failed_care_answers_are_replaced_before_delivery_and_storage(client, services, question, bad_answer):
+    data, retrieval, coaching = services
+    retrieval.retrieve.return_value = []
+    coaching.generate.return_value = CoachingResult(bad_answer, [])
+    response = client.post("/coach", json={"child_id": "child-1", "question": question})
+    body = response.json()
+    assert response.status_code == 200
+    assert body["status"] == "answered"
+    assert body["answer"] != bad_answer
+    assert body["answer_basis"] == "reference_assisted"
+    assert body["citations"]
+    assert all(c["source_url"].startswith(("https://www.nhs.uk/", "https://www.unicef.org/")) for c in body["citations"])
+    assert data.create_interaction.call_args.args[4] == body["answer"]
+    assert data.create_interaction.call_args.args[5] == body["citations"]
+    coaching.generate.assert_called_once()
+
+
 def test_vague_follow_up_after_unresolved_clarification_does_not_generate(client, services):
     data, retrieval, coaching = services
     data.save_conversation_turn.return_value = "message-2"

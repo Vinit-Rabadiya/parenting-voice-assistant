@@ -16,6 +16,7 @@ from backend.core.config import PROJECT_ROOT, settings
 from backend.services.age import add_months, age_details, current_date, message_age_months, within_project_scope
 from backend.services.coaching import CoachingService, PROMPT_VERSION, PROMPT_SHA256
 from backend.services.evidence import select_evidence
+from backend.services.care_guidance import select_care_references
 from backend.services.care_response import conversation_boundary_response
 from backend.services.vaccination import inspect_vaccination
 from backend.services.conversation_context import (
@@ -25,7 +26,7 @@ from backend.services.conversation_context import (
 from backend.services.care_response import professional_assessment_response
 from scripts.evaluate_retrieval import load_queries, query_age_context
 from backend.services.retrieval import RetrievalService
-from backend.services.response_safety import SAFE_RESPONSE, inspect_response
+from backend.services.response_safety import SAFE_RESPONSE, review_coaching_result
 from backend.services.input_safety import inspect_input
 from backend.services.crisis_safety import inspect_crisis
 
@@ -241,9 +242,12 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         stage = "evidence_selection"
         tick = time.perf_counter()
         evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
+        record["vector_evidence"] = [asdict(p) for p in evidence]
+        if not retrieval_only:
+            evidence = select_care_references(case["question"], profile["age_months"], context, evidence)
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
         record["supplied_evidence"] = [asdict(p) for p in evidence]
-        record["reference_status"] = "matched" if evidence else reference_status
+        record["reference_status"] = "matched" if evidence and reference_status != "unavailable" else reference_status
         if retrieval_only:
             record.update(outcome="evidence_available" if evidence else "no_evidence")
             return record
@@ -257,19 +261,18 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         result = service.generate(case["question"], profile["age_months"], case["routine"], evidence,
                                   **({"conversation_context": context} if context else {}))
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
-        record.update(outcome="answered", answer=result.answer, answer_basis=result.answer_basis)
-        record["answer_word_count"] = len(result.answer.split())
-        record["within_requested_word_limit"] = record["answer_word_count"] <= 160
         record["selected_model"] = observer.attempts[-1]["model"]
-        if result.blocked:
-            record.update(outcome="safety_blocked", safety={"blocked": True, "reasons": ["provider_content_block"]})
-            return record
         stage = "response_safety"
         tick = time.perf_counter()
-        decision = inspect_response(result.answer, result.passages, evidence, profile["age_months"])
-        record["safety"] = {"blocked": decision.blocked, "reasons": list(decision.reasons)}
+        result, decision = review_coaching_result(result, evidence, profile["age_months"], case["question"], context)
+        record.update(outcome="answered", answer=result.answer, answer_basis=result.answer_basis)
+        record["safety"] = {"blocked": decision.blocked, "reasons": list(decision.reasons),
+                            "replaced_with_basic_care": decision.replaced_with_basic_care}
+        record["delivered_references"] = [asdict(p) for p in result.passages]
         if decision.blocked:
-            record.update(outcome="safety_blocked", answer=SAFE_RESPONSE)
+            record.update(outcome="safety_blocked", answer=result.answer if result.blocked else SAFE_RESPONSE)
+        record["answer_word_count"] = len(record["answer"].split())
+        record["within_requested_word_limit"] = record["answer_word_count"] <= 160
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
     except Exception as exc:
         record.update(outcome="error", error_stage=stage, error_type=type(exc).__name__)
