@@ -106,18 +106,78 @@ one age-specific selection can replace another. Clinical candidate packs were
 not activated. The existing inventory still identifies limited sleep coverage at
 the exact second birthday and soothing coverage after six months.
 
-Actual answers still need further review under #76/#42. First-food answers can
+The initial capture identified findings for review under #76/#42. First-food answers could
 supply unrequested quantities and assert readiness too directly despite prompt
 instructions. The nappy-rash answer selected an active ingredient and application
 amount; the reflux answer supplied a duration not established by its excerpts and
 omitted the sleep-position distinction. Passing the limited output checks did not
-establish that these details were appropriate. These are retained findings, not
-resolved medical-accuracy claims. Source checks included the NHS pages on
+establish that these details were appropriate. The basic-care correction below
+addresses these observed patterns; the earlier captures remain evidence of the
+defects. Source checks included the NHS pages on
 [first foods](https://www.nhs.uk/baby/weaning-and-feeding/babys-first-solid-foods/),
 [reflux](https://www.nhs.uk/conditions/reflux-in-babies/) and
 [nappy rash](https://www.nhs.uk/baby/caring-for-a-newborn/nappy-rash/).
 No clinical approval or complete baby-care coverage is claimed. Final signed-in
 text/voice/history/source/playback/feedback acceptance remains tracked once in #66.
+
+### Basic-care answer correction
+
+The application now supplies a small, source-checked care selection for simple
+food requests and feeding statements, milk regurgitation, nappy-area soreness and
+sleep routines. `data/common-care-guidance.json` holds eight age-scoped entries
+with seven original NHS/UNICEF URLs and section headings, checked on 30 October
+2026. These are paraphrased practical facts, not a diagnosis, a treatment protocol
+or clinical approval. Existing blocked candidate packs and the Qdrant release
+remain unchanged.
+
+`care_guidance.py` selects the applicable facts using the resolved subject age
+and caregiver request. `coaching.py` adds the relevant request rules to the same
+generation call. `response_safety.py` reviews the result before storage/delivery;
+selected failures replace the whole answer with the exact permitted care text.
+The API and evaluation script use that shared review. A provider content block
+cannot trigger this replacement or a safety-bypassing retry.
+
+The checks address unrequested feeding schedules/amounts and interaction extras,
+first-food readiness, cream/treatment selection, unsupported care durations,
+individual reflux feeding changes, assessment boundaries and infant sleep
+position. Bedtime answers avoid unrequested timing targets. Nappy-rash advice
+retains conditional assessment for fever without assuming a fever is present.
+Specialist diets, bottle preparation, individual food refusal and caregiver
+self-care requests are not replaced by generic food selections.
+
+The existing capture contains 16 initial live care checks, five follow-up or
+wording checks and four final live checks. All 25 requests completed without a
+request error or provider block. Generated replies took 2.026-9.599 service
+seconds in these runs. Urgent vomiting, Kenya vaccination and unrelated-topic
+controls used the existing routes without generation. These observations exclude
+authentication, persistence, speech recognition and playback.
+
+| Check | Observation and correction |
+| --- | --- |
+| Food ideas and alternatives at 18 months | Food examples stayed on topic without an unrequested meal schedule or talking activities. |
+| Feeding at six months | A generated first-food reply omitted readiness conditions. The delivered replacement retained readiness, continued milk and eating precautions. A follow-up exposed another wording omission, now covered by the same check. |
+| Milk regurgitation | Advice distinguishes upright awake care from flat, back sleeping. A follow-up suggested individual feeding changes; the final shared review replaced it with the permitted care steps and assessment boundaries. |
+| Nappy-area soreness | Reversed symptom wording initially missed the care selection. The corrected live answer included gentle care and conditional assessment for persistence, worsening, discomfort or fever. |
+| Rash follow-up | The word form "applying" bypassed the product check. The corrected check rejects the captured thick-ointment recommendation; a subsequent live answer deferred product selection to a pharmacist. |
+| Calmer bedtime | An answer added an unrequested thirty-minute wind-down. The corrected live answer used calming steps without a time target. |
+| Ordinary feeding interaction and first-birthday activities | These remained practical activity answers without blanket clinical disclaimers. |
+
+`basic_care_verification`, `basic_care_follow_up_verification` and
+`final_care_verification` preserve the successive live observations. The final
+`post_correction_answer_review` reapplies the current shared checks to previously
+captured answers without another model call; it is not a fresh generation or
+latency result. The earlier unrecognised nappy case lacked the new supplied
+references, so its correction is established by the subsequent live case rather
+than by adding source cards retrospectively. Policy and data fingerprints identify
+the revisions. Model prompts and configuration are identified separately from
+vector scores, selected care facts and delivered references.
+
+The complete backend suite passed 1,115 checks with `--require-corpus`; Python
+lint passed. API checks verify replacement before persistence, exact source
+provenance and preservation of provider refusals. This verifies the implemented
+patterns and observed corrections, not comprehensive medical safety, independent
+expert ratings or a response-time guarantee. Broader coverage/indexing/evaluation
+under #76 and final signed-in workflow acceptance under #66 remain separate.
 
 ## Additional project-authored questions
 
