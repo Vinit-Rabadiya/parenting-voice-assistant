@@ -9,6 +9,45 @@ from backend.core.config import PROJECT_ROOT
 from scripts.evaluate_retrieval import build_report, evaluate_query, load_queries, query_age_context, result_status
 
 
+def test_fixture_corpus_has_zero_age_leaks_in_current_evaluator():
+    from qdrant_client import QdrantClient
+    from qdrant_client.models import Distance, PointStruct, VectorParams
+    from backend.services.retrieval import RetrievalService
+
+    # Constant vectors isolate age filtering from embedding/ranking quality.
+    bands = [("newborn", {"min_days": 0, "max_days_exclusive": 7}),
+             ("young", {"min_days": 7, "max_months_exclusive": 6}),
+             ("older", {"min_months": 6, "max_months_exclusive": 12}),
+             ("toddler", {"min_months": 12, "max_months_exclusive": 25})]
+    local = QdrantClient(":memory:")
+    try:
+        local.create_collection("fixture", vectors_config=VectorParams(size=2, distance=Distance.COSINE))
+        local.upsert("fixture", points=[PointStruct(id=i, vector=[1.0, 0.0], payload={
+            "passage_id": pid, "text": "Age-scoped fixture.", "source_age": {**age, "label": pid},
+            "routines": [], "project_scope": {"max_months_inclusive": 24}})
+            for i, (pid, age) in enumerate(bands)])
+
+        class LocalInference:
+            def query_points(self, **kwargs):
+                return local.query_points(**{**kwargs, "query": [1.0, 0.0]})
+
+        service = RetrievalService(client=LocalInference(), collection_name="fixture")
+        results, queries = [], []
+        for dob, expected in [("2026-10-30", "newborn"), ("2026-10-23", "young"),
+                              ("2026-04-30", "older"), ("2024-10-30", "toddler")]:
+            case = {"id": expected, "category": "age_boundary", "query": "Care ideas", "limit": 4,
+                    "date_of_birth": dob, "evaluation_date": "2026-10-30",
+                    "expected_passage_ids": [expected],
+                    "forbidden_passage_ids": [pid for pid, _ in bands if pid != expected]}
+            queries.append(case)
+            result = evaluate_query(service, case)
+            assert result["retrieved_passage_ids"] == [expected]
+            results.append(result)
+        assert build_report(queries, results)["metrics"]["age_leakage_total"] == 0
+    finally:
+        local.close()
+
+
 @pytest.fixture
 def evaluation_case():
     return {

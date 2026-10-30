@@ -116,6 +116,8 @@ def test_numbered_reference_must_also_have_a_returned_source_card():
     ("Some milk comes back up after feeds.", 3, "Hold your baby upright for thirty minutes. Ask a doctor if worried.", "missing_sleep_position_precaution"),
     ("My baby has reflux.", 3, "Hold upright for 20 to 30 minutes, then sleep flat on the back. Ask a doctor if worried.", "unsupported_care_duration"),
     ("My baby has reflux.", 3, "Try smaller feeds more frequently. Sleep flat on the back. Ask a doctor if worried.", "individual_feeding_change"),
+    ("My baby has a blocked nose.", 6, "Offer frequent, smaller breast milk or formula feeds. Ask a doctor if worried.", "individual_feeding_change"),
+    ("My baby has a blocked nose.", 6, "Use a few drops of sterile saline solution in each nostril. Ask a doctor if worried.", "individual_nasal_product_instruction"),
     ("My baby has a nappy rash.", 9, "Clean gently with water and dry the skin.", "missing_assessment_boundary"),
     ("My baby keeps waking during the night.", 3, "Dim the lights and sing softly.", "missing_sleep_position_precaution"),
     ("How can I help sore skin around my child's nappy area?", 18,
@@ -181,7 +183,6 @@ def test_requested_sleep_duration_and_age_descriptions_are_not_unsolicited_timin
     "What food can I pretend to feed a doll?",
     "How do I sterilise a feeding bottle?",
     "My baby has an egg allergy. What foods can I offer?",
-    "My baby refuses food. What should I do?",
 ])
 def test_basic_care_selections_do_not_replace_other_types_of_care_requests(question):
     assert get_care_guidance(question, 6) is None
@@ -214,3 +215,71 @@ def test_sleep_with_reflux_retains_the_reflux_specific_precautions():
     assert decision.replaced_with_basic_care
     assert "unsafe_sleep_position_advice" in decision.reasons
     assert reviewed.answer == guidance.fallback
+
+
+@pytest.mark.parametrize("question,age,topic", [
+    ("My baby has watery poo.", 3, "stomach_upset"),
+    ("My baby has loose watery stools.", 2, "stomach_upset"),
+    ("My child has a cough and runny nose.", 12, "cough_cold"),
+    ("How can I help sore gums?", 9, "teething"),
+    ("What can soothe gums while teeth come through?", 9, "teething"),
+    ("How can I soothe their gums?", 9, "teething"),
+    ("My baby has gum discomfort.", 9, "teething"),
+    ("My baby has hard poo.", 2, "stools"),
+    ("My baby's eyes look yellow.", 0.3, "jaundice"),
+    ("How should I brush my baby's teeth?", 12, "oral_care"),
+    ("What do I bring to a clinic visit?", 18, "records"),
+    ("My child is having tantrums.", 24, "behaviour"),
+    ("How can we mark the second birthday?", 24, "birthday"),
+])
+def test_expanded_care_selects_traceable_facts_for_statements_and_questions(question, age, topic):
+    guidance = get_care_guidance(question, age)
+    assert guidance.topic == topic
+    assert guidance.references and len(guidance.fallback.split()) <= 160
+    assert all(p.source_url.startswith("https://") for p in guidance.references)
+
+
+def test_multiple_symptoms_and_age_ineligible_packets_stay_with_general_pipeline():
+    assert get_care_guidance("My baby has a cough and fever.", 9) is None
+    assert get_care_guidance("My baby's eyes look yellow.", 9) is None
+    guidance = get_care_guidance("My baby is teething.", 1)
+    assert "young-gum-discomfort" in guidance.references[0].passage_id
+    assert "teething ring" not in guidance.fallback
+
+
+def test_all_permitted_care_fallbacks_pass_the_existing_output_checks():
+    from backend.services.care_guidance import load_references
+    for entry in load_references()["entries"]:
+        answer = "\n\n".join(r["text"] for r in entry["references"])
+        decision = inspect_response(answer, [], [], min(entry["min_months"], 24))
+        assert not decision.blocked, (entry["id"], decision.reasons)
+
+
+def test_teething_with_diarrhoea_preserves_the_illness_boundary():
+    question = "Does teething explain loose stools?"
+    guidance = get_care_guidance(question, 12)
+    assert guidance.topic == "teething_illness"
+    result = CoachingResult("Increased drool can affect digestion during teething. Ask a doctor if worried.", guidance.references)
+    reviewed, decision = review_coaching_result(result, guidance.references, 12, question)
+    assert decision.replaced_with_basic_care
+    assert "unsupported_teething_explanation" in decision.reasons
+    assert "no evidence that teething causes diarrhoea" in reviewed.answer
+
+
+def test_solid_food_preferences_are_separate_from_young_infant_feeding_problems():
+    question = "My baby refuses food. What should I do?"
+    assert get_care_guidance(question, 3) is None
+    guidance = get_care_guidance(question, 9)
+    assert guidance.topic == "food_refusal"
+    assert "already eating solids" in guidance.fallback
+    assert "health professional" in guidance.fallback
+
+
+@pytest.mark.parametrize("answer", [
+    "Ask a pharmacist or clinician before using nose drops. Seek medical assessment if feeding is affected.",
+    "A health professional should be consulted before using nose drops. Seek medical assessment if feeding is affected.",
+    "Do not use nasal drops without professional advice. Seek medical assessment if feeding is affected.",
+])
+def test_cold_care_preserves_professional_first_product_advice(answer):
+    guidance = get_care_guidance("My baby has a cold.", 9)
+    assert "individual_nasal_product_instruction" not in guidance.findings(answer)

@@ -81,6 +81,21 @@ jobs:
       - name: Evaluate child danger-sign routing
         run: python -m scripts.evaluate_safety --check --output safety-report.json
 
+      - name: Verify fixture-corpus age filtering
+        run: pytest -q tests/test_retrieval_evaluation.py -k fixture_corpus
+
+      - name: Set up Node.js for API workflow integration
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Verify frontend and backend conversation workflow
+        run: |
+          npm ci --prefix frontend
+          npm --prefix frontend run test:workflow
+
       - name: Upload safety evaluation report
         if: always()
         uses: actions/upload-artifact@v4
@@ -113,7 +128,9 @@ jobs:
 
       - name: Run Frontend Tests
         working-directory: ./frontend
-        run: npm run test
+        run: |
+          npm run test:audio
+          npm run test:ui -- --exclude tests/frontend/ConversationWorkflow.test.jsx
 
       - name: Run Production Build
         working-directory: ./frontend

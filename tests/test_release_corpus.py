@@ -6,7 +6,28 @@ import pytest
 
 from scripts.prepare_release_corpus import select_release_passages
 from scripts.prepare_release_corpus import revise_source
+from scripts.prepare_release_corpus import extend_basic_care_release
 from scripts.build_reference_expansion import compile_expansion, fingerprint
+
+
+def test_basic_care_extension_preserves_release_and_traceable_age_scoped_sources():
+    from backend.services.care_guidance import load_references
+    original = [{"passage_id": "original", "text": "Original baseline."}]
+    pack = load_references()
+    selected, manifest = extend_basic_care_release(original, {"sources": []}, pack)
+    assert selected[0] is original[0]
+    sources = {s["source_id"]: s for s in manifest["sources"]}
+    for record in selected[1:]:
+        source = sources[record["source_id"]]
+        assert record["source_url"] == source["source_url"]
+        assert record["source_section"] in source["sections"]
+        assert record["source_sha256"] == source["sha256"]
+        assert record["source_age"]["min_months"] < record["source_age"]["max_months_exclusive"]
+        assert record["clinical_review_required"] is False
+    with pytest.raises(ValueError, match="blocked"):
+        extend_basic_care_release([{**original[0], "clinical_review_required": True}], {"sources": []}, pack)
+    with pytest.raises(ValueError, match="validated"):
+        extend_basic_care_release(original, {"sources": []}, {**pack, "checked_on": "1900-01-01"})
 
 
 def fixture():
