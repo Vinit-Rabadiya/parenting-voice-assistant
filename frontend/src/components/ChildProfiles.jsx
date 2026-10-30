@@ -1,10 +1,11 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createChild, listChildren, updateChild, deleteChild } from "../services/caregiving";
 import "./ChildProfiles.css";
 import ChatLoading from "./ChatLoading";
+import { readChildSelection, saveChildSelection } from "../services/childSelection";
 
-export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = false, allowChanges = true, isActive = true }) {
+export default function ChildProfiles({ selectedChild, onSelect, userId, guidanceBusy = false, allowChanges = true, isActive = true }) {
   const [children, setChildren] = useState([]);
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -21,6 +22,10 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
   const headingId = useId();
   const initialSelection = useRef(selectedChild?.id);
   const pickerOpen = pickerPosition !== null;
+  const selectChild = useCallback((child) => {
+    saveChildSelection(userId, child?.id);
+    onSelect(child);
+  }, [userId, onSelect]);
 
   useEffect(() => {
     let active = true;
@@ -29,11 +34,13 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
     listChildren(controller.signal).then((items) => {
       if (!active) return;
       setChildren(items);
-      if (!initialSelection.current && items[0]) onSelect(items[0]);
+      const savedId = initialSelection.current || readChildSelection(userId);
+      const restored = items.find((item) => item.id === savedId) || items[0] || null;
+      selectChild(restored);
     }).catch((cause) => active && setError(controller.signal.aborted ? "Profiles could not be loaded. Please reload to retry." : cause.message))
       .finally(() => { clearTimeout(timer); if (active) { setBusy(false); setInitialLoading(false); } });
     return () => { active = false; clearTimeout(timer); controller.abort(); };
-  }, [onSelect]);
+  }, [selectChild, userId]);
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -106,7 +113,7 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
         milestones: milestones.map((value) => value.trim()).filter(Boolean) };
       const child = mode === "edit" ? await updateChild(selectedChild.id, values) : await createChild(values);
       setChildren((current) => mode === "edit" ? current.map((item) => item.id === child.id ? child : item) : [...current, child]);
-      dialogRef.current?.close(); setMode(null); onSelect(child); triggerRef.current?.focus();
+      dialogRef.current?.close(); setMode(null); selectChild(child); triggerRef.current?.focus();
     } catch (cause) { setError(cause.message); }
     finally { setBusy(false); }
   }
@@ -118,7 +125,7 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
     try {
       await deleteChild(selectedChild.id);
       const remaining = children.filter((item) => item.id !== selectedChild.id);
-      dialogRef.current?.close(); setChildren(remaining); setMode(null); onSelect(remaining[0] || null);
+      dialogRef.current?.close(); setChildren(remaining); setMode(null); selectChild(remaining[0] || null);
       triggerRef.current?.focus();
     } catch (cause) { setError(cause.message); }
     finally { setBusy(false); }
@@ -142,7 +149,7 @@ export default function ChildProfiles({ selectedChild, onSelect, guidanceBusy = 
       <p className="profile-popover-label">Child profiles</p>
       <div className="profile-picker-list">{children.map((child) => <button type="button" key={child.id} disabled={busy || guidanceBusy}
         aria-pressed={child.id === selectedChild?.id} onClick={() => {
-          setPickerPosition(null); onSelect(child); triggerRef.current?.focus();
+          setPickerPosition(null); selectChild(child); triggerRef.current?.focus();
         }}><span>{child.name}<small>{child.age_label}</small></span>
         {child.id === selectedChild?.id && <span aria-hidden="true">✓</span>}</button>)}</div>
       {selectedChild && <><button type="button" disabled={busy || guidanceBusy} onClick={() => openDetails("view")}>View child details</button>

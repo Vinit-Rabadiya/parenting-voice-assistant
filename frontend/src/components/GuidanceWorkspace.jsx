@@ -190,19 +190,19 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
   </div>;
 }
 
-function Workspace({ processingAllowed, isActive }) {
+function Workspace({ processingAllowed, isActive, userId }) {
   const [child, setChild] = useState(null);
   const [busy, setBusy] = useState(false);
   const selectChild = useCallback((nextChild) => {
     stopGuidanceAudio(); setBusy(false); setChild(nextChild);
   }, []);
-  const profileControls = <ChildProfiles selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} isActive={isActive} />;
+  const profileControls = <ChildProfiles userId={userId} selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} isActive={isActive} />;
   return <div className="guidance-workspace">
     {child ? <ConversationWorkspace key={child.id} child={child} onBusyChange={setBusy} profileControls={profileControls} readOnly={!processingAllowed} isActive={isActive} />
       : <div className="profile-onboarding">{profileControls}<p>Select or add a child profile first.</p></div>}
   </div>;
 }
 
-export default function GuidanceWorkspace({ isActive = true }) {
-  return <PrivacyConsent>{(allowed) => <Workspace key={String(allowed)} processingAllowed={allowed} isActive={isActive} />}</PrivacyConsent>;
+export default function GuidanceWorkspace({ isActive = true, userId }) {
+  return <PrivacyConsent>{(allowed) => <Workspace key={String(allowed)} processingAllowed={allowed} isActive={isActive} userId={userId} />}</PrivacyConsent>;
 }

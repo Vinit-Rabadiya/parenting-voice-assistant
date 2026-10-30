@@ -1,19 +1,25 @@
 // this component listens to firebase auth changes and shares the current user with child components.
 // it is imported in App.jsx to wrap the application in auth state.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../services/firebase";
 import { logOut } from "../services/auth";
 import { AuthContext } from "./AuthContext";
+import { saveChildSelection } from "../services/childSelection";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const previousUserId = useRef(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [signupResult, setSignupResult] = useState(null);
 
   useEffect(() => {
     // listen to firebase to know when someone logs in or out.
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (previousUserId.current && previousUserId.current !== currentUser?.uid) {
+        saveChildSelection(previousUserId.current, null);
+      }
+      previousUserId.current = currentUser?.uid ?? null;
       setUser(currentUser);
       setCheckingAuth(false);
     });
@@ -23,6 +29,7 @@ export function AuthProvider({ children }) {
 
   const handleLogout = async () => {
     await logOut();
+    saveChildSelection(user?.uid, null);
     setUser(null);
     setSignupResult(null);
   };

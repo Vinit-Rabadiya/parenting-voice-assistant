@@ -1,20 +1,22 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { readChildSelection, saveChildSelection } from "../../frontend/src/services/childSelection";
 import { AuthProvider } from "../../frontend/src/context/AuthProvider";
 import { useAuth } from "../../frontend/src/hooks/useAuth";
 import AccountPage from "../../frontend/src/pages/AccountPage";
 import { Navbar } from "../../frontend/src/components/Navbar";
-import { deleteMyData } from "../../frontend/src/services/caregiving";
+import { deleteMyData, deleteAccount } from "../../frontend/src/services/caregiving";
 import { getAccountSecurityStatus, reauthenticateAccount, turnOffMfa } from "../../frontend/src/services/auth";
 
-const { user, logOut, unsubscribe } = vi.hoisted(() => ({
+const { user, logOut, unsubscribe, authListener } = vi.hoisted(() => ({
   user: { uid: "caregiver", email: "caregiver@example.test" },
+  authListener: { current: null },
   logOut: vi.fn(),
   unsubscribe: vi.fn(),
 }));
 
 vi.mock("../../frontend/src/services/firebase", () => ({
-  auth: { onAuthStateChanged: (callback) => { callback(user); return unsubscribe; } },
+  auth: { onAuthStateChanged: (callback) => { authListener.current = callback; callback(user); return unsubscribe; } },
 }));
 vi.mock("../../frontend/src/services/api", () => ({ getCurrentAccount: vi.fn() }));
 vi.mock("../../frontend/src/services/caregiving", () => ({ deleteMyData: vi.fn(), deleteAccount: vi.fn() }));
@@ -46,6 +48,7 @@ function AccountHarness() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   deleteMyData.mockReset();
   logOut.mockReset();
   logOut.mockResolvedValue(undefined);
@@ -138,4 +141,39 @@ it("preserves state on logout failure and clears it after retry", async () => {
   await waitFor(() => expect(screen.getByTestId("account-state").textContent).toBe("signed out"));
   expect(screen.getByTestId("signup-state").textContent).toBe("cleared");
   expect(logOut).toHaveBeenCalledTimes(2);
+});
+
+it("clears the remembered child only after successful logout", async () => {
+  saveChildSelection("caregiver", "child-id");
+  logOut.mockRejectedValueOnce(new Error("Try again"));
+  render(<AuthProvider><AccountHarness /></AuthProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "My Account" }));
+  fireEvent.click(screen.getByRole("button", { name: "Log Out" }));
+  await screen.findByText("Could not log out. Please try again.");
+  expect(readChildSelection("caregiver")).toBe("child-id");
+  fireEvent.click(screen.getByRole("button", { name: "Log Out" }));
+  await waitFor(() => expect(readChildSelection("caregiver")).toBeNull());
+});
+
+it("clears the previous account selection on authentication changes", async () => {
+  saveChildSelection("caregiver", "first-child");
+  saveChildSelection("other-account", "second-child");
+  render(<AuthProvider><AccountHarness /></AuthProvider>);
+  expect(readChildSelection("caregiver")).toBe("first-child");
+  await act(async () => authListener.current({ uid: "other-account", email: "other@example.test" }));
+  expect(readChildSelection("caregiver")).toBeNull();
+  expect(readChildSelection("other-account")).toBe("second-child");
+  await act(async () => authListener.current(null));
+  expect(readChildSelection("other-account")).toBeNull();
+});
+
+it("clears the selected child after account deletion even if logout fails", async () => {
+  saveChildSelection("caregiver", "child-id");
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  deleteAccount.mockResolvedValue(undefined);
+  logOut.mockRejectedValueOnce(new Error("Sign out failed"));
+  render(<AuthProvider><AccountHarness /></AuthProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: "Delete my account" }));
+  await waitFor(() => expect(deleteAccount).toHaveBeenCalledOnce());
+  await waitFor(() => expect(readChildSelection("caregiver")).toBeNull());
 });

@@ -1,6 +1,7 @@
 // this page manages email verification, qr authenticator setup, backend checks, and logout.
 // app.jsx opens this page for account management or signed-in onboarding.
 import { useState, useEffect, useRef } from "react";
+import { saveChildSelection } from "../services/childSelection";
 import { resendVerificationEmail } from "../services/auth";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -113,6 +114,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     setMessage("");
     try {
       await deleteAccount();
+      saveChildSelection(user.uid, null);
       stopGuidanceAudio();
       await logout();
     } catch (error) {
