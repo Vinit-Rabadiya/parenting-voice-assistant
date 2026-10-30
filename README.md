@@ -18,7 +18,7 @@ references, and listen to the answer.
 - Guidance defaults to Kenya without a country picker; relevant safety responses include Kenya support contacts.
 - Source-checked Kenya vaccination education covers routine visit ages, vaccine purposes
   and common side effects. Clinics confirm individual due doses and regional eligibility.
-- Qdrant retrieval from 184 selected source-linked passages and age-aware Gemini guidance.
+- Qdrant retrieval from 216 selected source-linked passages and age-aware Gemini guidance.
   Baby-care questions can also receive guidance when references are missing or incomplete.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
 - New answers reveal progressively after generation, with one Listen/Stop audio control
@@ -33,36 +33,32 @@ intended for medical diagnosis, treatment, or emergency assessment. Generated
 answers can contain errors; references support review rather than guarantee every
 claim. See [scope and availability](RELEASE.md#scope-and-availability).
 
-## Planned baby-care coverage
+## Baby-care coverage
 
-The next scope expands beyond developmental activities to source-backed everyday
-baby-care support for Kenya. The reference collection primarily covers birth through
-the second birthday. Questions about children older than 24 months receive an
-age-range notice instead of coaching. Planned topics
-include feeding and nutrition, sleep, hygiene and clothing, crying and bonding,
-growth and routine care, development and learning, vaccination, common concerns,
-safety, outings/travel and childcare transitions. English remains the supported language.
+The current application covers Kenya, English, and children from birth through
+the second birthday. It accepts questions, everyday statements and follow-ups.
+References cover feeding and nutrition, sleep, bathing and clothing, oral care,
+crying and bonding, growth records, development and learning, safety, outings,
+childcare transitions and caregiver support.
 
-This is a development plan, not a claim that all these topics are available in the
-published release. The current branch uses the source-checked 184-passage everyday
-collection; the original 106-passage collection remains available for rollback.
-The larger candidate corpus is separate and is not activated. General vaccination
-explanations and expected-effects information have WHO/UNICEF source links.
-Current Kenya schedules, catch-up decisions and individual reactions are not
-calculated in chat; these requests receive a clinic referral or source limitation.
+Selected common-concern references cover milk regurgitation, vomiting and
+diarrhoea, fever, coughs and colds, nappy-area irritation, teething, stool changes,
+newborn yellowing and developmental concerns. Age restrictions, practical
+precautions and professional-assessment boundaries accompany these selections.
+Kenya vaccination information uses its separately checked schedule and sources;
+clinics confirm individual due doses and regional eligibility.
 
-Relevant baby-care statements and follow-ups use references when applicable and
-label supplemental model knowledge as general information. Missing references or
-a reference-service outage do not by themselves stop generation. General information
-is not verified medical guidance. Unrelated requests are declined; urgent reports
-and individual diagnosis or dose requests retain separate safety handling.
+The active collection contains 216 passages with 45 source entries across
+42 original URLs. The previous 184-passage collection remains available for
+rollback. Source-linked basic-care facts are also available locally to support
+selected answers. Broader clinical candidate packs remain excluded.
 
-The topic inventory is listed above; task checklists are maintained in GitHub.
-Reference work is
-tracked in #76, vaccination in #100, common concerns in #102, and evaluation and
-qualified review in #74, #78 and #79. Statements, follow-ups and helpful no-evidence
-responses are tracked separately in #103. Medical diagnosis, prescribing and individualized
-dose decisions remain outside scope. Published release notes retain their original scope.
+Missing references do not by themselves prevent an in-scope answer. Unrelated
+requests are declined, and urgent reports take priority over generation.
+Diagnosis, prescribing and individual dose decisions remain outside scope.
+See [source preparation and evaluation](data/README.md) for the source inventory,
+coverage review and verification records. Published release notes retain the
+scope of their tagged release.
 
 ## How it works
 
@@ -181,7 +177,7 @@ FIREBASE_ADMIN_KEY_PATH=.secrets/firebase-admin.json
 STT_MODEL=base
 QDRANT_URL=https://your-cluster-url.qdrant.io
 QDRANT_API_KEY=your-qdrant-api-key
-QDRANT_COLLECTION=caregiver_guidance_everyday_v3
+QDRANT_COLLECTION=caregiver_guidance_everyday_v4
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.5-flash-lite
 GEMINI_FALLBACK_MODEL=gemini-3.8-flash
@@ -294,11 +290,11 @@ The source inventory is in `data/sources.json`. Obtain the matching PDFs and pla
 them in `data/raw/pdfs/` using the filenames in that inventory. Source documents,
 generated passages, and local credentials are not included in the repository.
 
-An existing populated `caregiver_guidance_everyday_v3` collection can be used
-without rebuilding. The 184-record collection was checked against its local
+An existing populated `caregiver_guidance_everyday_v4` collection can be used
+without rebuilding. All 216 remote payloads were checked against the local
 release fingerprint before activation. Restart the backend after changing
 `QDRANT_COLLECTION`; an explicit value in `.env` overrides the default.
-To roll back, set `QDRANT_COLLECTION=caregiver_guidance_minilm_v1` and restart.
+To roll back, set `QDRANT_COLLECTION=caregiver_guidance_everyday_v3` and restart.
 Neither activation nor rollback deletes a collection.
 
 For a new original 106-passage baseline index, run:

@@ -150,7 +150,7 @@ async def coach(
     with timed_stage(request_id, "caregiver_safety"):
         crisis = inspect_crisis(payload.question, payload.support_country)
     with timed_stage(request_id, "input_safety"):
-        triage = inspect_input(payload.question, completed_months)
+        triage = inspect_input(payload.question, completed_months, child_age_days=age_days)
     timing_logger.info(
         "coaching_caregiver_safety request=%s outcome=%s reasons=%s",
         request_id, crisis.kind or "not_flagged", ",".join(crisis.reasons) or "none",
@@ -192,7 +192,7 @@ async def coach(
             # A younger child mentioned in this conversation may have stricter
             # age-specific danger signs than the selected profile.
             with timed_stage(request_id, "context_safety"):
-                triage = inspect_input(payload.question, completed_months)
+                triage = inspect_input(payload.question, completed_months, child_age_days=age_days)
             if triage.escalate:
                 return await respond_to_safety(
                     data_service, user["uid"], payload, age_months, triage, crisis, request_id, triage_started,

@@ -44,6 +44,11 @@ FEVER = {
     "source_url": "https://www.nhs.uk/symptoms/fever-in-children/",
     "title": "Urgent advice: under three months with a temperature of 38C or higher",
 }
+JAUNDICE = {
+    "passage_id": "safety-nhs-first-day-yellowing", "source_title": "NHS: Jaundice in babies",
+    "pdf_page": None, "source_url": "https://www.nhs.uk/conditions/jaundice-in-babies/",
+    "title": "Immediate help: jaundice during the first day of life",
+}
 URGENT_ILLNESS = {
     "passage_id": "safety-nhs-urgent-child-illness",
     "source_title": "NHS: When to get urgent medical help for babies and children under 5",
@@ -133,13 +138,15 @@ class InputSafetyDecision:
         return SWALLOWED_OBJECT_MESSAGE if self.reasons == ("swallowed_object",) else ESCALATION_MESSAGE
 
 
-def inspect_input(question: str, completed_months: int) -> InputSafetyDecision:
+def inspect_input(question: str, completed_months: int, *, child_age_days: int | None = None) -> InputSafetyDecision:
     text = question.lower().replace("\u2019", "'")
     text = re.sub(r"\s+", " ", text)
     reasons, citations = [], {}
     if not CHILD_CONTEXT.search(text):
         return InputSafetyDecision((), ())
     rules = list(RULES)
+    if child_age_days == 0:
+        rules.append(("first_day_yellowing", r"\b(?:has jaundice|(?:skin|eyes) (?:(?:are|look|looks|appear|appears|seem|seems) )?yellow)\b", JAUNDICE))
     if completed_months < 3:
         rules.append(("young_infant_fever", r"\b(?:fever|feverish|unusually hot|unusually cold)\b", KENYA))
         # Explicit Celsius readings only; do not infer units from a bare number.

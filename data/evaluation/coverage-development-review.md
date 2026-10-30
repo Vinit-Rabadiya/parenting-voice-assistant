@@ -1,3 +1,118 @@
+# Current baby-care coverage review - 30 October 2026
+
+Active release: `caregiver_guidance_everyday_v4`, 216 passages, 45 manifest source
+entries and 42 original URLs. Corpus SHA256:
+`776133f6c59bb0e9506071b468f10ae1a14eaa1811bb8d95c73c464dd14a46f9`.
+All remote payloads match the local release. All 184 v3 records are unchanged;
+32 additions index the validated application care facts. V3 and the original
+106-record baseline remain available for rollback. Clinical candidate packs
+remain blocked.
+
+## Substantive inventory
+
+| Topic | Reviewed sources and scope | Boundary |
+| --- | --- | --- |
+| Feeding/nutrition | NHS first foods/preferences, UNICEF infant/toddler feeding and Kenya handbook. | Milk before six months; readiness-based solids; soft family foods and gentle preference support. No forced feeding or therapeutic formula/dose decisions. |
+| Sleep | NHS routines and safer sleep, plus existing routine selections. | Back/flat infant sleep, clear separate cot, room sharing in the first six months. No raised cot, sleep guarantees or unsolicited timings. |
+| Hygiene/clothing/oral care | NHS bathing, nappy care and tooth brushing; Reach Up dressing; SA bath-language activities. | Continuous water supervision, gentle skin care, no self-selected rash treatment; brushing begins after tooth eruption. |
+| Soothing/bonding | Reach Up and UNICEF positive parenting through 24 months. | Respond to cues and ordinary needs; illness or inconsolable crying needs assessment. No shaking or violence. |
+| Development/movement | WHO/UNICEF CCD, Reach Up, UNICEF age-labelled activities, HSE books and NHS conversation selections. | Opportunities to practise, not diagnostic milestone tests. Newborn turn-taking means gentle sounds and pauses without demanding a response. |
+| Growth records/appointments | Kenya handbook and general NHS review preparation. | Bring local records, observations and questions. Do not copy overseas appointment schedules or diagnose from measurements. |
+| Vaccination | Separately checked Kenya schedule and vaccine-education router. | Clinics confirm actual due doses, catch-up and regional eligibility. |
+| Safety | UNICEF home precautions, NHS eating/toy safety and existing early danger routes. | Appropriate objects and supervision; urgent signs precede generation. Kenya contacts remain separately verified. |
+| Outings | NHS shade/clothing precautions and existing travel-planning selection. | No blanket over the pram, overseas road rules or travel-medicine protocol. |
+| Childcare/caregiver support | UNICEF separation/positive parenting and existing caregiver-support routes. | Gentle introductions and supportive routines; no diagnosis of anxiety or postpartum illness. |
+
+## Age and domain coverage
+
+The routine matrix counts stored tags at selected calendar-age checkpoints.
+Age zero uses an eleven-day example; it is not a count of all birth-day content.
+
+| Age (months) | Feeding | Bathing | Play | Reading | Dressing | Sleep | Soothing |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 6 | 8 | 9 | 4 | 3 | 3 | 1 |
+| 2 | 6 | 7 | 13 | 4 | 3 | 3 | 1 |
+| 4 | 7 | 8 | 12 | 4 | 4 | 3 | 1 |
+| 6 | 11 | 8 | 12 | 3 | 2 | 2 | 0 |
+| 9 | 11 | 7 | 11 | 4 | 1 | 2 | 0 |
+| 12 | 8 | 5 | 14 | 6 | 5 | 2 | 0 |
+| 18 | 8 | 4 | 15 | 5 | 4 | 2 | 0 |
+| 24 | 7 | 3 | 12 | 5 | 3 | 0 | 0 |
+
+The general soothing facts apply through the second birthday, and toddler sleep
+facts also apply at 24 months; they have no corresponding routine tag. Those
+zero cells do not mean the named care facts are absent. Actual request selection
+and replies were checked separately.
+
+Domain totals after applying the hash-pinned baseline editorial annotations are
+non-exclusive: cognitive 50, language 111, social/emotional 41, gross motor 21,
+fine motor 38, responsive caregiving 37, nutrition 11, safety 16 and common
+concerns 18. No new exact-text duplicates were introduced. Counts describe the
+selected source collection, not comprehensive clinical coverage.
+
+## Common-concern review
+
+| Concern | Source selection and applicable boundary |
+| --- | --- |
+| Feeding difficulty/reflux | NHS reflux and food-preference selections: basic positioning, awake/sleep distinction, assessment after the first birthday. No individual feeding changes, raised cot or treatment duration. |
+| Vomiting/diarrhoea | NHS stomach-upset guidance: usual feeds if tolerated, no weakened formula, hygiene and fluid-loss observations. Young infants need prompt advice; inability to retain fluids, green/bloody vomit and other danger reports use urgent handling. |
+| Fever | NHS temperature checking and care: young-infant professional advice, observation and usual feeds; no medicine/dose selection or invented numeric thresholds. |
+| Cough/cold | NHS cough/cold guidance: feeding/breathing observations, usual drinks and handwashing; professional advice about products. Breathing/swallowing difficulty requires urgent care. |
+| Nappy irritation | NHS rash care: gentle cleaning/drying, avoiding irritants and assessment for persistence, spreading, discomfort or fever. Pharmacist advice for products. |
+| Teething | NHS comfort/symptom pages: age-suitable rings, no freezing/neck cords. Young-baby symptoms do not prove teething; diarrhoea, fever or vomiting is not explained away as teeth. |
+| Stool changes | NHS Best Start infant guidance: young-infant assessment, correct formula strength and no remedies from chat; suitable food variety only after starting solids. The overdue older constipation page remains excluded. |
+| Newborn yellowing | NHS jaundice: prompt assessment, no sunlight treatment or severity estimate by colour. A reported symptom on a known day-zero profile bypasses generation. The selection is newborn-only. |
+| Lost abilities/development concerns | CCD/Kenya concern guidance and general review preparation: record changes and seek assessment, without diagnosing or forcing a skill. |
+
+## Traceability and overlap
+
+All records resolve to an original source URL, title/publisher, page or section,
+source/content fingerprints and age scope. The existing hash-pinned domain review
+supplies non-exclusive annotations for the 106 baseline records without changing
+them. All three original PDFs are present and match their manifest hashes; their
+byte recheck is dated 30 October. Everyday web checks are dated 24 October and
+basic-care checks 30 October. Known publisher review dates are retained; unknown
+publication dates are not invented. NHS fussy-eater guidance has its next stated
+review on 13 November 2026.
+
+Fourteen contained-text pairs remain in the preserved baseline. Combined and
+standalone selections have distinct identities/scopes/routine annotations;
+containment alone does not justify deleting a labelled baseline record. The
+caring-behaviour and birthday questions also received answer review. No query-
+specific vector boosts, threshold changes or reranker were introduced.
+Routine matrices count tags, not substantive coverage: generally applicable care
+facts may have no UI-routine tag and still support the named topic at that age.
+
+## Frozen retrieval results
+
+The source-checked positive pools in `care-coverage-questions.jsonl` are pinned to
+the release fingerprint and fixed dates. Five fresh questions were reserved after
+development corrections and before final verification. Their results did not
+guide further content, ranking or threshold changes. These are project-authored
+pools, not exhaustive relevance labels or independent clinical gold standards.
+
+| Group | Cases | Positive hit@4 | Mean positive-pool recall@4 | MRR | Mean retrieval ms | Observed age leaks |
+| --- | --- | --- | --- | --- | --- | --- |
+| Development | 20 | 19/20 | 0.8500 | 0.8042 | 395.3 | 0 |
+| Earlier held-out | 12 including 3 unrelated | 9/9 | 0.9444 | 0.8704 | 332.4 | 0 |
+| Fresh final held-out | 5 | 5/5 | 0.9000 | 0.8667 | 324.4 | 0 |
+
+All three unrelated cases returned raw neighbours but were rejected by the
+unchanged 0.50 gate. All locally known ineligible IDs were checked; these coverage
+cases are not all age-boundary cases. The separate CI fixture explicitly checks
+day zero, one week, six months and the second birthday with constant vectors,
+which verify filtering rather than embedding quality.
+
+The loss-of-ability development case remains a raw vector miss against its label
+pool. The general concern wording selects the appropriate local assessment facts;
+the delivered answer does not diagnose. That is not counted as a vector hit.
+The combined `eval/results/care-coverage-answers-20261030.json` capture retains
+initial findings, final retrieval and actual answers. Retrieval recall is not
+answer accuracy. Answer/rubric review is in `coaching-quality-review.md`; final
+signed-in acceptance is recorded once in `docs/progress-review.md` under #66.
+
+---
+
 # Initial development retrieval review
 
 Corpus: 187 candidate passages in `caregiver_guidance_review_v1`.

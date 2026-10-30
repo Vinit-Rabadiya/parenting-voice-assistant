@@ -4,64 +4,538 @@
   "review_kind": "source_checked_basic_care_not_clinical_validation",
   "scope": "Selected practical care and precautions. No diagnosis, medicine selection, doses, treatment timings or individual vaccination decisions. General-care selections omit overseas service numbers and local protocols.",
   "sources": {
-    "nhs-first-foods": {"publisher": "NHS", "title": "Your baby's first solid foods", "url": "https://www.nhs.uk/baby/weaning-and-feeding/babys-first-solid-foods/"},
-    "unicef-food-6-12": {"publisher": "UNICEF", "title": "Feeding your baby: 6-12 months", "url": "https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-6-12-months"},
-    "unicef-food-1-2": {"publisher": "UNICEF", "title": "Feeding your baby: 1-2 years", "url": "https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-1-2-years"},
-    "nhs-reflux": {"publisher": "NHS", "title": "Reflux in babies", "url": "https://www.nhs.uk/conditions/reflux-in-babies/"},
-    "nhs-nappy-rash": {"publisher": "NHS", "title": "Nappy rash", "url": "https://www.nhs.uk/baby/caring-for-a-newborn/nappy-rash/"},
-    "nhs-sleep-routine": {"publisher": "NHS", "title": "Helping your baby to sleep", "url": "https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/"},
-    "nhs-safe-sleep": {"publisher": "NHS", "title": "Sudden infant death syndrome (SIDS)", "url": "https://www.nhs.uk/baby/caring-for-a-newborn/sudden-infant-death-syndrome-sids/"}
+    "nhs-first-foods": {
+      "publisher": "NHS",
+      "title": "Your baby's first solid foods",
+      "url": "https://www.nhs.uk/baby/weaning-and-feeding/babys-first-solid-foods/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "unicef-food-6-12": {
+      "publisher": "UNICEF",
+      "title": "Feeding your baby: 6-12 months",
+      "url": "https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-6-12-months",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "unicef-food-1-2": {
+      "publisher": "UNICEF",
+      "title": "Feeding your baby: 1-2 years",
+      "url": "https://www.unicef.org/parenting/food-nutrition/feeding-your-baby-1-2-years",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "nhs-reflux": {
+      "publisher": "NHS",
+      "title": "Reflux in babies",
+      "url": "https://www.nhs.uk/conditions/reflux-in-babies/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "nhs-nappy-rash": {
+      "publisher": "NHS",
+      "title": "Nappy rash",
+      "url": "https://www.nhs.uk/baby/caring-for-a-newborn/nappy-rash/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded.",
+      "source_reviewed_on": "2026-08-28",
+      "source_next_review_due": "2029-08-28"
+    },
+    "nhs-sleep-routine": {
+      "publisher": "NHS",
+      "title": "Helping your baby to sleep",
+      "url": "https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded.",
+      "source_reviewed_on": "2025-01-28",
+      "source_next_review_due": "2028-01-28"
+    },
+    "nhs-safe-sleep": {
+      "publisher": "NHS",
+      "title": "Sudden infant death syndrome (SIDS)",
+      "url": "https://www.nhs.uk/baby/caring-for-a-newborn/sudden-infant-death-syndrome-sids/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded.",
+      "source_reviewed_on": "2025-11-25",
+      "source_next_review_due": "2028-11-25"
+    },
+    "nhs-vomiting": {
+      "publisher": "NHS",
+      "title": "Diarrhoea and vomiting",
+      "url": "https://www.nhs.uk/symptoms/diarrhoea-and-vomiting/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "nhs-fever": {
+      "publisher": "NHS",
+      "title": "High temperature in children",
+      "url": "https://www.nhs.uk/symptoms/fever-in-children/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "nhs-colds": {
+      "publisher": "NHS",
+      "title": "Colds, coughs and ear infections in children",
+      "url": "https://www.nhs.uk/baby/health/colds-coughs-and-ear-infections-in-children/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "nhs-teething": {
+      "publisher": "NHS",
+      "title": "Tips for helping your teething baby",
+      "url": "https://www.nhs.uk/baby/babys-development/teething/tips-for-helping-your-teething-baby/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded.",
+      "source_reviewed_on": "2025-10-23",
+      "source_next_review_due": "2028-10-23"
+    },
+    "nhs-teething-symptoms": {
+      "publisher": "NHS",
+      "title": "Baby teething symptoms",
+      "url": "https://www.nhs.uk/baby/babys-development/teething/baby-teething-symptoms/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded.",
+      "source_reviewed_on": "2026-05-14",
+      "source_next_review_due": "2029-05-14"
+    },
+    "nhs-infant-stools": {
+      "publisher": "NHS",
+      "title": "Constipation and bottle feeding",
+      "url": "https://www.nhs.uk/best-start-in-life/baby/feeding-your-baby/bottle-feeding/bottle-feeding-challenges/constipation-and-bottle-feeding/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "nhs-jaundice": {
+      "publisher": "NHS",
+      "title": "Jaundice in babies",
+      "url": "https://www.nhs.uk/conditions/jaundice-in-babies/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded.",
+      "source_reviewed_on": "2026-03-24",
+      "source_next_review_due": "2029-03-24"
+    },
+    "nhs-teeth": {
+      "publisher": "NHS",
+      "title": "Looking after your baby's teeth",
+      "url": "https://www.nhs.uk/baby/babys-development/teething/looking-after-your-babys-teeth/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded.",
+      "source_reviewed_on": "2025-04-01",
+      "source_next_review_due": "2028-04-01"
+    },
+    "nhs-sun": {
+      "publisher": "NHS",
+      "title": "Keeping your baby safe in the sun",
+      "url": "https://www.nhs.uk/baby/first-aid-and-safety/safety/safety-in-the-sun/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "nhs-reviews": {
+      "publisher": "NHS",
+      "title": "Your baby's health and development reviews",
+      "url": "https://www.nhs.uk/baby/babys-development/height-weight-and-reviews/baby-reviews/",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "unicef-positive": {
+      "publisher": "UNICEF",
+      "title": "Positive parenting tips for babies and children ages 0-5",
+      "url": "https://www.unicef.org/asia-pacific/place-for-parents/positive-parenting-ages-0-5",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "unicef-two-years": {
+      "publisher": "UNICEF",
+      "title": "Your toddler's developmental milestones at 2 years",
+      "url": "https://www.unicef.org/parenting/child-development/your-toddlers-developmental-milestones-2-years",
+      "checked_on": "2026-10-30",
+      "applicability": "General caregiver education; overseas contact numbers, service schedules, medicine choices and doses are excluded."
+    },
+    "nhs-fussy-eaters": {
+      "publisher": "NHS",
+      "title": "Fussy eaters",
+      "url": "https://www.nhs.uk/baby/weaning-and-feeding/fussy-eaters/",
+      "checked_on": "2026-10-30",
+      "applicability": "General support after starting age-appropriate solid foods; no reassurance about individual growth or diagnoses.",
+      "source_reviewed_on": "2023-11-13",
+      "source_next_review_due": "2026-11-13"
+    }
   },
   "entries": [
     {
-      "id": "milk-feeding", "topic": "feeding", "min_months": 0, "max_months_exclusive": 6,
+      "id": "milk-feeding",
+      "topic": "feeding",
+      "min_months": 0,
+      "max_months_exclusive": 6,
       "references": [
-        {"source": "nhs-first-foods", "section": "Feeding your baby: from 0 to 6 months", "text": "Before around six months, breast milk or first infant formula supplies your baby's nutrition. Solid foods are introduced from around six months when the baby shows readiness; ask a health professional for individual advice if your baby was premature or feeding is difficult."}
+        {
+          "source": "nhs-first-foods",
+          "section": "Feeding your baby: from 0 to 6 months",
+          "text": "Before around six months, breast milk or first infant formula supplies your baby's nutrition. Solid foods are introduced from around six months when the baby shows readiness; ask a health professional for individual advice if your baby was premature or feeding is difficult."
+        }
       ]
     },
     {
-      "id": "first-foods", "topic": "feeding", "min_months": 6, "max_months_exclusive": 12,
+      "id": "first-foods",
+      "topic": "feeding",
+      "min_months": 6,
+      "max_months_exclusive": 12,
       "references": [
-        {"source": "unicef-food-6-12", "section": "Your baby's first foods", "text": "For a baby already ready for solids, try soft foods such as thick porridge, mashed vegetables, ripe fruit or mashed legumes alongside breast milk or infant formula. Let the baby explore new tastes at their own pace and stop when they show they have had enough."},
-        {"source": "nhs-first-foods", "section": "Signs your baby is ready; safety and hygiene", "text": "Around six months, readiness includes sitting with a steady head, coordinating food to the mouth and swallowing it. Age alone does not confirm these abilities; seek individual advice if your baby was premature. Keep the baby safely upright and stay with them while eating. Adapt textures to their abilities and avoid hard choking hazards."}
+        {
+          "source": "unicef-food-6-12",
+          "section": "Your baby's first foods",
+          "text": "For a baby already ready for solids, try soft foods such as thick porridge, mashed vegetables, ripe fruit or mashed legumes alongside breast milk or infant formula. Let the baby explore new tastes at their own pace and stop when they show they have had enough."
+        },
+        {
+          "source": "nhs-first-foods",
+          "section": "Signs your baby is ready; safety and hygiene",
+          "text": "Around six months, readiness includes sitting with a steady head, coordinating food to the mouth and swallowing it. Age alone does not confirm these abilities; seek individual advice if your baby was premature. Keep the baby safely upright and stay with them while eating. Adapt textures to their abilities and avoid hard choking hazards."
+        }
       ]
     },
     {
-      "id": "toddler-foods", "topic": "feeding", "min_months": 12, "max_months_exclusive": 25,
+      "id": "toddler-foods",
+      "topic": "feeding",
+      "min_months": 12,
+      "max_months_exclusive": 25,
       "references": [
-        {"source": "unicef-food-1-2", "section": "What to feed your child", "text": "Offer varied family foods prepared for your child's abilities: soft cooked vegetables, ripe fruit, well-cooked eggs, mashed beans or lentils, and tender meat or fish with bones removed. Chop, mash or soften foods so they can manage them. Let them practise feeding themselves without pressure."},
-        {"source": "nhs-first-foods", "section": "Safety and hygiene", "text": "Keep your child upright and stay close while they eat. Remove bones and hard pits. Prepare food safely and avoid whole nuts and other hard choking hazards."}
+        {
+          "source": "unicef-food-1-2",
+          "section": "What to feed your child",
+          "text": "Offer varied family foods prepared for your child's abilities: soft cooked vegetables, ripe fruit, well-cooked eggs, mashed beans or lentils, and tender meat or fish with bones removed. Chop, mash or soften foods so they can manage them. Let them practise feeding themselves without pressure."
+        },
+        {
+          "source": "nhs-first-foods",
+          "section": "Safety and hygiene",
+          "text": "Keep your child upright and stay close while they eat. Remove bones and hard pits. Prepare food safely and avoid whole nuts and other hard choking hazards."
+        }
       ]
     },
     {
-      "id": "infant-regurgitation", "topic": "reflux", "min_months": 0, "max_months_exclusive": 12,
+      "id": "infant-regurgitation",
+      "topic": "reflux",
+      "min_months": 0,
+      "max_months_exclusive": 12,
       "references": [
-        {"source": "nhs-reflux", "section": "Things you can try; when to get medical help", "text": "Bringing up some milk can happen after a feed, but this message cannot establish the cause. Ask a health professional about feeding position, hold your baby upright while awake during and after feeding, and burp them during feeds. For sleep, place them flat on their back; do not raise the head of the cot. Seek prompt medical assessment for painful or persistent symptoms, poor weight gain or new symptoms after six months. Forceful, green or bloody vomit, inability to keep fluids down or refusal to feed needs urgent care."}
+        {
+          "source": "nhs-reflux",
+          "section": "Things you can try; when to get medical help",
+          "text": "Bringing up some milk can happen after a feed, but this message cannot establish the cause. Ask a health professional about feeding position, hold your baby upright while awake during and after feeding, and burp them during feeds. For sleep, place them flat on their back; do not raise the head of the cot. Seek prompt medical assessment for painful or persistent symptoms, poor weight gain or new symptoms after six months. Forceful, green or bloody vomit, inability to keep fluids down or refusal to feed needs urgent care."
+        }
       ]
     },
     {
-      "id": "older-regurgitation", "topic": "reflux", "min_months": 12, "max_months_exclusive": 25,
+      "id": "older-regurgitation",
+      "topic": "reflux",
+      "min_months": 12,
+      "max_months_exclusive": 25,
       "references": [
-        {"source": "nhs-reflux", "section": "When to get medical help", "text": "Ongoing milk regurgitation or reflux-like symptoms after the first birthday need a health professional's assessment. Do not assume it is ordinary infant reflux, especially with feeding or weight concerns. Seek urgent care for forceful, green or bloody vomit, inability to keep fluids down, severe distress or refusal to feed."}
+        {
+          "source": "nhs-reflux",
+          "section": "When to get medical help",
+          "text": "Ongoing milk regurgitation or reflux-like symptoms after the first birthday need a health professional's assessment. Do not assume it is ordinary infant reflux, especially with feeding or weight concerns. Seek urgent care for forceful, green or bloody vomit, inability to keep fluids down, severe distress or refusal to feed."
+        }
       ]
     },
     {
-      "id": "nappy-skin-care", "topic": "nappy_rash", "min_months": 0, "max_months_exclusive": 25,
+      "id": "nappy-skin-care",
+      "topic": "nappy_rash",
+      "min_months": 0,
+      "max_months_exclusive": 25,
       "references": [
-        {"source": "nhs-nappy-rash", "section": "Things you can do; when to get medical help", "text": "Wetness, rubbing or irritating products can contribute to nappy-area soreness, but a rash cannot be diagnosed through chat. Change wet or dirty nappies promptly, clean gently with water or fragrance-free alcohol-free wipes, and dry gently. Allow time without a nappy when practical and avoid tight nappies, irritating soaps and talcum powder. Ask a pharmacist about suitable products rather than selecting a treatment here. Have a health professional assess a rash that persists, worsens, spreads, causes marked discomfort or occurs with fever."}
+        {
+          "source": "nhs-nappy-rash",
+          "section": "Things you can do; when to get medical help",
+          "text": "Wetness, rubbing or irritating products can contribute to nappy-area soreness, but a rash cannot be diagnosed through chat. Change wet or dirty nappies promptly, clean gently with water or fragrance-free alcohol-free wipes, and dry gently. Allow time without a nappy when practical and avoid tight nappies, irritating soaps and talcum powder. Ask a pharmacist about suitable products rather than selecting a treatment here. Have a health professional assess a rash that persists, worsens, spreads, causes marked discomfort or occurs with fever."
+        }
       ]
     },
     {
-      "id": "infant-sleep", "topic": "sleep", "min_months": 0, "max_months_exclusive": 12,
+      "id": "infant-sleep",
+      "topic": "sleep",
+      "min_months": 0,
+      "max_months_exclusive": 12,
       "references": [
-        {"source": "nhs-sleep-routine", "section": "Night and day; establishing a bedtime routine", "text": "Try a calm, familiar bedtime sequence with quiet care, dimmer light and a soft voice at night. Babies have different waking and feeding patterns, so a routine does not guarantee uninterrupted sleep."},
-        {"source": "nhs-safe-sleep", "section": "How to reduce the risk of SIDS", "text": "Place your baby on their back on a firm, flat sleep surface in a clear, separate cot. Keep pillows, loose bedding and soft toys out of the cot. During the first six months, keep the cot in the same room as you for sleep."}
+        {
+          "source": "nhs-sleep-routine",
+          "section": "Night and day; establishing a bedtime routine",
+          "text": "Try a calm, familiar bedtime sequence with quiet care, dimmer light and a soft voice at night. Babies have different waking and feeding patterns, so a routine does not guarantee uninterrupted sleep."
+        },
+        {
+          "source": "nhs-safe-sleep",
+          "section": "How to reduce the risk of SIDS",
+          "text": "Place your baby on their back on a firm, flat sleep surface in a clear, separate cot. Keep pillows, loose bedding and soft toys out of the cot. During the first six months, keep the cot in the same room as you for sleep."
+        }
       ]
     },
     {
-      "id": "toddler-sleep", "topic": "sleep", "min_months": 12, "max_months_exclusive": 25,
+      "id": "toddler-sleep",
+      "topic": "sleep",
+      "min_months": 12,
+      "max_months_exclusive": 25,
       "references": [
-        {"source": "nhs-sleep-routine", "section": "Establishing a bedtime routine", "text": "Keep a familiar, calming bedtime sequence, such as changing into night clothes, sharing a quiet story and dimming the light. Reduce excitement before bed and keep nighttime care quiet. Sleep patterns vary; a routine does not promise an uninterrupted night."}
+        {
+          "source": "nhs-sleep-routine",
+          "section": "Establishing a bedtime routine",
+          "text": "Keep a familiar, calming bedtime sequence, such as changing into night clothes, sharing a quiet story and dimming the light. Reduce excitement before bed and keep nighttime care quiet. Sleep patterns vary; a routine does not promise an uninterrupted night."
+        }
+      ]
+    },
+    {
+      "id": "young-stomach-upset",
+      "topic": "stomach_upset",
+      "min_months": 0,
+      "max_months_exclusive": 12,
+      "references": [
+        {
+          "source": "nhs-vomiting",
+          "section": "Self-care; urgent advice",
+          "text": "Vomiting and diarrhoea can have several causes; chat cannot determine which applies. A baby can lose fluid quickly. Seek prompt medical advice if an infant has repeated vomiting or diarrhoea, particularly if feeding changes. Continue usual breast milk or correctly prepared formula if they can take it; do not dilute formula. Wash hands and clean soiled surfaces to reduce spread. Fewer wet nappies, stopping feeds or inability to keep fluids down need urgent care; green or bloody vomit also needs immediate assessment."
+        }
+      ]
+    },
+    {
+      "id": "older-stomach-upset",
+      "topic": "stomach_upset",
+      "min_months": 12,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-vomiting",
+          "section": "Self-care; urgent advice",
+          "text": "Continue usual drinks or milk feeds if tolerated and offer food without pressure. Never dilute formula. Avoid juice and fizzy drinks. Do not give diarrhoea-stopping medicines. Wash hands and clean soiled surfaces. Seek medical advice for persistent symptoms. Reduced urination, inability to retain fluids, bloody stool, green or bloody vomit or severe pain needs urgent assessment."
+        }
+      ]
+    },
+    {
+      "id": "young-fever",
+      "topic": "fever",
+      "min_months": 0,
+      "max_months_exclusive": 6,
+      "references": [
+        {
+          "source": "nhs-fever",
+          "section": "Checking temperature; getting help",
+          "text": "A suspected fever in a young infant needs prompt professional advice, even without a reliable temperature reading. Use a digital thermometer as instructed and tell the clinician the baby's age, reading and feeding changes. Continue usual milk feeds if the baby can take them. Avoid excessive clothing, cold sponging or choosing medicines through chat. Seek urgent care for difficulty breathing, unusual sleepiness, poor responsiveness, fewer wet nappies or a rash that does not fade under pressure."
+        }
+      ]
+    },
+    {
+      "id": "older-fever",
+      "topic": "fever",
+      "min_months": 6,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-fever",
+          "section": "Caring for a child; getting help",
+          "text": "Use a digital thermometer as instructed, check your child regularly and offer their usual age-appropriate fluids or milk feeds. Offer food if wanted. Avoid excessive clothing and do not sponge or undress them to force cooling. Fever can accompany different illnesses; the cause cannot be diagnosed here. Ask a health professional about persistent fever or if worried. Difficulty breathing, poor responsiveness, dehydration or a rash that does not fade under pressure needs urgent care. Do not choose medicine or a dose from this chat."
+        }
+      ]
+    },
+    {
+      "id": "cough-cold-care",
+      "topic": "cough_cold",
+      "min_months": 0,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-colds",
+          "section": "Children's colds; coughs; getting help",
+          "text": "A cold can cause a blocked or runny nose, and mucus can contribute to coughing, but a message cannot diagnose the cause. Offer usual age-appropriate drinks or milk feeds and keep the family washing hands. Ask a pharmacist or clinician before using nose drops or any cough/cold product; do not select a medicine through chat. Seek assessment if coughing persists, feeding is affected or your child seems unwell. Difficulty breathing or inability to swallow fluids or saliva needs urgent care."
+        }
+      ]
+    },
+    {
+      "id": "young-gum-discomfort",
+      "topic": "teething",
+      "min_months": 0,
+      "max_months_exclusive": 3,
+      "references": [
+        {
+          "source": "nhs-teething-symptoms",
+          "section": "Symptoms and getting advice",
+          "text": "The timing of teeth varies. Drooling, chewing or unsettled behaviour alone does not establish teething or explain illness. Comfort your young baby with gentle holding and seek health advice for persistent discomfort or worrying symptoms. Do not assume fever or diarrhoea is caused by teething, and do not choose a teething medicine through chat."
+        }
+      ]
+    },
+    {
+      "id": "teething-comfort",
+      "topic": "teething",
+      "min_months": 3,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-teething",
+          "section": "Teething rings; comforting your baby",
+          "text": "Try gentle comfort, distraction or rubbing sore gums gently with a clean finger. If using an age-suitable teething ring, follow its instructions; chill only as directed in a fridge, never a freezer, and never tie it around the child's neck. Supervise anything put in the mouth. Ask a health professional about persistent or worrying symptoms rather than choosing gels or medicines here."
+        },
+        {
+          "source": "nhs-teething-symptoms",
+          "section": "Symptoms and getting advice",
+          "text": "Drooling, chewing and a sore gum may accompany tooth eruption, but they do not prove that other symptoms are teething. There is no evidence that teething causes diarrhoea. Seek professional advice for fever, illness or symptoms that worry you instead of attributing them to teeth."
+        }
+      ]
+    },
+    {
+      "id": "young-stool-changes",
+      "topic": "stools",
+      "min_months": 0,
+      "max_months_exclusive": 6,
+      "references": [
+        {
+          "source": "nhs-infant-stools",
+          "section": "Symptoms; how often; formula preparation",
+          "text": "Hard, dry stools or painful straining can accompany constipation; the cause needs assessment, especially in a young baby. Discuss a new stool change with a health professional and describe feeding, wet nappies, stool appearance and discomfort. Keep formula at the packet's correct strength rather than changing the mix. Do not add water, solids, laxatives or remedies for a young infant based on chat. A very young baby who stops passing stool needs timely individual advice."
+        }
+      ]
+    },
+    {
+      "id": "older-stool-changes",
+      "topic": "stools",
+      "min_months": 6,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-infant-stools",
+          "section": "Fibre; comfort measures; getting help",
+          "text": "Hard, dry or painful stools may relate to feeding changes or fluid intake, but chat cannot determine the cause. Continue usual age-appropriate feeds. If already eating solids, offer varied fruit and vegetables suited to their eating abilities. Gentle bicycle-leg movements or tummy massage may help only if comfortable; stop if painful. Ask a health professional about persistent symptoms or concerns rather than starting a laxative or remedy yourself."
+        }
+      ]
+    },
+    {
+      "id": "newborn-yellowing",
+      "topic": "jaundice",
+      "min_months": 0,
+      "max_months_exclusive": 1,
+      "references": [
+        {
+          "source": "nhs-jaundice",
+          "section": "Symptoms; urgent help; assessment",
+          "text": "Yellowing of the skin or whites of the eyes in a newborn needs prompt professional assessment; looking at colour cannot measure its severity. Tell the clinician when it began, whether feeding changed and whether urine is dark or stools unusually pale. Continue usual feeds if the baby is able while arranging care. Yellowing in the first day of life, difficulty waking, not feeding, no wet nappies, breathing problems or abnormal stiffness needs emergency assessment. Do not attempt home treatment in sunlight."
+        }
+      ]
+    },
+    {
+      "id": "oral-care",
+      "topic": "oral_care",
+      "min_months": 0,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-teeth",
+          "section": "Tooth brushing tips",
+          "text": "Once the first tooth appears, start gentle brushing with a baby toothbrush and a tiny smear of fluoride toothpaste. Clean the surfaces twice daily, including before bed, and help your child rather than leaving brushing to them. Prevent swallowing toothpaste from the tube. Make brushing familiar by demonstrating or making it playful. Avoid sweetened drinks in bottles and dipping dummies in sweet foods. Ask a dental professional about individual concerns."
+        }
+      ]
+    },
+    {
+      "id": "outside-safety",
+      "topic": "outings",
+      "min_months": 0,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-sun",
+          "section": "Sun safety",
+          "text": "Plan shade and lightweight clothing for an outing, and protect your child's head and neck with a suitable hat. Keep babies under six months out of direct sun and keep older babies shaded as much as possible. Use a proper sunshade rather than draping a blanket over a pram, which can trap heat. Check your child regularly for overheating. Individual sun-protection products and feeding needs should be discussed with a health professional when uncertain."
+        }
+      ]
+    },
+    {
+      "id": "health-records",
+      "topic": "records",
+      "min_months": 0,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-reviews",
+          "section": "Personal child health record; preparing reviews",
+          "text": "Keep a child health record with growth measurements, vaccination entries, important illnesses and developmental observations. Bring it to clinic visits and note questions about feeding, growth or new skills beforehand. Tell the health worker about concerns when they arise rather than waiting for a routine appointment. Bring your local child health record and follow your clinic's appointment advice; overseas review schedules are not local schedules."
+        }
+      ]
+    },
+    {
+      "id": "soothing-support",
+      "topic": "soothing",
+      "min_months": 0,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "unicef-positive",
+          "section": "Crying is communication; comforting a crying baby",
+          "text": "Crying can communicate hunger, tiredness, discomfort, a need for a change or closeness; illness can also cause it. Watch your child's cues, check ordinary needs, hold them gently and try a soft voice, humming or slow rocking. Respond patiently rather than punishing crying. If they seem unwell or cannot be consoled, seek health advice. Never shake or hit a child."
+        }
+      ]
+    },
+    {
+      "id": "toddler-emotions",
+      "topic": "behaviour",
+      "min_months": 12,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "unicef-positive",
+          "section": "Independence; responding to tantrums",
+          "text": "A toddler is still learning to express strong feelings and may struggle when frustrated or tired. Stay calm, keep them safe, name the feeling simply and offer limited age-appropriate choices. Praise attempts and allow manageable tasks at their pace. Keep boundaries kind and consistent; do not punish with violence. Seek individual support for behaviour or development that concerns you."
+        }
+      ]
+    },
+    {
+      "id": "development-review",
+      "topic": "development_concern",
+      "min_months": 0,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-reviews",
+          "section": "What happens at reviews; concerns",
+          "text": "Keep notes of communication, movement, play and everyday abilities, including what changed and when. Development varies; one observation cannot diagnose a delay. Discuss concerns or loss of a previously acquired skill promptly with a health professional rather than waiting for the next routine review. Continue gentle, age-appropriate interaction that follows the child's interest without forcing a skill."
+        }
+      ]
+    },
+    {
+      "id": "second-birthday-activities",
+      "topic": "birthday",
+      "min_months": 24,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "unicef-two-years",
+          "section": "Social, language and cognitive activities",
+          "text": "At the second birthday, try short pretend games, naming familiar pictures and giving your child time to answer in words or gestures. Share books and let them help turn pages. Follow their interests and supervise objects used in play. Skills vary; these are opportunities to practise together, not a test every child must pass on their birthday."
+        }
+      ]
+    },
+    {
+      "id": "teething-with-illness",
+      "topic": "teething_illness",
+      "min_months": 0,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-teething-symptoms",
+          "section": "Symptoms and getting advice",
+          "text": "There is no evidence that teething causes diarrhoea. Do not explain fever, vomiting or illness as teething. Seek a health professional's advice about these symptoms, especially in a young baby, rather than assuming they are from new teeth."
+        },
+        {
+          "source": "nhs-vomiting",
+          "section": "Urgent advice",
+          "text": "If loose stools or vomiting occur, continue usual milk feeds if the child can take them and watch for fewer wet nappies or reduced feeding. Inability to retain fluids, blood in stool, green or bloody vomit or a child becoming very unwell needs urgent assessment. Do not give diarrhoea-stopping medicine based on chat."
+        }
+      ]
+    },
+    {
+      "id": "solid-food-preferences",
+      "topic": "food_refusal",
+      "min_months": 6,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-fussy-eaters",
+          "section": "Tips for parents of fussy eaters",
+          "text": "For a child already eating solids, keep mealtimes relaxed and offer small portions of varied, age-appropriate family foods. Eat together when possible and model enjoying the food. If a food is refused, stay calm rather than forcing, bribing or using sweets as a reward; offer it again on another occasion. Food preferences vary, but this cannot confirm adequate nutrition or growth. Discuss persistent refusal, weight concerns, pain or difficulty eating with a health professional. Refusing milk or fluids, fewer wet nappies or becoming unwell needs prompt assessment."
+        }
       ]
     }
   ]

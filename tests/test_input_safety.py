@@ -165,3 +165,13 @@ def test_facial_airway_swelling_is_distinct_from_injection_site_soreness(questio
     if urgent:
         assert decision.reasons == ("facial_airway_swelling",)
         assert decision.citations[0]["pdf_page"] == 2
+@pytest.mark.parametrize("days,question,expected", [
+    (0, "The whites of my newborn eyes seem yellow.", True),
+    (0, "My baby has jaundice.", True),
+    (0, "What is jaundice in a newborn?", False),
+    (0, "My baby's eyes are not yellow.", False),
+    (8, "My baby's eyes look yellow.", False),
+])
+def test_first_day_yellowing_uses_exact_age_and_preserves_education(days, question, expected):
+    decision = inspect_input(question, 0, child_age_days=days)
+    assert ("first_day_yellowing" in decision.reasons) is expected

@@ -2,66 +2,68 @@
 
 ## Current everyday release
 
-The application default is `caregiver_guidance_everyday_v3`: 184 passages from
-25 sources, with SHA256
-`956089a645fddbdca41d37c92495355d958e47942037a1f06f1ae17b0c2d009e`.
-On 24 October 2026, all remote payloads were compared with the local release and
-matched exactly. This activates the source-checked everyday selections, not the
-273-record candidate corpus. New clinical candidates stay excluded. The original
-`caregiver_guidance_minilm_v1` collection is retained for rollback.
+The application default is `caregiver_guidance_everyday_v4`: 216 passages,
+45 source entries and 42 original source URLs, with corpus SHA256
+`776133f6c59bb0e9506071b468f10ae1a14eaa1811bb8d95c73c464dd14a46f9`.
+All remote payloads were compared with this local release and matched exactly.
+The previous `caregiver_guidance_everyday_v3` collection and all its 184 records
+remain intact for rollback; the original 106-record baseline is also retained.
 
-`everyday-release-review.json` and `scripts.prepare_release_corpus` define the
-selection; generated intermediate files are not additional application inputs.
-After preparing the original corpus and the expansion chain documented below
-(expanded, health, PDF-health, activity-safety, everyday-care, practical-care-activity),
-prepare and upload only the selected release:
+V4 adds 32 source-linked records from the same validated basic-care input used
+by the application. It does not relabel or activate the older clinical candidate
+packs. The source and answer checks are editorial development evidence, not
+professional clinical validation. A passage count is not a measure of accuracy
+or complete coverage of every possible condition.
+
+Use the existing populated collection for normal startup. To reproduce it after
+preparing the v3 baseline through the documented expansion chain:
 
 ```powershell
-.\venv\Scripts\python.exe -m scripts.prepare_release_corpus
-.\venv\Scripts\python.exe -m scripts.create_qdrant_collection --collection caregiver_guidance_everyday_v3
-.\venv\Scripts\python.exe -m scripts.index_rag --passages data/processed/everyday-release-v3/passages.jsonl --manifest data/processed/everyday-release-v3/sources.json --report data/processed/everyday-release-v3/preparation-report.json --collection caregiver_guidance_everyday_v3 --upload
+.\venv\Scripts\python.exe -m scripts.prepare_release_corpus --base-release data/processed/everyday-release-v3 --output-dir data/processed/everyday-release-v4
+.\venv\Scripts\python.exe -m scripts.create_qdrant_collection --collection caregiver_guidance_everyday_v4
+.\venv\Scripts\python.exe -m scripts.index_rag --passages data/processed/everyday-release-v4/passages.jsonl --manifest data/processed/everyday-release-v4/sources.json --report data/processed/everyday-release-v4/preparation-report.json --collection caregiver_guidance_everyday_v4 --upload
 ```
 
-The preparation command refuses to overwrite an existing release. Do not rerun
-it for ordinary application startup. Reuse the populated collection; restart the
-backend after configuration changes. The final signed-in workflow check is
-pending. Professional validation has not been obtained and is documented as a
-separate limitation, not an implementation completion claim.
-
-Revision v3 retains the 184-passage scope and original baseline. It refreshes
-one source's wording from the pinned reference pack, preserving passage IDs,
-ages, routines and applicability conditions. The bathing definition now retains
-the source's term "top and tailing" and its contrast with a full bath. The v2
-collection and its evaluation records remain unchanged. No clinical candidate
-is released by this wording revision.
-
-The following sections preserve preparation history and candidate comparisons;
-their historical counts are not the current application collection size.
+Preparation refuses to overwrite an existing output. It validates the base
+manifest, preserves every existing record, rejects blocked candidates and adds
+only the validated application care selections. Restart the backend after changing
+`QDRANT_COLLECTION`. Set it to `caregiver_guidance_everyday_v3` and restart to roll
+back without deleting either collection. No indexing or source fetching occurs
+inside ordinary caregiver requests.
 
 ### Basic-care answer references
 
 `common-care-guidance.json` is an application input, loaded by
-`backend/services/care_guidance.py`. It contains eight age-scoped selections from
-seven NHS and UNICEF pages, checked on 30 October 2026. Original URLs, publishers,
-titles and section headings accompany the paraphrased care facts. It supports
-simple feeding statements and food ideas, milk regurgitation, nappy-area soreness
-and sleep routines. Specialist feeding problems and unrelated requests continue
-through the ordinary reference pipeline.
+`backend/services/care_guidance.py`. It contains 27 age-scoped entries from
+20 NHS and UNICEF pages, checked on 30 October 2026. Publisher, title, original
+URL, source section, check date, known publisher review dates and age scope
+accompany the short paraphrased facts. Selected statements cover feeding and
+food preferences, reflux, stomach upset, fever, coughs/colds, teething, stools,
+newborn yellowing, skin care, sleep, oral care, outings, health records, soothing,
+behaviour and development concerns. Overseas service numbers, local schedules,
+diagnosis, prescribing, doses and individualized treatment protocols are excluded.
 
-These selections supply brief model context without another network search.
-The shared response review can replace an answer that fails the applicable checks
-with the permitted care text before delivery or storage. Provider content blocks
-are preserved. Urgent concerns and Kenya vaccination retain their earlier routes.
-The checks cover selected wording and omissions; they do not establish clinical
-accuracy or replace individual assessment.
+The source selection uses the resolved subject age and caregiver request.
+The same model call receives the selected facts and relevant care boundaries.
+The shared output review can replace a failed care answer with the exact permitted
+care text before delivery/storage; it preserves provider content refusals.
+Urgent signs retain priority, including reported yellowing on a known first day
+of life. Selected wording checks do not establish comprehensive medical safety.
 
-This input is separate from Qdrant. Its references carry
-`selection_method: source_checked_basic_care` and a placeholder score of zero,
-which is not a measured similarity score. The evaluator keeps vector evidence
-separate from the actual supplied and delivered references; retrieval-only
-evaluation continues to measure vector retrieval. No clinical candidate pack or
-new Qdrant collection is activated. The existing coaching quality review and
-conversation capture contain the observations and corrections.
+Local care selections carry `selection_method: source_checked_basic_care` and
+score zero as a placeholder, not a measured similarity score. Indexed copies
+receive actual vector scores when retrieved from Qdrant. Evaluation keeps raw
+vector results, supplied facts and delivered source cards separate. The frozen
+37-case source-labelled question set is `evaluation/care-coverage-questions.jsonl`;
+its project-authored labels are a positive pool rather than an exhaustive or
+independent expert standard. Current source coverage, held-out retrieval and
+answer review are documented in `evaluation/coverage-development-review.md` and
+`evaluation/coaching-quality-review.md`. The latter also records the signed-in
+workflow's expected and actual results.
+
+The sections below preserve preparation history and candidate comparisons.
+Their passage counts and pending statements describe those historical revisions,
+not the active v4 release.
 
 The selected reference corpus supports retrieval, not model training. The current prepared
 corpus contains 106 editorially selected passages: 18 WHO/UNICEF counselling-card passages,
@@ -70,7 +72,7 @@ not constitute expert validation of developmental appropriateness.
 
 ## Expanded reference candidates
 
-The broader topic inventory is in the root README's planned baby-care coverage
+The broader topic inventory is in the root README's baby-care coverage
 section; GitHub issues hold implementation checklists. Prioritise those gaps
 rather than increasing passage counts without a coverage purpose. Source checking,
 answer evaluation, live activation and professional validation are different claims.
