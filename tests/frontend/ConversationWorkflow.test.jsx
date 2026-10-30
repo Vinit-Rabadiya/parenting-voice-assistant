@@ -142,12 +142,26 @@ it("handles generation failure and cancellation without resending or losing a ne
 });
 
 it("keeps each child's conversations separate when switching profiles", async () => {
-  const input = await openWorkspace();
+  const request = globalThis.fetch;
+  let profileRequests = 0, releaseProfiles;
+  const profilesReady = new Promise((resolve) => { releaseProfiles = resolve; });
+  vi.stubGlobal("fetch", async (path, options) => {
+    const response = await request(path, options);
+    // The selector reloads profiles after the initial chat history has loaded.
+    if (path === "/api/children" && ++profileRequests === 2) await profilesReady;
+    return response;
+  });
   const first = "How can I talk while dressing?";
-  fireEvent.change(input, { target: { value: first } });
-  fireEvent.keyDown(input, { key: "Enter" });
-  await screen.findByText("Talk gently while dressing.");
-  fireEvent.click(screen.getByRole("button", { name: /Workflow child/ }));
+  try {
+    const input = await openWorkspace();
+    fireEvent.change(input, { target: { value: first } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await screen.findByText("Talk gently while dressing.");
+    expect(screen.queryByRole("button", { name: /Workflow child/ })).toBeNull();
+  } finally {
+    releaseProfiles();
+  }
+  fireEvent.click(await screen.findByRole("button", { name: /Workflow child/ }));
   fireEvent.click(await screen.findByRole("button", { name: /Other child/ }));
   await screen.findByRole("textbox", { name: "Question" });
   expect(screen.queryByRole("button", { name: first })).toBeNull();
