@@ -15,12 +15,13 @@ from google.genai import errors, types
 
 from backend.core.config import settings
 from backend.services.age import AGE_SCOPE_MESSAGE
+from backend.services.conversation_context import caregiver_request
 from backend.services.retrieval import RetrievedPassage
 
 
 generation_request_id = ContextVar("generation_request_id", default=None)
 timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
-PROMPT_VERSION = "coach_v2.3"
+PROMPT_VERSION = "coach_v2.6"
 PROMPT_TEMPLATE = (Path(__file__).resolve().parents[1] / "prompts/coach_v2.txt").read_text(encoding="utf-8")
 PROMPT_SHA256 = hashlib.sha256(PROMPT_TEMPLATE.encode()).hexdigest()
 PROVIDER_BLOCK_MESSAGE = (
@@ -82,7 +83,7 @@ class CoachingService:
         return self._client
 
     def generate(self, question: str, child_age_months: float, routine: str | None, passages: list[RetrievedPassage],
-                 *, conversation_context: list[dict[str, str]] | None = None) -> CoachingResult:
+                 *, conversation_context: list[dict] | None = None) -> CoachingResult:
         if not isinstance(question, str) or not 2 <= len(question.strip()) <= 1200:
             raise ValueError("Enter a question between 2 and 1200 characters.")
         question = question.strip()
@@ -98,9 +99,10 @@ class CoachingService:
         history = ("\nRecent conversation (context only, not evidence):\n"
                    + json.dumps(conversation_context, ensure_ascii=False)) if conversation_context else ""
         answer_format = (
-            "Respond to the current request in plain language. Follow the conversation-response rules; "
-            "a follow-up does not require another list of actions."
-        ) if conversation_context else "Give 2 to 4 short actions in plain language."
+            "Match the answer to the request: explain a term, respond to the situation, "
+            "or give practical steps as appropriate. A definition, clarification or follow-up "
+            "does not need an activity list. For activity ideas, give up to 4 distinct actions."
+        )
         age_description = (f"{round(child_age_months * 30.4375)} days old (newborn)"
                            if child_age_months < 1 else f"{child_age_months:g} months old")
         age_safety = (
@@ -115,12 +117,22 @@ class CoachingService:
                 "Do not suggest solids or seated mealtime activities; discuss solids for around six months "
                 "with developmental readiness, or individual clinician advice. "
             )
+        elif child_age_months < 12:
+            age_safety += (
+                "Solid foods are introduced from around six months alongside breast milk or infant formula. "
+                "Age alone does not confirm readiness: do not assume the baby can sit safely with a steady "
+                "head, handle food or swallow it. Keep food texture appropriate to their abilities. "
+            )
         prompt = PROMPT_TEMPLATE.format(child_age_months=child_age_months, routine_text=routine_text,
+                                        request_topic=caregiver_request(question, conversation_context or []),
                                         question=question, history=history, evidence=evidence or "No matching reference excerpts available.",
                                         answer_format=answer_format, age_description=age_description)
         generation_config = types.GenerateContentConfig(
             temperature=0.2,
-            system_instruction=age_safety + (
+            system_instruction=(
+                "Apply age limits to your advice silently; they are not a checklist to repeat in the answer. "
+                "Only mention a diet or developmental restriction when it matters to the requested help. "
+            ) + age_safety + (
                 "The application's guidance country is Kenya. Use Kenyan context for country-dependent information. "
                 "Applicable general baby-care references from other countries may still support general care, "
                 "but do not present foreign vaccination schedules, clinical protocols or contact numbers as Kenyan. "
@@ -166,6 +178,9 @@ class CoachingService:
                 "requests explain uncertainty and the assessment needed. Prioritize emergency care for urgent symptoms. "
                 "Never guess medication doses, diagnose definitively, suggest unsafe sleep or feeding practices, "
                 "or invent a current national vaccination schedule. "
+                "For symptoms, offer basic care and assessment boundaries without selecting treatment products "
+                "or active ingredients. Do not invent treatment amounts or timings; a health professional "
+                "or pharmacist should advise on suitable treatment. "
                 "Do not include citation markers, bracketed reference numbers or links in the answer. "
             ) + ((
                 "Use an age explicitly given in the current caregiver message; otherwise use the current profile age. "

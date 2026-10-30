@@ -9,6 +9,13 @@ from backend.services.age import AGE_SCOPE_MESSAGE, message_age_months
 class CareResponse:
     kind: str
     answer: str
+    clarification_field: str | None = None
+
+
+AGE_CLARIFICATION_MESSAGES = (
+    "You mentioned a toddler, but the age given is under one year. How old is the child you mean?",
+    "You mentioned a newborn, but the age given is two months or older. How old is the child you mean?",
+)
 
 
 BABY_TOPIC = re.compile(
@@ -115,4 +122,9 @@ def conversation_boundary_response(message: str, *, unresolved_follow_up: bool =
         return CareResponse("clarification", "What were you trying, or what would you like help with? Tell me what is happening with your baby.")
     if clearly_unrelated(message):
         return CareResponse("unrelated", "This chat supports baby care, child development and parenting. I cannot help with that topic here.")
+    if child_age_months is not None:
+        if child_age_months < 12 and re.search(r"\b(?:my|our|the|a) toddler\b", message, re.I):
+            return CareResponse("clarification", AGE_CLARIFICATION_MESSAGES[0], clarification_field="age")
+        if child_age_months >= 2 and re.search(r"\b(?:my|our|the|a) newborn\b", message, re.I):
+            return CareResponse("clarification", AGE_CLARIFICATION_MESSAGES[1], clarification_field="age")
     return None

@@ -50,6 +50,9 @@ class CoachingResponse(BaseModel):
     reference_status: Literal["matched", "no_match", "unavailable"] | None = None
     citations: list[CitationSchema]
     child_age_months: float
+    subject_age_override: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    caregiver_request: str | None = Field(default=None, max_length=1200)
+    clarification_field: Literal["age"] | None = None
     processing_seconds: float
     status: Literal["answered", "no_evidence", "safety_blocked", "escalated", "crisis_support", "caregiver_support", "vaccination_notice"] = "answered"
     vaccination_country: Literal["KE"] | None = None
