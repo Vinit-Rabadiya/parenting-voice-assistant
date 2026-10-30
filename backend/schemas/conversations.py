@@ -34,6 +34,9 @@ class ConversationMessageResponse(BaseModel):
     routine: str | None = None
     vaccination_country: Literal["KE", "OTHER"] | None = None
     child_age_months: float | None = None
+    subject_age_override: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    caregiver_request: str | None = Field(default=None, max_length=1200)
+    clarification_field: Literal["age"] | None = None
     processing_seconds: float | None = None
     safety: str | None = None
     feedback: FeedbackRecord | None = None

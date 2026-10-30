@@ -2,7 +2,8 @@ import pytest
 
 from backend.services.conversation_context import (
     MAX_CONTEXT_CHARACTERS, MAX_CONTEXT_MESSAGES, contextual_retrieval_query,
-    is_follow_up, select_conversation_context,
+    contextual_age_months, is_follow_up, needs_topic_clarification, select_conversation_context,
+    caregiver_request,
 )
 
 
@@ -19,6 +20,8 @@ def test_recognizes_explicit_follow_ups(question):
 @pytest.mark.parametrize("question", [
     "That didn't help.", "It is not working", "Is that safe?", "How often?",
     "For how long?", "She still won\u2019t take it.",
+    "How many times a day?", "What about at night?", "Is that suitable for her?",
+    "She refuses it.", "She feels feverish.", "Yes please.",
 ])
 def test_short_follow_ups_keep_the_latest_caregiver_topic(question):
     context = select_conversation_context(pair("I am feeding my baby.", "Talk gently."))
@@ -118,6 +121,86 @@ def test_new_named_topic_and_missing_context_are_not_borrowed_clarifications():
     context = select_conversation_context(pair("I am bathing my baby.", "Use a full bath or top and tailing."))
     assert contextual_retrieval_query("What is a vaccine?", context) == "What is a vaccine?"
     assert contextual_retrieval_query("What does top and tailing mean?", []) == "What does top and tailing mean?"
+
+
+def test_new_explicit_subject_does_not_inherit_an_older_child_age():
+    context = select_conversation_context(pair("My 6-week-old baby feeds often."))
+    question = "My 12-month-old child is eating breakfast."
+    assert contextual_retrieval_query(question, context) == question
+
+
+def test_bare_age_reply_is_used_only_after_a_clarification():
+    messages = pair("Food ideas for my toddler?", "How old is the child you mean?", status="no_evidence")
+    messages[-1]["response_kind"] = "clarification"
+    context = select_conversation_context(messages)
+    assert contextual_age_months("18 months", context) == 18
+    assert contextual_age_months("18 months", []) is None
+    assert contextual_age_months("Three times a day", context) is None
+    assert contextual_age_months("My baby is 6 weeks old", context) == pytest.approx(42 / 30.4375)
+
+
+def test_resolved_age_survives_bounded_history_without_trusting_generated_age_claims():
+    messages = pair("What else can I try?", "Your baby is 36 months old. UNVERIFIED_CLAIM")
+    messages[-1]["subject_age_override"] = 18
+    context = select_conversation_context(messages)
+    assert contextual_age_months("She refuses it.", context) == 18
+    assert contextual_age_months("I am bathing my baby.", context) is None
+    assert "UNVERIFIED_CLAIM" not in contextual_retrieval_query("She refuses it.", context)
+
+
+@pytest.mark.parametrize("invalid", [True, "18", -1, float("nan"), float("inf")])
+def test_invalid_stored_age_is_not_added_to_context(invalid):
+    messages = pair()
+    messages[-1]["subject_age_override"] = invalid
+    assert "subject_age_months" not in select_conversation_context(messages)[-1]
+
+
+def test_missing_referents_are_distinct_from_new_child_reports_and_continuing_turns():
+    assert needs_topic_clarification("She refuses it.", [])
+    assert needs_topic_clarification("What else can I try?", [])
+    assert not needs_topic_clarification("She feels feverish.", [])
+    context = select_conversation_context(pair("What else can I try?", "Try a different soft texture."))
+    assert not needs_topic_clarification("What else can I try?", context)
+
+
+def test_profile_age_snapshots_do_not_override_the_current_profile_age():
+    messages = pair()
+    messages[-1]["child_age_months"] = 6
+    context = select_conversation_context(messages)
+    assert contextual_age_months("What else can I try?", context) is None
+
+
+@pytest.mark.parametrize("question,age_reply", [
+    ("What food can I make for my toddler?", "18 months"),
+    ("How can I settle my newborn at night?", "She is 2 weeks old"),
+])
+def test_age_reply_resumes_the_pending_request_for_search_and_later_follow_ups(question, age_reply):
+    messages = pair(question, "How old is the child you mean?", status="no_evidence")
+    messages[-1].update(response_kind="clarification", clarification_field="age")
+    context = select_conversation_context(messages)
+    assert caregiver_request(age_reply, context) == question
+    assert contextual_retrieval_query(age_reply, context) == f"{question}\nFollow-up: {age_reply}"
+    later = pair(age_reply, "An answer", status="answered")
+    later[-1]["caregiver_request"] = question
+    context = select_conversation_context(later)
+    assert caregiver_request("What else can I try?", context) == question
+    assert caregiver_request("I am bathing my baby.", context) == "I am bathing my baby."
+
+
+def test_age_reply_does_not_resolve_an_ambiguous_action_clarification():
+    messages = pair("I am batting my baby.", "Do you mean bathing or something else?", status="no_evidence")
+    messages[-1]["response_kind"] = "clarification"
+    context = select_conversation_context(messages)
+    assert caregiver_request("18 months", context) == "18 months"
+
+
+def test_carried_request_stays_within_the_existing_context_budget():
+    messages = pair("A" * 1000, "B" * 1000) + pair("What else can I try?", "C" * 1000)
+    messages[-1]["caregiver_request"] = "D" * 1200
+    context = select_conversation_context(messages)
+    assert len(context) == 2
+    assert context[-1]["caregiver_request"] == "D" * 1200
+    assert sum(len(m["text"]) + len(m.get("caregiver_request", "")) for m in context) <= MAX_CONTEXT_CHARACTERS
 
 
 def test_generic_follow_up_after_named_clarification_keeps_original_topic():

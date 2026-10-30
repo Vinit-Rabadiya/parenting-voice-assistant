@@ -16,16 +16,18 @@ from backend.core.config import PROJECT_ROOT, settings
 from backend.services.age import add_months, age_details, current_date, message_age_months, within_project_scope
 from backend.services.coaching import CoachingService, PROMPT_VERSION, PROMPT_SHA256
 from backend.services.evidence import select_evidence
+from backend.services.care_guidance import select_care_references
 from backend.services.care_response import conversation_boundary_response
 from backend.services.vaccination import inspect_vaccination
 from backend.services.conversation_context import (
-    is_follow_up, contextual_retrieval_query, select_conversation_context,
+    caregiver_request, contextual_age_months, contextual_retrieval_query,
+    needs_topic_clarification, select_conversation_context,
 )
 from backend.services.care_response import professional_assessment_response
 from scripts.evaluate_retrieval import load_queries, query_age_context
 from backend.services.retrieval import RetrievalService
-from backend.services.response_safety import SAFE_RESPONSE, inspect_response
-from backend.services.input_safety import ESCALATION_MESSAGE, inspect_input
+from backend.services.response_safety import SAFE_RESPONSE, review_coaching_result
+from backend.services.input_safety import inspect_input
 from backend.services.crisis_safety import inspect_crisis
 
 
@@ -163,9 +165,11 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         "timings_seconds": {}, "ratings": None, "audio_playback": "not_checked",
         "limitations": "Direct service evaluation: excludes authentication, Firestore, ASR and TTS.",
         "conversation_context": context,
+        "caregiver_request": caregiver_request(case["question"], context),
     }
     started = time.perf_counter()
     explicit_age = message_age_months(case["question"])
+    age_source = "message" if explicit_age is not None else "profile"
     outside_age_range = not within_project_scope(date.fromisoformat(profile["date_of_birth"]),
                                                  date.fromisoformat(profile["evaluation_date"]))
     if explicit_age is not None:
@@ -175,6 +179,17 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
     stage = "retrieval"
     observer = None
     try:
+        query = contextual_retrieval_query(case["question"], context)
+        if explicit_age is None:
+            context_age = contextual_age_months(case["question"], context)
+            if context_age is not None:
+                age_source = "conversation"
+                outside_age_range = False
+                profile = {**profile, "age_months": context_age, "completed_months": int(context_age),
+                           "age_days": round(context_age * 30.4375)}
+        record["subject_age"] = {key: profile[key] for key in ("age_months", "completed_months", "age_days")}
+        record["subject_age"]["source"] = age_source
+        record["subject_age"]["override"] = profile["age_months"] if age_source != "profile" else None
         tick = time.perf_counter()
         stage = "input_safety"
         crisis = inspect_crisis(case["question"])
@@ -184,20 +199,17 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
         if triage.escalate or crisis.kind:
             record.update(outcome="escalated" if triage.escalate else crisis.kind,
-                          answer=ESCALATION_MESSAGE if triage.escalate else crisis.answer,
+                          answer=triage.answer if triage.escalate else crisis.answer,
                           referral_sources=list(triage.citations))
             return record
-        query = contextual_retrieval_query(case["question"], context)
-        if explicit_age is None and query != case["question"]:
-            context_age = message_age_months(query)
-            if context_age is not None:
-                outside_age_range = False
-                profile = {**profile, "age_months": context_age, "completed_months": int(context_age),
-                           "age_days": round(context_age * 30.4375)}
-        age_boundary = conversation_boundary_response(case["question"], child_age_months=profile["age_months"],
-                                                      outside_age_range=outside_age_range)
-        if age_boundary is not None and age_boundary.kind == "age_out_of_scope":
-            record.update(outcome="no_evidence", answer=age_boundary.answer, response_kind=age_boundary.kind)
+        unresolved_follow_up = needs_topic_clarification(case["question"], context)
+        boundary = conversation_boundary_response(
+            case["question"], child_age_months=profile["age_months"],
+            outside_age_range=outside_age_range, unresolved_follow_up=unresolved_follow_up,
+        )
+        if boundary is not None:
+            record.update(outcome="no_evidence", answer=boundary.answer, response_kind=boundary.kind,
+                          clarification_field=boundary.clarification_field)
             return record
         vaccination = inspect_vaccination(case["question"], profile["age_months"], topic=query)
         if vaccination is not None:
@@ -213,13 +225,11 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
             return record
         stage = "retrieval"
         tick = time.perf_counter()
-        unresolved_follow_up = is_follow_up(case["question"]) and query == case["question"]
-        boundary = conversation_boundary_response(case["question"], unresolved_follow_up=unresolved_follow_up)
         search_text = keyword_search_text(query) if keyword_search else query
         record["search_query"] = search_text
         reference_status = "no_match"
         try:
-            passages = [] if boundary is not None else retrieval.retrieve(
+            passages = retrieval.retrieve(
                 search_text, profile["completed_months"], case["routine"], 3,
                 child_age_days=profile["age_days"],
             )
@@ -232,12 +242,12 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         stage = "evidence_selection"
         tick = time.perf_counter()
         evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
+        record["vector_evidence"] = [asdict(p) for p in evidence]
+        if not retrieval_only:
+            evidence = select_care_references(case["question"], profile["age_months"], context, evidence)
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
         record["supplied_evidence"] = [asdict(p) for p in evidence]
-        record["reference_status"] = "matched" if evidence else reference_status
-        if boundary is not None:
-            record.update(outcome="no_evidence", answer=boundary.answer, response_kind=boundary.kind)
-            return record
+        record["reference_status"] = "matched" if evidence and reference_status != "unavailable" else reference_status
         if retrieval_only:
             record.update(outcome="evidence_available" if evidence else "no_evidence")
             return record
@@ -251,19 +261,18 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         result = service.generate(case["question"], profile["age_months"], case["routine"], evidence,
                                   **({"conversation_context": context} if context else {}))
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
-        record.update(outcome="answered", answer=result.answer, answer_basis=result.answer_basis)
-        record["answer_word_count"] = len(result.answer.split())
-        record["within_requested_word_limit"] = record["answer_word_count"] <= 160
         record["selected_model"] = observer.attempts[-1]["model"]
-        if result.blocked:
-            record.update(outcome="safety_blocked", safety={"blocked": True, "reasons": ["provider_content_block"]})
-            return record
         stage = "response_safety"
         tick = time.perf_counter()
-        decision = inspect_response(result.answer, result.passages, evidence, profile["age_months"])
-        record["safety"] = {"blocked": decision.blocked, "reasons": list(decision.reasons)}
+        result, decision = review_coaching_result(result, evidence, profile["age_months"], case["question"], context)
+        record.update(outcome="answered", answer=result.answer, answer_basis=result.answer_basis)
+        record["safety"] = {"blocked": decision.blocked, "reasons": list(decision.reasons),
+                            "replaced_with_basic_care": decision.replaced_with_basic_care}
+        record["delivered_references"] = [asdict(p) for p in result.passages]
         if decision.blocked:
-            record.update(outcome="safety_blocked", answer=SAFE_RESPONSE)
+            record.update(outcome="safety_blocked", answer=result.answer if result.blocked else SAFE_RESPONSE)
+        record["answer_word_count"] = len(record["answer"].split())
+        record["within_requested_word_limit"] = record["answer_word_count"] <= 160
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
     except Exception as exc:
         record.update(outcome="error", error_stage=stage, error_type=type(exc).__name__)
@@ -377,9 +386,15 @@ def main():
         for number, question in enumerate(args.follow_up, start=1):
             time.sleep(max(0, args.request_interval - (time.monotonic() - last_started)))
             last_started = time.monotonic()
+            assistant = {"role": "assistant", "text": record["answer"], "status": record["outcome"],
+                         "response_kind": record.get("response_kind"),
+                         "caregiver_request": record["caregiver_request"],
+                         "clarification_field": record.get("clarification_field"),
+                         "subject_age_override": record["subject_age"]["override"],
+                         "citations": record.get("reference_sources", [])}
             messages.extend([
                 {"role": "user", "text": record["case"]["question"]},
-                {"role": "assistant", "text": record["answer"], "status": record["outcome"]},
+                assistant,
             ])
             follow_case = {**case, "id": f"{case['id']}-f{number}", "question": question,
                            "expected_behaviour": "Review context use, supported alternatives and safety boundaries."}

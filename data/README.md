@@ -38,6 +38,31 @@ is released by this wording revision.
 The following sections preserve preparation history and candidate comparisons;
 their historical counts are not the current application collection size.
 
+### Basic-care answer references
+
+`common-care-guidance.json` is an application input, loaded by
+`backend/services/care_guidance.py`. It contains eight age-scoped selections from
+seven NHS and UNICEF pages, checked on 30 October 2026. Original URLs, publishers,
+titles and section headings accompany the paraphrased care facts. It supports
+simple feeding statements and food ideas, milk regurgitation, nappy-area soreness
+and sleep routines. Specialist feeding problems and unrelated requests continue
+through the ordinary reference pipeline.
+
+These selections supply brief model context without another network search.
+The shared response review can replace an answer that fails the applicable checks
+with the permitted care text before delivery or storage. Provider content blocks
+are preserved. Urgent concerns and Kenya vaccination retain their earlier routes.
+The checks cover selected wording and omissions; they do not establish clinical
+accuracy or replace individual assessment.
+
+This input is separate from Qdrant. Its references carry
+`selection_method: source_checked_basic_care` and a placeholder score of zero,
+which is not a measured similarity score. The evaluator keeps vector evidence
+separate from the actual supplied and delivered references; retrieval-only
+evaluation continues to measure vector retrieval. No clinical candidate pack or
+new Qdrant collection is activated. The existing coaching quality review and
+conversation capture contain the observations and corrections.
+
 The selected reference corpus supports retrieval, not model training. The current prepared
 corpus contains 106 editorially selected passages: 18 WHO/UNICEF counselling-card passages,
 75 Reach Up passages, and 13 Kenya handbook passages. Selection and extraction checks do

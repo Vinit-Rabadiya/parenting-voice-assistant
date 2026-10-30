@@ -62,6 +62,17 @@ def test_mixed_request_and_clarification_use_the_same_generation_call():
     assert "not whether a baby-related word appears" in request["config"].system_instruction
 
 
+def test_generation_answers_the_pending_request_when_the_latest_reply_only_supplies_an_age():
+    client = FakeClient()
+    context = [{"role": "user", "text": "What food can I make for my toddler?"},
+               {"role": "assistant", "text": "How old is the child you mean?",
+                "response_kind": "clarification", "clarification_field": "age"}]
+    CoachingService(client=client).generate("18 months", 18, None, [], conversation_context=context)
+    prompt = client.models.request["contents"]
+    assert "Caregiver request to answer: What food can I make for my toddler?" in prompt
+    assert "Caregiver question: 18 months" in prompt
+
+
 @pytest.mark.parametrize("question,expected", [
     ("My baby Amani is 12 months and 8.5 kg. How cn we play?", 12),
     ("my baby amani is 12 months and 8.5 kg. How cn we play?", 12),
@@ -186,16 +197,16 @@ def test_contextual_prompt_distinguishes_additional_advice_from_explanation(ques
     assert "Use cautious general knowledge when the excerpts offer no further ideas" in policy
     assert "Do not repeat the list or invent actions" in policy
     assert "clarification, not a new action" in policy
-    assert "a follow-up does not require another list of actions" in request["contents"]
+    assert "does not need an activity list" in request["contents"]
     assert "Give 2 to 4 short actions in plain language." not in request["contents"]
     assert context[1]["text"] in request["contents"]
     client.models.generate_content.assert_called_once()
 
 
-def test_standalone_prompt_keeps_initial_coaching_format():
+def test_standalone_prompt_matches_the_request_instead_of_forcing_an_activity_list():
     client = FakeClient()
     CoachingService(client=client).generate("How can I talk during feeding?", 6, "feeding", [fallback_reference()])
-    assert "Give 2 to 4 short actions in plain language." in client.models.request["contents"]
+    assert "explain a term, respond to the situation" in client.models.request["contents"]
     policy = client.models.request["config"].system_instruction
     assert "Preserve all conditions" in policy
     assert "Conversation-response rules" not in policy

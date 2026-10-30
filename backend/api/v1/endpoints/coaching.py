@@ -21,14 +21,16 @@ from backend.services.coaching import CoachingResult, CoachingService, generatio
 from backend.services.usage import UsageControlService
 from backend.services.retrieval import RetrievalService
 from backend.services.evidence import select_evidence
+from backend.services.care_guidance import select_care_references
 from backend.services.care_response import professional_assessment_response, conversation_boundary_response
-from backend.services.response_safety import SAFE_RESPONSE, SafetyDecision, inspect_response
+from backend.services.response_safety import SAFE_RESPONSE, review_coaching_result
 from backend.services.input_safety import inspect_input
 from backend.services.crisis_safety import inspect_crisis
 from backend.services.kenya_contacts import emergency_resources
 from backend.services.vaccination import inspect_vaccination
 from backend.services.conversation_context import (
-    MAX_CONTEXT_MESSAGES, contextual_retrieval_query, is_follow_up, select_conversation_context,
+    MAX_CONTEXT_MESSAGES, contextual_age_months, contextual_retrieval_query,
+    caregiver_request, needs_topic_clarification, select_conversation_context,
 )
 from backend.core.config import settings
 
@@ -46,8 +48,9 @@ async def save_coaching_response(data_service: CaregiverDataService, uid: str,
     if payload.conversation_id is not None:
         stored = response.model_dump(include={
             "citations", "support_resources", "status", "safety",
-            "child_age_months", "processing_seconds",
+            "child_age_months", "subject_age_override", "processing_seconds",
             "answer_basis", "reference_status",
+            "caregiver_request", "clarification_field",
         })
         if response.vaccination_country is not None:
             stored["vaccination_country"] = response.vaccination_country
@@ -88,6 +91,39 @@ def timed_stage(request_id: str, stage: str):
         )
 
 
+async def respond_to_safety(data_service: CaregiverDataService, uid: str,
+                            payload: CoachingRequest, age_months: float,
+                            triage, crisis, request_id: str, started: float) -> CoachingResponse:
+    """Deliver the same urgent response before or after resolving a subject age."""
+    citations = list(triage.citations)
+    # A child danger sign takes priority; caregiver resources are still retained.
+    status = "escalated" if triage.escalate else crisis.kind
+    answer = triage.answer if triage.escalate else crisis.answer
+    # Reuse the contact directory and avoid duplicate numbers for combined reports.
+    resources = {resource["url"]: resource for resource in (
+        *(emergency_resources(payload.support_country, include_hospitals=True) if triage.escalate else ()),
+        *crisis.resources,
+    )}
+    # No retrieval or generation is needed for this fixed referral message.
+    response = CoachingResponse(
+        interaction_id=None, answer=answer,
+        citations=[CitationSchema(**citation) for citation in citations],
+        child_age_months=age_months,
+        processing_seconds=round(time.perf_counter() - started, 3),
+        status=status, safety="not_flagged" if status == "caregiver_support" else "escalate",
+        support_resources=list(resources.values()),
+    )
+    try:
+        with timed_stage(request_id, "interaction_save"):
+            await save_coaching_response(data_service, uid, payload, response)
+    except Exception:
+        # A persistence outage must not replace a recognized danger referral
+        # with a generic error. No fabricated interaction ID is returned.
+        timing_logger.warning("coaching_input_safety request=%s persistence=failed", request_id)
+    response.processing_seconds = round(time.perf_counter() - started, 3)
+    return response
+
+
 @router.post("", response_model=CoachingResponse, dependencies=[Depends(require_processing_consent)])
 async def coach(
     payload: CoachingRequest,
@@ -104,6 +140,7 @@ async def coach(
     if child is None:
         raise HTTPException(status_code=404, detail="Select a child profile before asking for guidance.")
     explicit_age = message_age_months(payload.question)
+    subject_age_override = explicit_age
     outside_age_range = explicit_age is None and child.get("in_scope") is False
     age_months = child["age_months"] if explicit_age is None else explicit_age
     completed_months = child["completed_months"] if explicit_age is None else int(explicit_age)
@@ -124,33 +161,9 @@ async def coach(
         ",".join(triage.reasons) or "none",
     )
     if triage.escalate or crisis.kind:
-        citations = list(triage.citations)
-        # A child danger sign takes priority; caregiver resources are still retained.
-        status = "escalated" if triage.escalate else crisis.kind
-        answer = triage.answer if triage.escalate else crisis.answer
-        # Reuse the contact directory and avoid duplicate numbers for combined reports.
-        resources = {resource["url"]: resource for resource in (
-            *(emergency_resources(payload.support_country, include_hospitals=True) if triage.escalate else ()),
-            *crisis.resources,
-        )}
-        # No retrieval or generation is needed for this fixed referral message.
-        response = CoachingResponse(
-            interaction_id=None, answer=answer,
-            citations=[CitationSchema(**citation) for citation in citations],
-            child_age_months=age_months,
-            processing_seconds=round(time.perf_counter() - triage_started, 3),
-            status=status, safety="not_flagged" if status == "caregiver_support" else "escalate",
-            support_resources=list(resources.values()),
+        return await respond_to_safety(
+            data_service, user["uid"], payload, age_months, triage, crisis, request_id, triage_started,
         )
-        try:
-            with timed_stage(request_id, "interaction_save"):
-                await save_coaching_response(data_service, user["uid"], payload, response)
-        except Exception:
-            # A persistence outage must not replace a recognized danger referral
-            # with a generic error. No fabricated interaction ID is returned.
-            timing_logger.warning("coaching_input_safety request=%s persistence=failed", request_id)
-        response.processing_seconds = round(time.perf_counter() - triage_started, 3)
-        return response
     started = time.perf_counter()
     context = []
     if payload.conversation_id is not None:
@@ -169,14 +182,23 @@ async def coach(
     retrieval_query = contextual_retrieval_query(payload.question, context)
     # A direct follow-up keeps the age explicitly stated in its caregiver topic.
     # Current profile age remains the fallback when no subject age was supplied.
-    if explicit_age is None and retrieval_query != payload.question:
-        context_age = message_age_months(retrieval_query)
+    if explicit_age is None:
+        context_age = contextual_age_months(payload.question, context)
         if context_age is not None:
+            subject_age_override = context_age
             age_months, completed_months = context_age, int(context_age)
             age_days = round(context_age * 30.4375)
             outside_age_range = False
+            # A younger child mentioned in this conversation may have stricter
+            # age-specific danger signs than the selected profile.
+            with timed_stage(request_id, "context_safety"):
+                triage = inspect_input(payload.question, completed_months)
+            if triage.escalate:
+                return await respond_to_safety(
+                    data_service, user["uid"], payload, age_months, triage, crisis, request_id, triage_started,
+                )
     vaccination = inspect_vaccination(payload.question, age_months, topic=retrieval_query)
-    unresolved_follow_up = is_follow_up(payload.question) and retrieval_query == payload.question
+    unresolved_follow_up = needs_topic_clarification(payload.question, context)
     assessment = professional_assessment_response(payload.question)
     boundary = conversation_boundary_response(payload.question, unresolved_follow_up=unresolved_follow_up,
                                               child_age_months=age_months, outside_age_range=outside_age_range)
@@ -201,11 +223,13 @@ async def coach(
         stage = "Evidence selection"
         with timed_stage(request_id, "evidence_selection"):
             evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
+            if boundary is None and vaccination is None and assessment is None:
+                evidence = select_care_references(payload.question, age_months, context, evidence)
         timing_logger.info(
             "coach_timing request=%s passages=%d evidence=%d evidence_characters=%d",
             request_id, len(passages), len(evidence), sum(len(item.text) for item in evidence),
         )
-        if evidence:
+        if evidence and reference_status != "unavailable":
             reference_status = "matched"
         status = "no_evidence"
         response_kind = None
@@ -230,11 +254,10 @@ async def coach(
                 )
             stage = "Response safety"
             with timed_stage(request_id, "response_safety"):
-                decision = (SafetyDecision(True, ("provider_content_block",)) if result.blocked else
-                            inspect_response(result.answer, result.passages, evidence, age_months))
+                result, decision = review_coaching_result(result, evidence, age_months, payload.question, context)
                 timing_logger.info(
                     "coaching_safety request=%s outcome=%s reasons=%s",
-                    request_id, "blocked" if decision.blocked else "passed",
+                    request_id, "blocked" if decision.blocked else "replaced_with_basic_care" if decision.replaced_with_basic_care else "passed",
                     ",".join(decision.reasons) or "none",
                 )
                 if decision.blocked:
@@ -281,6 +304,9 @@ async def coach(
         response_kind=response_kind,
         answer_basis=result.answer_basis if status == "answered" else None,
         reference_status=reference_status if status == "answered" else None,
+        subject_age_override=subject_age_override,
+        caregiver_request=caregiver_request(payload.question, context),
+        clarification_field=boundary.clarification_field if boundary is not None else None,
         citations=[CitationSchema(**citation) for citation in citations],
         child_age_months=age_months,
         processing_seconds=round(time.perf_counter() - started, 3), status=status,
