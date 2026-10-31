@@ -7,6 +7,7 @@ import logging
 import json
 import hashlib
 from pathlib import Path
+from threading import Lock
 import time
 from uuid import uuid4
 
@@ -66,22 +67,38 @@ class CoachingService:
     def __init__(self, api_key: str | None = None, model: str | None = None, client=None,
                  fallback_model: str | None = None):
         self.api_key = (api_key or settings.GEMINI_API_KEY or "").strip()
-        self.model = model or settings.GEMINI_MODEL
+        self.model = (model or settings.GEMINI_MODEL).strip()
         self.fallback_model = (
             settings.GEMINI_FALLBACK_MODEL if fallback_model is None else fallback_model
         ).strip()
         self._client = client
+        self._owns_client = client is None
+        self._client_lock = Lock()
+        self._closed = False
 
     @property
     def client(self):
-        if self._client is None:
-            if not self.api_key:
-                raise ValueError("GEMINI_API_KEY is not configured.")
-            self._client = genai.Client(
-                api_key=self.api_key,
-                http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
-            )
-        return self._client
+        with self._client_lock:
+            if self._closed:
+                raise RuntimeError("Coaching service is closed.")
+            if self._client is None:
+                if not self.api_key:
+                    raise ValueError("GEMINI_API_KEY is not configured.")
+                self._client = genai.Client(
+                    api_key=self.api_key,
+                    http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
+                )
+            return self._client
+
+    def close(self) -> None:
+        """Close only an internally created client, without creating an unused one."""
+        with self._client_lock:
+            if self._closed:
+                return
+            self._closed = True
+            client, self._client = self._client, None
+        if self._owns_client and client is not None:
+            client.close()
 
     def generate(self, question: str, child_age_months: float, routine: str | None, passages: list[RetrievedPassage],
                  *, conversation_context: list[dict] | None = None) -> CoachingResult:

@@ -66,6 +66,15 @@ class Settings:
         if not self.GEMINI_PAID_SERVICES_CONFIRMED:
             raise ValueError("Production requires reviewed Gemini paid-service data terms. Unpaid services must not process personal or sensitive information.")
 
+    def validate_coaching(self) -> None:
+        """Check local generation settings without contacting the provider."""
+        for name in ("GEMINI_API_KEY", "GEMINI_MODEL"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} must be configured before starting the backend.")
+        if not isinstance(self.GEMINI_FALLBACK_MODEL, str):
+            raise ValueError("GEMINI_FALLBACK_MODEL must be a model name or an empty string.")
+
     @property
     def firebase_admin_key_path(self) -> str | None:
         """Resolve the Firebase Admin service account key path.

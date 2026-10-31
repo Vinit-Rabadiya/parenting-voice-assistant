@@ -23,8 +23,7 @@ def get_speech_service(request: Request) -> SpeechService:
 def get_retrieval_service(request: Request) -> RetrievalService:
     service = getattr(request.app.state, "retrieval_service", None)
     if service is None:
-        service = RetrievalService()
-        request.app.state.retrieval_service = service
+        raise HTTPException(status_code=503, detail="Guidance is unavailable. Please try again.")
     return service
 
 
@@ -39,8 +38,7 @@ def get_caregiver_data_service(request: Request) -> CaregiverDataService:
 def get_coaching_service(request: Request) -> CoachingService:
     service = getattr(request.app.state, "coaching_service", None)
     if service is None:
-        service = CoachingService()
-        request.app.state.coaching_service = service
+        raise HTTPException(status_code=503, detail="Guidance is unavailable. Please try again.")
     return service
 
 
