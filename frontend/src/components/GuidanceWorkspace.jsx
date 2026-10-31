@@ -7,6 +7,7 @@ import useConversations from "../hooks/useConversations";
 import PrivacyConsent from "./PrivacyConsent";
 import ChatLoading from "./ChatLoading";
 import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
+import usePlaybackPreference from "../hooks/usePlaybackPreference";
 
 function ConversationListItem({ conversation, active, disabled, onOpen, onDelete, workspaceActive }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -66,8 +67,9 @@ function ConversationListItem({ conversation, active, disabled, onOpen, onDelete
   </li>;
 }
 
-function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly = false, isActive }) {
+function ConversationWorkspace({ child, userId, onBusyChange, profileControls, readOnly = false, isActive }) {
   const chat = useConversations(child.id, onBusyChange);
+  const { automatic } = usePlaybackPreference(userId);
   const [question, setQuestion] = useState("");
   const [routine, setRoutine] = useState("");
   const [voiceBusy, setVoiceBusy] = useState(false);
@@ -141,7 +143,7 @@ function ConversationWorkspace({ child, onBusyChange, profileControls, readOnly 
               {message.delivery === "unconfirmed" && <small>Reopen this conversation to check for a reply before sending again.</small>}
             </article>
           : <GuidanceAnswer key={message.id} message={message} childName={child.name} allowFeedback={!readOnly}
-              fresh={message.id === chat.newAnswerId} active={isActive && !chat.generating && !voiceBusy}
+              fresh={message.id === chat.newAnswerId} automaticPlayback={automatic} active={isActive && !chat.generating && !voiceBusy}
               conversationId={message.conversation_id === null ? null : chat.conversationId} />)}
         {!chat.messages.length && <div className="chat-welcome"><h3>What are you doing with your baby today?</h3>
           <p>Describe the moment, or ask for guidance.</p></div>}
@@ -198,7 +200,7 @@ function Workspace({ processingAllowed, isActive, userId }) {
   }, []);
   const profileControls = <ChildProfiles userId={userId} selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} isActive={isActive} />;
   return <div className="guidance-workspace">
-    {child ? <ConversationWorkspace key={child.id} child={child} onBusyChange={setBusy} profileControls={profileControls} readOnly={!processingAllowed} isActive={isActive} />
+    {child ? <ConversationWorkspace key={child.id} child={child} userId={userId} onBusyChange={setBusy} profileControls={profileControls} readOnly={!processingAllowed} isActive={isActive} />
       : <div className="profile-onboarding">{profileControls}<p>Select or add a child profile first.</p></div>}
   </div>;
 }

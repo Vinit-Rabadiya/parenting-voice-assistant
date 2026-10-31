@@ -3,7 +3,7 @@ import { sendFeedback } from "../services/caregiving";
 import useGuidanceAudio from "../hooks/useGuidanceAudio";
 import GuidanceText from "./GuidanceText";
 
-export default function GuidanceAnswer({ message, childName, conversationId, allowFeedback = true, fresh = false, active = true }) {
+export default function GuidanceAnswer({ message, childName, conversationId, allowFeedback = true, fresh = false, automaticPlayback = true, active = true }) {
   const headingId = useId();
   const commentId = useId();
   const ratingId = useId();
@@ -24,7 +24,7 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
   const animate = fresh && message.status === "answered";
   const [textReady, setTextReady] = useState(!animate);
   const finishText = useCallback(() => setTextReady(true), []);
-  const audio = useGuidanceAudio(result.answer, { automatic: fresh, ready: textReady, active });
+  const audio = useGuidanceAudio(result.answer, { automatic: fresh && automaticPlayback, ready: textReady, active });
   const audioBusy = ["preparing", "playing"].includes(audio.state);
   const reasonOptions = [
     ["unclear", "Unclear"], ["repeated_advice", "Repeated advice"],

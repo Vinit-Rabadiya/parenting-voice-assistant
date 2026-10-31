@@ -40,7 +40,7 @@ export default function useGuidanceAudio(text, { automatic = false, ready = true
     if (notify) { setState("stopped"); setMessage(""); setHint(false); }
   }, []);
 
-  const play = useCallback(() => {
+  const play = useCallback((automaticAttempt = false) => {
     attempted.current = true;
     stopGuidanceAudio();
     setHint(false);
@@ -56,7 +56,7 @@ export default function useGuidanceAudio(text, { automatic = false, ready = true
       const utterance = new window.SpeechSynthesisUtterance(speechText(text));
       utterance.rate = 0.95;
       utterance.volume = 1;
-      attempt = { utterance, stop: () => stop(), timer: null };
+      attempt = { utterance, stop: () => stop(), timer: null, automatic: automaticAttempt === true };
       playback.current = currentPlayback = attempt;
       const finish = (next, detail = "", showHint = false) => {
         if (playback.current !== attempt) return;
@@ -94,9 +94,16 @@ export default function useGuidanceAudio(text, { automatic = false, ready = true
       const timer = setTimeout(stop, 0);
       return () => clearTimeout(timer);
     }
-    if (!automatic || !ready || attempted.current) return;
+    if (!automatic) {
+      attempted.current = true;
+      const attempt = playback.current;
+      if (!attempt?.automatic) return;
+      const timer = setTimeout(() => { if (playback.current === attempt) stop(); }, 0);
+      return () => clearTimeout(timer);
+    }
+    if (!ready || attempted.current) return;
     // Scheduling lets StrictMode discard its first effect without double speech.
-    const timer = setTimeout(() => { if (!attempted.current) play(); }, 0);
+    const timer = setTimeout(() => { if (!attempted.current) play(true); }, 0);
     return () => clearTimeout(timer);
   }, [automatic, ready, active, play, stop]);
 
