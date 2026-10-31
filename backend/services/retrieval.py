@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field as dataclass_field
 import logging
 from math import isfinite
+from threading import Lock
 from typing import Any
 
 from qdrant_client import QdrantClient
@@ -141,21 +142,37 @@ class RetrievalService:
             raise ValueError("Candidate content is restricted to a separate evaluation collection.")
         self.allow_candidate_content = allow_candidate_content
         self._client = client
+        self._owns_client = client is None
+        self._client_lock = Lock()
+        self._closed = False
 
     @property
     def client(self) -> QdrantClient:
-        if self._client is None:
-            if not self.url or not self.api_key:
-                raise ValueError("QDRANT_URL and QDRANT_API_KEY must be configured in settings.")
-            self._client = QdrantClient(
-                url=self.url,
-                # Use standard HTTPS for Cloud endpoints on networks blocking port 6333.
-                port=443,
-                api_key=self.api_key,
-                cloud_inference=True,
-                timeout=15,
-            )
-        return self._client
+        with self._client_lock:
+            if self._closed:
+                raise RuntimeError("Retrieval service is closed.")
+            if self._client is None:
+                if not self.url or not self.api_key:
+                    raise ValueError("QDRANT_URL and QDRANT_API_KEY must be configured in settings.")
+                self._client = QdrantClient(
+                    url=self.url,
+                    # Use standard HTTPS for Cloud endpoints on networks blocking port 6333.
+                    port=443,
+                    api_key=self.api_key,
+                    cloud_inference=True,
+                    timeout=15,
+                )
+            return self._client
+
+    def close(self) -> None:
+        """Close only an internally created client, without creating an unused one."""
+        with self._client_lock:
+            if self._closed:
+                return
+            self._closed = True
+            client, self._client = self._client, None
+        if self._owns_client and client is not None:
+            client.close()
 
     def retrieve(
         self,

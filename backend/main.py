@@ -1,9 +1,10 @@
 # this file starts the backend server, connects to firebase, and mounts all api routes.
 # it is run by uvicorn (python -m uvicorn backend.main:app) and used by tests in tests/conftest.py.
 from contextlib import asynccontextmanager
+import logging
 
 import firebase_admin
-from anyio import CapacityLimiter
+from anyio import CancelScope, CapacityLimiter
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 
@@ -12,14 +13,22 @@ from backend.core.firebase import initialize_firebase
 from backend.core.http_security import configure_http_security
 from backend.api.v1.router import api_router
 from backend.services.speech import SpeechService
+from backend.services.coaching import CoachingService
+from backend.services.retrieval import RetrievalService
+
+logger = logging.getLogger("uvicorn.error")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.validate_deployment()
+    settings.validate_coaching()
     # connect to firebase when the server starts.
     app.state.firebase = initialize_firebase()
     try:
+        # Own one wrapper per process; remote clients remain lazy until first use.
+        app.state.coaching_service = CoachingService()
+        app.state.retrieval_service = RetrievalService()
         # store one model per server process for api/dependencies.py to provide to requests.
         app.state.speech_service = await run_in_threadpool(SpeechService, settings.STT_MODEL)
         # allow one transcription at a time for this server process.
@@ -27,13 +36,29 @@ async def lifespan(app: FastAPI):
         # requests are served during yield; the finally block runs when the lifespan exits.
         yield
     finally:
-        if hasattr(app.state, "speech_limiter"):
-            del app.state.speech_limiter
-        if hasattr(app.state, "speech_service"):
-            del app.state.speech_service
-        # close the local firebase connection when the server stops.
-        if hasattr(app.state, "firebase") and app.state.firebase:
-            firebase_admin.delete_app(app.state.firebase)
+        # Finish releasing local resources even if the lifespan was cancelled.
+        with CancelScope(shield=True):
+            for name in ("retrieval_service", "coaching_service"):
+                service = getattr(app.state, name, None)
+                if service is not None:
+                    delattr(app.state, name)
+                    try:
+                        await run_in_threadpool(service.close)
+                    except Exception as exc:
+                        # One cleanup failure must not leak details or skip other services.
+                        logger.warning("service_cleanup service=%s error_type=%s", name, type(exc).__name__)
+            if hasattr(app.state, "speech_limiter"):
+                del app.state.speech_limiter
+            if hasattr(app.state, "speech_service"):
+                del app.state.speech_service
+            # This wrapper uses Firebase-owned clients; discard it before the app is deleted.
+            if hasattr(app.state, "caregiver_data_service"):
+                del app.state.caregiver_data_service
+            # close the local firebase connection when the server stops.
+            if hasattr(app.state, "firebase") and app.state.firebase:
+                firebase_app = app.state.firebase
+                del app.state.firebase
+                firebase_admin.delete_app(firebase_app)
 
 
 app = FastAPI(

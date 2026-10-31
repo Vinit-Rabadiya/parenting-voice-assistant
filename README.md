@@ -337,6 +337,33 @@ Vite forwards `/api/*` to the backend and removes the `/api` prefix. Production
 hosting requires an equivalent HTTPS API routing arrangement; Vite's development
 proxy is not included in the static build.
 
+#### Backend service lifecycle
+
+Both development and production require a non-empty `GEMINI_API_KEY` and
+`GEMINI_MODEL` before startup. An empty `GEMINI_FALLBACK_MODEL` disables the
+fallback. Missing generation settings stop startup before Firebase initialization
+or speech-model loading; error messages name the setting without revealing its
+value. Production also applies the host and provider-term requirements described
+below. These checks validate local configuration, not key validity, quotas or
+remote model availability.
+
+Startup creates one coaching and one retrieval service per backend process.
+Their synchronous SDK clients open only on first use, with a lock preventing
+concurrent first requests from creating duplicate clients. Failed client
+construction is not cached, so a later request can retry initialization.
+Startup sends no generation request, model-list request or Qdrant query.
+The existing speech model still loads during startup.
+
+On shutdown, the application closes internally created coaching/retrieval clients
+and clears its service references before deleting the Firebase app. Unused
+clients are never constructed just to close them, and clients injected by tests
+or scripts remain the caller's responsibility. Partial startup failures follow
+the same cleanup path; a client-close failure is logged by service and error type
+without preventing cleanup of the other services. Cleanup is shielded from
+lifespan cancellation so local resources can finish closing. A later lifespan
+creates fresh wrappers. HTTP endpoints use those startup-owned wrappers and
+return a generic unavailable response if they are absent.
+
 ## API overview
 
 Protected endpoints require `Authorization: Bearer <Firebase ID token>` and verified
