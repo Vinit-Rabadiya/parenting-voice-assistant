@@ -52,6 +52,7 @@ def client(mock_firebase_app):
     from backend.api.dependencies import get_usage_control_service
     from backend.services.usage import UsageDecision
     from backend.core.security import get_account_security_service
+    from backend.core.config import settings
 
     # Existing feature tests assume consent is already granted. Consent tests
     # explicitly remove this override to exercise the actual access policy.
@@ -66,7 +67,7 @@ def client(mock_firebase_app):
     security.read.return_value = {"mfa_enabled": False, "mfa_required": False}
     app.dependency_overrides[get_account_security_service] = lambda: security
     try:
-        with patch("backend.main.SpeechService"):
+        with patch("backend.main.SpeechService"), patch.object(settings, "GEMINI_API_KEY", "test-gemini-key"):
             with TestClient(app) as test_client:
                 yield test_client
     finally:
