@@ -3,9 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import vm from "node:vm";
 import { Blob as NodeBlob } from "node:buffer";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import GuidanceWorkspace from "../../frontend/src/components/GuidanceWorkspace";
+import usePlaybackPreference from "../../frontend/src/hooks/usePlaybackPreference";
 
 vi.mock("../../frontend/src/services/firebase", () => ({
   auth: { currentUser: { uid: "workflow-account", getIdToken: async () => "workflow-token" } },
@@ -82,6 +83,22 @@ async function openWorkspace() {
   render(<GuidanceWorkspace userId="workflow-account" />);
   return screen.findByRole("textbox", { name: "Question" });
 }
+
+it("uses the saved account playback choice without disabling manual Listen", async () => {
+  const preference = renderHook(() => usePlaybackPreference("workflow-account"));
+  act(() => preference.result.current.setAutomatic(false));
+  const input = await openWorkspace();
+  fireEvent.change(input, { target: { value: "How can I talk while dressing?" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByText("Talk gently while dressing.");
+  // Flush the zero-delay automatic-playback effect after the answer is rendered.
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+  expect(speechSynthesis.speak).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  await waitFor(() => expect(speechSynthesis.speak).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole("button", { name: "Stop audio" }));
+  expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
+});
 
 it("records, edits, sends, plays, saves feedback, restores history and deletes through the API", async () => {
   const input = await openWorkspace();
