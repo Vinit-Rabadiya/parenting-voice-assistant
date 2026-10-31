@@ -37,6 +37,9 @@
     "url": "https://github.com/Vinit-Rabadiya/parenting-voice-assistant/issues"
   },
   "homepage": "https://github.com/Vinit-Rabadiya/parenting-voice-assistant#readme",
+  "overrides": {
+    "glob": "^14.0.2"
+  },
   "devDependencies": {
     "firebase-admin": "^14.5.0",
     "husky": "^9.1.7"

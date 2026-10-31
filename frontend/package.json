@@ -21,7 +21,8 @@
     "react-dom": "^19.2.8"
   },
   "overrides": {
-    "@grpc/grpc-js": "^1.13.6"
+    "@grpc/grpc-js": "^1.13.6",
+    "minimatch": "^11.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

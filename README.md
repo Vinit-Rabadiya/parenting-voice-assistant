@@ -170,6 +170,8 @@ upgrade. These files are not a complete transitive lock: indirect Python package
 can still resolve differently across platforms or later installations. The optional
 `requirements-evaluation.txt` stack belongs in a separate environment. For Node
 packages, use `npm ci` with the checked-in root and frontend lockfiles.
+The root `glob` and frontend `minimatch` overrides retain patched indirect
+dependencies while their parent packages still request older major versions.
 
 ### 2. Configure environment files
 
