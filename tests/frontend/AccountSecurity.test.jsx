@@ -20,6 +20,7 @@ vi.mock("../../frontend/src/components/AccountConsent", () => ({ default: () => 
 
 beforeEach(() => {
   vi.resetAllMocks();
+  localStorage.clear();
   getAccountSecurityStatus.mockResolvedValue({ emailVerified: true, totpEnrolled: true,
     mfaRequired: false, factorCount: 1, usesGoogle: true });
   reauthenticateAccount.mockResolvedValue({ next: "signed-in" });
@@ -35,7 +36,33 @@ it("keeps administrator account settings separate from caregiver tools", async (
   await screen.findByRole("heading", { name: "MFA enabled" });
   expect(screen.queryByText("Caregiver usage")).toBeNull();
   expect(screen.queryByText("Caregiver consent")).toBeNull();
+  expect(screen.queryByRole("switch", { name: /Read replies automatically/ })).toBeNull();
   expect(screen.getByRole("button", { name: "Delete my account" })).toBeTruthy();
+});
+
+it("remembers the caregiver playback setting when My Account is reopened", async () => {
+  const account = <AccountPage email="account@example.test" accountAccess={{ verified: true }} />;
+  const view = render(account);
+  const setting = await screen.findByRole("switch", { name: /Read replies automatically/ });
+  expect(setting.checked).toBe(true);
+  fireEvent.click(setting);
+  expect(setting.checked).toBe(false);
+  view.unmount();
+  render(account);
+  expect((await screen.findByRole("switch", { name: /Read replies automatically/ })).checked).toBe(false);
+});
+
+it("applies playback choices in the tab and explains when the browser cannot save them", async () => {
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Storage blocked"); });
+  try {
+    render(<AccountPage email="account@example.test" accountAccess={{ verified: true }} />);
+    const setting = await screen.findByRole("switch", { name: /Read replies automatically/ });
+    fireEvent.click(setting);
+    expect(setting.checked).toBe(false);
+    expect(screen.getByText(/Your choice applies to this tab/)).toBeTruthy();
+    // Restore the initial choice without requiring a persistent write.
+    fireEvent.click(setting);
+  } finally { vi.restoreAllMocks(); }
 });
 
 async function openSetup() {

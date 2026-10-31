@@ -22,7 +22,7 @@ references, and listen to the answer.
   Baby-care questions can also receive guidance when references are missing or incomplete.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
 - New answers reveal progressively after generation, with one Listen/Stop audio control
-  and an automatic playback attempt after the text finishes appearing.
+  and a caregiver-controlled automatic playback setting.
 - Stored interactions and 1–5 helpfulness ratings, with optional reasons and comments
   submitted together through one Save feedback action. Historical Helpful/Not helpful
   records remain readable.
@@ -69,10 +69,25 @@ scope of their tagged release.
 5. The backend loads the child's stored birth date, calculates age, retrieves
    reference passages, and sends the question, age, routine, and passages to Gemini.
 6. The chat scrolls to the new answer. Its text appears progressively after the complete
-   response arrives; reduced-motion preferences skip the animation. Audio attempts to
-   start afterward. Use **Listen** if the browser blocks automatic playback, or the same
+   response arrives; reduced-motion preferences skip the animation. When automatic
+   playback is enabled, audio attempts to start afterward. Use **Listen** if the browser blocks automatic playback, or the same
    button to stop or replay it. Saved answers do not replay automatically.
 7. Review the references and submit feedback if desired.
+
+In **My Account → Settings**, turn **Read replies automatically**
+on or off. It defaults to on and is remembered separately for each account in the
+current browser. Manual Listen/Stop works with either choice. Enabling it applies
+to new replies rather than replaying existing history; navigation, recording,
+child changes and logout still stop playback. Turning it off stops an automatic
+playback attempt without disabling manual Listen. Browsers may still block
+automatic audio until a direct interaction.
+
+The preference is stored only in browser storage; it adds no backend request or
+model call and does not change speech models. It survives ordinary sign-out and
+sign-in but is cleared when saved app data or the account is deleted in this
+browser. If storage is blocked, the choice applies only to the current tab and
+Settings explains that it could not be saved. An unreadable saved preference
+leaves automatic playback off while manual Listen remains available.
 
 The existing coaching model interprets clear spelling mistakes and informal follow-ups
 in context, without a separate correction request. Original messages remain in history;

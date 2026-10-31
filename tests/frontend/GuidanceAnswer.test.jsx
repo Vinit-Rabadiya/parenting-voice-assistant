@@ -237,6 +237,45 @@ it("cancels pending presentation on navigation and never autoplays saved replies
   expect(screen.getByText(message.text)).toBeTruthy();
 });
 
+it("keeps manual Listen and Stop available with autoplay off and applies enabling to new replies", async () => {
+  vi.useFakeTimers();
+  const view = render(<GuidanceAnswer message={message} fresh automaticPlayback={false} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Stop audio" }));
+  view.rerender(<GuidanceAnswer message={message} fresh automaticPlayback />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+  view.rerender(<GuidanceAnswer key="next" message={{ ...message, id: "next", text: "Sing gently." }} fresh automaticPlayback />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(2);
+});
+
+it("stops automatic audio when disabled while preserving manual playback and navigation cleanup", async () => {
+  vi.useFakeTimers();
+  const view = render(<GuidanceAnswer message={message} fresh />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  const automatic = window.speechSynthesis.speak.mock.calls[0][0];
+  view.rerender(<GuidanceAnswer message={message} fresh automaticPlayback={false} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(automatic.onstart).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Listen" }));
+  const manual = window.speechSynthesis.speak.mock.calls[1][0];
+  view.rerender(<GuidanceAnswer message={message} fresh automaticPlayback />);
+  view.rerender(<GuidanceAnswer message={message} fresh automaticPlayback={false} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(manual.onstart).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Stop audio" })).toBeTruthy();
+  view.rerender(<GuidanceAnswer message={message} fresh automaticPlayback={false} active={false} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(manual.onstart).toBeNull();
+  expect(screen.getByRole("button", { name: "Listen" }).disabled).toBe(true);
+});
+
 it("respects reduced motion, preserves formatted content and never executes markup", async () => {
   vi.useFakeTimers();
   vi.stubGlobal("matchMedia", () => ({ matches: true }));

@@ -27,6 +27,14 @@ main.account-shell { max-width: 840px; width: calc(100% - 40px); margin: 24px au
 .account-page .account-status--verified { color: #16804a; background: rgba(22, 128, 74, 0.12); font-weight: 600; }
 .account-page .email-verified { color: #16804a; }
 .account-card { gap: 18px; }
+.account-playback { box-sizing: border-box; padding: 12px 20px; gap: 8px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg); }
+.account-playback-setting { display: flex; flex-direction: row; align-items: center; justify-content: space-between; min-height: 32px; gap: 16px; cursor: pointer; }
+.account-playback-setting input { appearance: none; flex: 0 0 auto; width: 44px; height: 26px; margin: 0; padding: 3px; border: 1px solid var(--border); border-radius: 20px; background: var(--code-bg); cursor: pointer; }
+.account-playback-setting input::before { content: ""; display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--text); transition: transform 0.15s; }
+.account-playback-setting input:checked { background: var(--accent); border-color: var(--accent); }
+.account-playback-setting input:checked::before { transform: translateX(18px); background: white; }
+.account-playback-setting input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) { .account-playback-setting input::before { transition: none; } }
 .account-security-content { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 .account-page button { min-height: 40px; padding: 9px 14px; font-size: 13px; }
 .account-page button:focus-visible, .account-shell .account-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

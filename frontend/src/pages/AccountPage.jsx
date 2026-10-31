@@ -18,6 +18,7 @@ import AccountUsage from "../components/AccountUsage";
 import AccountConsent from "../components/AccountConsent";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
 import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
+import usePlaybackPreference, { clearPlaybackPreference } from "../hooks/usePlaybackPreference";
 
 function securityErrorMessage(error, stage) {
   const messages = {
@@ -56,6 +57,8 @@ function setupSessionExpired(error) {
 function AccountPage({ verificationEmailRequested, email, accountAccess, onDataDeleted }) {
   const administrator = accountAccess?.role === "administrator";
   const { logout, user } = useAuth();
+  const { automatic, setAutomatic } = usePlaybackPreference(user?.uid);
+  const [playbackMessage, setPlaybackMessage] = useState("");
   // remember this screen's progress, messages, and account setup details.
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -95,6 +98,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     setBusy(true); setMessage("");
     try {
       await deleteMyData();
+      clearPlaybackPreference(user?.uid);
       stopGuidanceAudio();
       setDataDeleted(true);
       onDataDeleted?.();
@@ -114,6 +118,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     setMessage("");
     try {
       await deleteAccount();
+      clearPlaybackPreference(user?.uid);
       saveChildSelection(user.uid, null);
       stopGuidanceAudio();
       await logout();
@@ -484,6 +489,16 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
       </section>
       <p className="account-feedback" role="status">{message}</p>
       {securityErrorCode && <details className="account-feedback"><summary>Error reference</summary><code>{securityErrorCode}</code></details>}
+      {accountAccess?.verified && !administrator && <section className="account-playback" aria-label="Spoken replies">
+        <label className="account-playback-setting">
+          <span>Read replies automatically</span>
+          <input type="checkbox" role="switch" checked={automatic} onChange={(event) => {
+            const saved = setAutomatic(event.target.checked);
+            setPlaybackMessage(saved ? "" : "Your choice applies to this tab. This browser could not save it for future visits.");
+          }} />
+        </label>
+        {playbackMessage && <p role="status">{playbackMessage}</p>}
+      </section>}
       {accountAccess?.verified && !administrator && <AccountUsage revision={dataDeleted} />}
       {accountAccess?.verified && !administrator && <AccountConsent key={String(dataDeleted)} />}
       {accountAccess?.verified && <section className="account-card account-data" aria-labelledby="account-data-title">

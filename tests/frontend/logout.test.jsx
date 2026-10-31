@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readChildSelection, saveChildSelection } from "../../frontend/src/services/childSelection";
 import { AuthProvider } from "../../frontend/src/context/AuthProvider";
@@ -7,6 +7,7 @@ import AccountPage from "../../frontend/src/pages/AccountPage";
 import { Navbar } from "../../frontend/src/components/Navbar";
 import { deleteMyData, deleteAccount } from "../../frontend/src/services/caregiving";
 import { getAccountSecurityStatus, reauthenticateAccount, turnOffMfa } from "../../frontend/src/services/auth";
+import usePlaybackPreference from "../../frontend/src/hooks/usePlaybackPreference";
 
 const { user, logOut, unsubscribe, authListener } = vi.hoisted(() => ({
   user: { uid: "caregiver", email: "caregiver@example.test" },
@@ -79,12 +80,15 @@ it("explains mandatory MFA and prevents turning it off", async () => {
 });
 
 it("deletes saved data after confirmation without logging out", async () => {
+  const preference = renderHook(() => usePlaybackPreference("caregiver"));
+  act(() => preference.result.current.setAutomatic(false));
   vi.spyOn(window, "confirm").mockReturnValue(true);
   deleteMyData.mockResolvedValue(undefined);
   render(<AuthProvider><AccountHarness /></AuthProvider>);
   fireEvent.click(await screen.findByRole("button", { name: "Delete my data" }));
   await screen.findByText(/Your saved app data was deleted/);
   expect(deleteMyData).toHaveBeenCalledTimes(1);
+  expect(preference.result.current.automatic).toBe(true);
   expect(logOut).not.toHaveBeenCalled();
   expect(screen.getByTestId("account-state").textContent).toBe("caregiver");
   expect(screen.getByRole("region", { name: "MFA enabled" })).toBeTruthy();
@@ -111,6 +115,8 @@ it("keeps the login active and allows retry after data deletion fails", async ()
 
 // the page uses provider logout so account and signup state are cleared together.
 it("clears account state and onboarding data after successful logout", async () => {
+  const preference = renderHook(() => usePlaybackPreference("caregiver"));
+  act(() => preference.result.current.setAutomatic(false));
   const { unmount } = render(<AuthProvider><AccountHarness /></AuthProvider>);
   fireEvent.click(screen.getByRole("button", { name: "Set signup result" }));
   expect(screen.getByTestId("signup-state").textContent).toBe("present");
@@ -122,6 +128,7 @@ it("clears account state and onboarding data after successful logout", async () 
   fireEvent.click(logoutButton);
   await waitFor(() => expect(screen.getByTestId("account-state").textContent).toBe("signed out"));
   expect(screen.getByTestId("signup-state").textContent).toBe("cleared");
+  expect(preference.result.current.automatic).toBe(false);
   expect(logOut).toHaveBeenCalledOnce();
   unmount();
   expect(unsubscribe).toHaveBeenCalledOnce();
@@ -168,6 +175,8 @@ it("clears the previous account selection on authentication changes", async () =
 });
 
 it("clears the selected child after account deletion even if logout fails", async () => {
+  const preference = renderHook(() => usePlaybackPreference("caregiver"));
+  act(() => preference.result.current.setAutomatic(false));
   saveChildSelection("caregiver", "child-id");
   vi.spyOn(window, "confirm").mockReturnValue(true);
   deleteAccount.mockResolvedValue(undefined);
@@ -176,4 +185,5 @@ it("clears the selected child after account deletion even if logout fails", asyn
   fireEvent.click(await screen.findByRole("button", { name: "Delete my account" }));
   await waitFor(() => expect(deleteAccount).toHaveBeenCalledOnce());
   await waitFor(() => expect(readChildSelection("caregiver")).toBeNull());
+  expect(preference.result.current.automatic).toBe(true);
 });
