@@ -899,6 +899,60 @@ editing, Listen/Stop, and reopening saved history after refresh. The public-page
 referrer correction passed 22 focused hosting/security checks. Manual shutdown
 completed with exit code zero and left the container stopped.
 
+### Automatic deployment
+
+The `Deploy Application` workflow publishes a container image after `CI Pipeline` passes
+for a push to `main`. Pull requests do not publish or deploy images. The workflow
+checks the exact commit again before deployment and skips superseded commits.
+Image tags contain the commit SHA; Azure uses the immutable image digest. Docker
+layers are cached to reuse unchanged dependencies and the speech model.
+
+The initial deployment targets 3–5 testers on the Consumption plan. Start with a single
+active revision and minimum/maximum replica counts of one while testing, then
+explicitly stop the app after each session. This keeps the model loaded during a
+session and limits normal autoscaling. Check simultaneous voice requests on the
+host before changing capacity; the local idle-memory measurement is not a load
+test.
+
+Configure these under **Settings → Secrets and variables → Actions**:
+
+| Type | Name | Purpose |
+| --- | --- | --- |
+| Variable | `DEPLOYMENT_AUTOMATION_ENABLED` | Set to `true` to enable image publishing. |
+| Variables | `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | Public Firebase browser configuration, matching the local frontend. |
+| Variable | `AZURE_DEPLOY_ENABLED` | Set to `true` after the hosted configuration is verified. Until then, only image publishing is enabled. |
+| Variables | `AZURE_RESOURCE_GROUP`, `AZURE_CONTAINER_APP` | Names of the existing Azure resources. |
+| Secrets | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | Azure deployment identity identifiers used by OpenID Connect. |
+
+The workflow uses GitHub's temporary `GITHUB_TOKEN` to publish to the private
+GitHub Container Registry. It does not need a personal upload token. Verify the
+package remains private after the first publish. Azure downloads the private image
+using a separate token with only `read:packages`, stored in the Container App's
+registry secret. Renew that credential before it expires; publishing a new image
+does not renew Azure's download credential.
+
+Configure an Azure federated identity credential for
+`repo:Vinit-Rabadiya/parenting-voice-assistant:ref:refs/heads/main`, with issuer
+`https://token.actions.githubusercontent.com` and audience
+`api://AzureADTokenExchange`. Grant that identity the Container Apps Contributor
+role scoped to the existing Container App. The workflow updates that app; it does
+not create a resource group, environment or registry. Runtime Gemini, Qdrant and
+Firebase Admin credentials remain in Azure's runtime secret configuration.
+
+While the application is running, successful main updates deploy automatically. While
+it is stopped, the image is published and the app stays stopped. When needed,
+open **Actions → Deploy Application → Run workflow**, select **main**, and choose
+**start**. This builds or reuses the latest checked main image, starts the app,
+applies the image and checks HTTPS health. Choose **stop** when the application is no longer needed;
+the workflow verifies the stopped state. **publish** builds the image without
+changing Azure. These operations are serialized, so a Stop run can wait for an
+existing workflow; the Azure portal's Stop control is also available.
+
+Image publishing uses GitHub Actions minutes and cache storage. The hosted application
+requires its HTTPS, host, proxy, provider terms and runtime secret configuration
+to be completed before enabling Azure deployment. Existing production validation
+still applies. Workflow validation alone does not verify a hosted deployment.
+
 ### Production configuration
 
 Local development defaults to `APP_ENV=development`. Production startup requires

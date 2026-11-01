@@ -1,7 +1,7 @@
 # Local verification only. Hosted deployments use reviewed HTTPS and host settings.
 services:
   app:
-    image: parenting-voice-assistant:demo-local
+    image: parenting-voice-assistant:local
     build:
       context: .
       args:
