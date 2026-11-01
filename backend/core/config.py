@@ -23,6 +23,7 @@ class Settings:
     VERSION: str = "0.1.0"
 
     APP_ENV: str = os.getenv("APP_ENV", "development").strip().lower()
+    SERVE_FRONTEND: bool = boolean_setting("SERVE_FRONTEND")
     ALLOWED_HOSTS: list[str] = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "").split(",") if host.strip()]
     # An operator confirms the provider account terms; this is not a billing API check.
     GEMINI_PAID_SERVICES_CONFIRMED: bool = boolean_setting("GEMINI_PAID_SERVICES_CONFIRMED")

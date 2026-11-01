@@ -36,7 +36,14 @@ class HTTPSecurityMiddleware:
                 headers["Cache-Control"] = "no-store"
                 headers["X-Content-Type-Options"] = "nosniff"
                 headers["X-Frame-Options"] = "DENY"
-                headers["Referrer-Policy"] = "no-referrer"
+                # Firebase browser-key restrictions need the public page's origin,
+                # while private API responses must not disclose their URL paths.
+                public_document = (
+                    scope.get("path") in {"/", "/index.html"}
+                    and message["status"] == 200
+                    and headers.get("Content-Type", "").split(";", 1)[0].strip().lower() == "text/html"
+                )
+                headers["Referrer-Policy"] = "strict-origin" if public_document else "no-referrer"
                 if scope.get("scheme") == "https":
                     headers["Strict-Transport-Security"] = "max-age=31536000"
             await send(message)
