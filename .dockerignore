@@ -21,3 +21,10 @@ venv
 .ruff_cache
 eval/results
 **/*.log
+frontend/dist
+data/raw
+data/processed
+data/indexes
+notebooks
+tests
+docs

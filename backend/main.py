@@ -8,8 +8,9 @@ from anyio import CancelScope, CapacityLimiter
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 
-from backend.core.config import settings
+from backend.core.config import PROJECT_ROOT, settings
 from backend.core.firebase import initialize_firebase
+from backend.core.frontend import mount_frontend
 from backend.core.http_security import configure_http_security
 from backend.api.v1.router import api_router
 from backend.services.speech import SpeechService
@@ -74,3 +75,6 @@ app.include_router(api_router)
 
 # also allow accessing the routes under /api/v1.
 app.include_router(api_router, prefix="/api/v1")
+
+if settings.SERVE_FRONTEND:
+    mount_frontend(app, api_router, PROJECT_ROOT / "frontend/dist")

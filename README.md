@@ -170,6 +170,8 @@ upgrade. These files are not a complete transitive lock: indirect Python package
 can still resolve differently across platforms or later installations. The optional
 `requirements-evaluation.txt` stack belongs in a separate environment. For Node
 packages, use `npm ci` with the checked-in root and frontend lockfiles.
+The root `glob` and frontend `minimatch` overrides retain patched indirect
+dependencies while their parent packages still request older major versions.
 
 ### 2. Configure environment files
 
@@ -842,6 +844,60 @@ Before public deployment:
 
 Dependency audits and automated tests do not replace checking the deployed host,
 cloud permissions and provider account configuration.
+
+### Local container verification
+
+The container builds the web interface and serves it with the existing API on one
+origin. `SERVE_FRONTEND=true` enables this layout; ordinary Vite development keeps
+the existing routing. The image caches the current `base` speech model during the
+build, uses one server worker, and runs as a non-root user. Backend credentials
+are supplied only when the container runs. The four `VITE_FIREBASE_*` build values
+are public browser configuration, not Firebase Admin credentials.
+
+With Docker Desktop's Linux engine running and the existing `.env` and
+`frontend/.env.local` configured, run from the repository root:
+
+```powershell
+docker compose --env-file .env --env-file frontend/.env.local up --build -d
+docker compose --env-file .env --env-file frontend/.env.local ps
+```
+
+Open **http://localhost:8001**. Check sign-in, the child selector, typed guidance,
+recording, playback and history. Compose binds only to `127.0.0.1`, mounts the
+existing Firebase Admin key read-only, and uses development mode solely for this
+local HTTP check. The image itself defaults to production validation. This local
+Compose file must not be used as public hosting configuration.
+
+Add `http://localhost:8001/*` to the Firebase browser key's allowed website
+referrers in Google Cloud Console, keeping existing development entries and API
+restrictions. Firebase Authentication's authorized domains must also include
+`localhost`. The public HTML sends only its origin as a referrer so the browser-key
+restriction can be checked; private API responses retain `no-referrer`.
+
+Stop the local container when verification is finished:
+
+```powershell
+docker compose --env-file .env --env-file frontend/.env.local stop
+```
+
+The image forwards stop signals through a small init process. Compose allows up
+to 60 seconds for shutdown and does not restart the container automatically.
+
+These commands do not create Azure resources. The first build downloads runtime
+packages and the speech model; subsequent builds reuse unchanged layers. Model
+downloads are disabled at runtime for the cached model. Changing the container's
+speech model requires including that model in a rebuilt image.
+
+Local Linux verification on 1 November 2026 checked the webpage, built assets,
+API health, unauthenticated private routes and credential-file exclusions. The
+cached model loaded with networking disabled and processed a silent WAV. Observed
+idle app memory was about 234 MiB; this is not a peak-load or speech-accuracy
+benchmark. The Windows project checks passed with 1,176 backend tests, 234 UI tests and
+seven audio tests, alongside lint and the frontend build.
+Signed-in container checks also covered typed and recorded messages, transcript
+editing, Listen/Stop, and reopening saved history after refresh. The public-page
+referrer correction passed 22 focused hosting/security checks. Manual shutdown
+completed with exit code zero and left the container stopped.
 
 ### Production configuration
 
