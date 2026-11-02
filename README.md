@@ -12,7 +12,7 @@ references, and listen to the answer.
 
 - Email/password and Google sign-in, email verification, and optional TOTP MFA with backup authenticators.
 - Child profiles with create, edit, and switch controls, birth date, calculated age,
-  baseline milestone display, and optional additional milestones.
+  baseline milestone display, saved milestone context, and optional private health-and-care notes.
 - English voice recording up to 30 seconds, transcription after Stop, and editable text.
 - Typed questions and optional routine context such as feeding, bathing, and play.
 - Guidance defaults to Kenya without a country picker; relevant safety responses include Kenya support contacts.
@@ -394,7 +394,7 @@ email. TOTP is required when enrolled or enforced by policy. Backend routes are 
 | GET | `/me/security` | Read MFA status and policy for the current verified account |
 | POST | `/me/security/mfa/disable` | Disable optional MFA after a recent full sign-in |
 | GET | `/children` | List the authenticated user's profiles |
-| POST | `/children` | Create a profile with name, date_of_birth, and optional milestones |
+| POST | `/children` | Create a profile with name, date_of_birth, optional milestones and private health notes |
 | PATCH | `/children/{child_id}` | Update an owned profile |
 | POST | `/speech/transcribe` | Transcribe raw WAV audio |
 | POST | `/conversations` | Create a conversation for an owned child profile |
@@ -466,8 +466,8 @@ Qdrant Cloud inference processes question text for retrieval; explicit follow-up
 can also include a recent caregiver message from the selected conversation.
 Gemini receives the question, current calculated age, routine, retrieved reference
 passages, and bounded recent conversation context when available.
-Optional milestones are currently stored and displayed without affecting answer
-generation. The conversation privacy disclosure explains that application history
+Saved additional milestones are passed as caregiver-reported context, without treating
+the baseline milestone display as achieved abilities. The conversation privacy disclosure explains that application history
 is retained until the conversation, child profile, or account is deleted.
 This is not a claim about third-party
 provider or backup retention. Account deletion is available in account settings.
@@ -490,6 +490,36 @@ and broader privacy requirements still need separate work;
 this flow alone does not establish legal compliance. Use fictitious profiles for
 evaluation. Change the notice version when its processing terms change so an old
 acceptance cannot silently authorise new terms.
+
+### Profile context in replies
+
+Add or edit a profile's optional **Health and care details** for short allergy,
+condition, history, clinician-instruction and test-result notes. Each field is limited
+to 600 characters. Existing profiles work without migration. Clearing these fields
+removes their contents from the profile; deleting the child or account uses the existing
+recursive cleanup. These notes are not added to administrator feedback reports or logs.
+
+The coaching endpoint reads the selected profile from the authenticated account on
+each request. Saved additional milestones are included in the existing generation
+call as unverified observations. Baseline milestone suggestions are not treated as
+achievements. Profile names, dates of birth and health notes are not added to retrieval
+queries. Explicit conversation age overrides do not inherit saved profile context.
+
+Health notes are saved privately by default. Using them in replies requires both the
+profile's **Use health details to tailor replies** choice and either the reviewed
+paid-service confirmation or explicit non-personal testing confirmation. The latter
+permits only non-personal test notes and does not enable billing or authorize personal
+health information. The generation service rechecks this configuration before building
+the prompt. Without either confirmation, notes remain available for private storage
+and editing but are not included in model requests.
+
+Health-tailored replies carry only a use marker and a random profile revision in
+conversation metadata, rather than another copy of the notes. Changing or clearing
+notes, disabling their use, or withdrawing provider permission stops old health-tailored
+turns from being reused as model context. Saved chat text remains readable until its
+conversation is deleted. Guidance must not diagnose, interpret test values, prescribe
+treatment or override clinician instructions. Automated tests verify these data paths
+and prompt rules, not clinical accuracy.
 
 Within the same open signed-in session, account navigation preserves the chat
 workspace, selected conversation, draft, and loaded consent state in memory.

@@ -62,6 +62,18 @@ def test_feedback_on_different_answers_from_one_caregiver_counts_separately():
     assert FeedbackSummaryService(client).read().ratings[3].count == 20
 
 
+@pytest.mark.parametrize("version", ["2026-10-26.2", CONSENT_VERSION])
+def test_health_notice_update_does_not_hide_already_shared_feedback(version):
+    client, _ = storage([record("one")], accepted={"one": {
+        "consent_version": version, "caregiver_authority": True,
+        "consent_at": NOW + timedelta(seconds=1) if version == CONSENT_VERSION else NOW - timedelta(days=1),
+        "feedback_consent_at": NOW - timedelta(days=1),
+    }})
+    report = FeedbackSummaryService(client).read()
+    assert report.ratings[3].count == 1
+    assert report.comment_count == 1
+
+
 def test_synthetic_improvement_signal_contains_only_grouped_categories():
     result = summarize_feedback([{"rating": 2, "reasons": ["did_not_answer"]}])
     assert result.ratings[1].count == 1

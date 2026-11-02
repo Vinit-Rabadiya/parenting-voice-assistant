@@ -1,10 +1,14 @@
 """Firestore access scoped to one authenticated caregiver at a time."""
 
 from datetime import date, datetime, timezone
+from uuid import uuid4
 
 from firebase_admin import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 from backend.services.age import age_details, current_date, within_project_scope
+from backend.schemas.children import ChildHealthDetails
+from backend.core.privacy import FEEDBACK_CONSENT_VERSIONS
+from backend.services.profile_context import health_context_available
 
 BASELINE_MILESTONES = (
     (2, ["Social smile and follows a colourful object"]),
@@ -63,8 +67,16 @@ class CaregiverDataService:
                     and data.get("caregiver_authority") is True):
                 return data["consent_at"]
             accepted_at = datetime.now(timezone.utc)
-            transaction.set(document, {"consent_version": version, "consent_at": accepted_at,
-                                       "caregiver_authority": True}, merge=True)
+            values = {"consent_version": version, "consent_at": accepted_at, "caregiver_authority": True}
+            feedback_at = data.get("feedback_consent_at", data.get("consent_at"))
+            if (data.get("consent_version") in FEEDBACK_CONSENT_VERSIONS
+                    and data.get("caregiver_authority") is True
+                    and isinstance(feedback_at, datetime) and feedback_at.utcoffset() is not None):
+                values["feedback_consent_at"] = feedback_at
+            else:
+                # Reset stale permission when the previous notice did not authorize sharing.
+                values["feedback_consent_at"] = accepted_at
+            transaction.set(document, values, merge=True)
             return accepted_at
 
         return accept(self.client.transaction())
@@ -204,6 +216,10 @@ class CaregiverDataService:
                 "in_scope": in_scope,
                 "milestone_focus": data.get("milestone_focus"),
                 "milestones": data.get("milestones", [data["milestone_focus"]] if data.get("milestone_focus") else []),
+                "health_details": data.get("health_details") or {},
+                "use_health_details": data.get("use_health_details") is True,
+                "health_context_available": health_context_available(),
+                "health_context_revision": data.get("health_context_revision"),
                 "baseline_milestones": baseline_milestones(completed_months) if in_scope else [], "created_at": data.get("created_at")}
 
     def list_children(self, uid: str) -> list[dict]:
@@ -213,12 +229,18 @@ class CaregiverDataService:
         document = self._children(uid).document(child_id).get()
         return self._child_response(document) if document.exists else None
 
-    def create_child(self, uid: str, name: str, date_of_birth: date, milestone_focus: str | None, milestones: list[str] | None = None) -> dict:
+    def create_child(self, uid: str, name: str, date_of_birth: date, milestone_focus: str | None, milestones: list[str] | None = None,
+                     *, health_details: dict | None = None, use_health_details: bool = False) -> dict:
         calculate_age(date_of_birth)
+        notes = ChildHealthDetails.model_validate(health_details or {}).model_dump()
+        if use_health_details and not health_context_available():
+            raise ValueError("Using health details in replies is currently unavailable. You can save them privately.")
         document = self._children(uid).document()
         document.set({"name": name.strip(), "date_of_birth": date_of_birth.isoformat(),
                       "milestone_focus": milestone_focus.strip() if milestone_focus else None,
                       "milestones": [value.strip() for value in (milestones or []) if value.strip()],
+                      "health_details": notes, "use_health_details": use_health_details,
+                      "health_context_revision": uuid4().hex,
                       "created_at": firestore.SERVER_TIMESTAMP})
         return self.get_child(uid, document.id)
 
@@ -237,6 +259,15 @@ class CaregiverDataService:
             update["milestone_focus"] = value.strip() if value else None
         if changes.get("milestones") is not None:
             update["milestones"] = [value.strip() for value in changes["milestones"] if value.strip()]
+        if "health_details" in changes:
+            update["health_details"] = ChildHealthDetails.model_validate(changes["health_details"] or {}).model_dump()
+        if changes.get("use_health_details") is not None:
+            if changes["use_health_details"] and not health_context_available():
+                raise ValueError("Using health details in replies is currently unavailable. You can save them privately.")
+            update["use_health_details"] = changes["use_health_details"]
+        if "health_details" in update or "use_health_details" in update:
+            # A new revision prevents old health-tailored replies from restoring removed notes.
+            update["health_context_revision"] = uuid4().hex
         if update:
             document.update(update)
         return self.get_child(uid, child_id)

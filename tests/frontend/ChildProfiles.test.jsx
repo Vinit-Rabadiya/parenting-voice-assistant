@@ -12,6 +12,7 @@ vi.mock("../../frontend/src/services/caregiving", () => ({
 const child = { id: "child-1", name: "Example", date_of_birth: "2026-04-21", age_label: "6 months",
   milestones: ["Responds to familiar voices"], baseline_milestones: ["Babbles"] };
 const otherChild = { ...child, id: "child-2", name: "Another child" };
+const emptyHealthDetails = { allergies: "", conditions: "", history: "", care_instructions: "", test_result_notes: "" };
 const originalDialogMethods = Object.fromEntries(["showModal", "close"].map((name) => [
   name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name),
 ]));
@@ -80,7 +81,8 @@ it("adds a child through a dialog with optional milestones", async () => {
   fireEvent.change(within(dialog).getByLabelText("Child name"), { target: { value: "New child" } });
   fireEvent.change(within(dialog).getByLabelText("Date of birth"), { target: { value: "2026-04-21" } });
   fireEvent.click(within(dialog).getByRole("button", { name: "Save child" }));
-  await waitFor(() => expect(createChild).toHaveBeenCalledWith({ name: "New child", date_of_birth: "2026-04-21", milestones: [] }));
+  await waitFor(() => expect(createChild).toHaveBeenCalledWith({ name: "New child", date_of_birth: "2026-04-21", milestones: [],
+    health_details: emptyHealthDetails, use_health_details: false }));
   await waitFor(() => expect(onSelect).toHaveBeenCalledWith(created));
   expect(screen.queryByRole("dialog")).toBeNull();
 });
@@ -98,7 +100,65 @@ it("prefills the edit dialog and keeps existing milestones", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
   await waitFor(() => expect(updateChild).toHaveBeenCalledWith("child-1", {
     name: "Updated name", date_of_birth: "2026-04-21", milestones: ["Responds to familiar voices"],
+    health_details: emptyHealthDetails, use_health_details: false,
   }));
+});
+
+it("saves health notes privately when using them in replies is unavailable", async () => {
+  updateChild.mockResolvedValue(child);
+  render(<ChildProfiles selectedChild={child} onSelect={vi.fn()} />);
+  await openPicker();
+  fireEvent.click(screen.getByRole("button", { name: "Edit child profile" }));
+  fireEvent.click(screen.getByText("Health and care details (optional)"));
+  fireEvent.change(screen.getByLabelText("Known allergies"), { target: { value: "Example note" } });
+  expect(screen.getByLabelText("Use health details to tailor replies").disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(updateChild).toHaveBeenCalledWith(child.id, expect.objectContaining({
+    health_details: { ...emptyHealthDetails, allergies: "Example note" }, use_health_details: false,
+  })));
+});
+
+it("keeps existing notes and requires a separate choice before using them in replies", async () => {
+  const available = { ...child, health_context_available: true, health_details: { history: "Saved note" } };
+  updateChild.mockResolvedValue(available);
+  listChildren.mockResolvedValue([available]);
+  render(<ChildProfiles selectedChild={available} onSelect={vi.fn()} />);
+  await openPicker();
+  fireEvent.click(screen.getByRole("button", { name: "Edit child profile" }));
+  expect(screen.getByLabelText("Relevant health history").value).toBe("Saved note");
+  const choice = screen.getByLabelText("Use health details to tailor replies");
+  expect(choice.checked).toBe(false);
+  expect(choice.disabled).toBe(false);
+  fireEvent.click(choice);
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(updateChild).toHaveBeenCalledWith(child.id, expect.objectContaining({
+    health_details: { ...emptyHealthDetails, history: "Saved note" }, use_health_details: true,
+  })));
+});
+
+it("can clear saved health notes without deleting the child", async () => {
+  const saved = { ...child, health_details: { conditions: "An existing note" } };
+  listChildren.mockResolvedValue([saved]);
+  updateChild.mockResolvedValue({ ...child, health_details: emptyHealthDetails });
+  render(<ChildProfiles selectedChild={saved} onSelect={vi.fn()} />);
+  await openPicker();
+  fireEvent.click(screen.getByRole("button", { name: "Edit child profile" }));
+  fireEvent.change(screen.getByLabelText("Diagnosed conditions"), { target: { value: "" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(updateChild).toHaveBeenCalledWith(child.id, expect.objectContaining({ health_details: emptyHealthDetails })));
+  expect(deleteChild).not.toHaveBeenCalled();
+});
+
+it("preserves health-note drafts after a failed save and displays notes only in profile details", async () => {
+  updateChild.mockRejectedValue(new Error("Profile could not be saved."));
+  render(<ChildProfiles selectedChild={child} onSelect={vi.fn()} />);
+  await openPicker();
+  expect(screen.queryByLabelText("Known allergies")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Edit child profile" }));
+  fireEvent.change(screen.getByLabelText("Known allergies"), { target: { value: "Unsaved health note" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await screen.findByText("Profile could not be saved.");
+  expect(screen.getByLabelText("Known allergies").value).toBe("Unsaved health note");
 });
 
 it("cancels editing without saving and restores focus", async () => {

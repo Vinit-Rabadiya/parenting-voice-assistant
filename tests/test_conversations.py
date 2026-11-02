@@ -201,6 +201,69 @@ def coaching_payload(question="Play ideas"):
     return {"child_id": "child-1", "conversation_id": "chat-1", "question": question}
 
 
+def test_coaching_uses_current_owned_milestones_and_ignores_browser_profile_context(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    data.get_child.return_value["milestones"] = ["Current server observation"]
+    response = client.post("/coach", json={**coaching_payload(), "profile_context": {"milestones": ["UNTRUSTED_BROWSER_DATA"]}})
+    assert response.status_code == 200
+    data.get_child.assert_called_once_with("account-a", "child-1")
+    assert coaching.generate.call_args.kwargs["profile_context"] == {"milestones": ["Current server observation"]}
+    assert "Current server observation" not in str(retrieval.retrieve.call_args)
+    assert "profile_context" not in data.save_conversation_turn.call_args.args[5]
+
+
+def test_explicit_different_child_age_does_not_inherit_selected_profile_notes(client, coaching_dependencies):
+    data, _, coaching = coaching_dependencies
+    data.get_child.return_value["milestones"] = ["PRIVATE_PROFILE_OBSERVATION"]
+    response = client.post("/coach", json=coaching_payload("Play ideas for my 18-month-old?"))
+    assert response.status_code == 200
+    assert "profile_context" not in coaching.generate.call_args.kwargs
+
+
+@pytest.mark.parametrize("paid,testing", [(True, False), (False, True)])
+def test_health_context_is_not_sent_to_retrieval_or_duplicated_in_history_metadata(client, coaching_dependencies, monkeypatch, paid, testing):
+    from backend.core.config import settings
+    data, retrieval, coaching = coaching_dependencies
+    monkeypatch.setattr(settings, "GEMINI_PAID_SERVICES_CONFIRMED", paid)
+    monkeypatch.setattr(settings, "GEMINI_NONPERSONAL_TESTING_CONFIRMED", testing)
+    data.get_child.return_value.update(use_health_details=True, health_details={"allergies": "PRIVATE_NOTE"})
+    response = client.post("/coach", json=coaching_payload())
+    assert response.status_code == 200
+    assert coaching.generate.call_args.kwargs["profile_context"]["health_details"] == {"allergies": "PRIVATE_NOTE"}
+    assert "PRIVATE_NOTE" not in str(retrieval.retrieve.call_args)
+    stored = data.save_conversation_turn.call_args.args[5]
+    assert stored["health_context_used"] is True
+    assert "PRIVATE_NOTE" not in str(stored)
+
+
+def test_provider_withdrawal_stops_health_context_from_reentering_via_history(client, coaching_dependencies, monkeypatch):
+    from backend.core.config import settings
+    data, _, coaching = coaching_dependencies
+    monkeypatch.setattr(settings, "GEMINI_PAID_SERVICES_CONFIRMED", False)
+    monkeypatch.setattr(settings, "GEMINI_NONPERSONAL_TESTING_CONFIRMED", False)
+    data.get_conversation.return_value = {**conversation(), "messages": [
+        {"role": "user", "text": "PRIVATE_HISTORY"},
+        {"role": "assistant", "text": "PRIVATE_REPLY", "status": "answered", "health_context_used": True},
+    ]}
+    assert client.post("/coach", json=coaching_payload()).status_code == 200
+    assert "conversation_context" not in coaching.generate.call_args.kwargs
+
+
+@pytest.mark.parametrize("choice,current_revision,reused", [(False, "a" * 32, False), (True, "b" * 32, False), (True, "a" * 32, True)])
+def test_health_history_requires_current_notes_and_sharing_choice(client, coaching_dependencies, monkeypatch, choice, current_revision, reused):
+    from backend.core.config import settings
+    data, _, coaching = coaching_dependencies
+    monkeypatch.setattr(settings, "GEMINI_PAID_SERVICES_CONFIRMED", True)
+    data.get_child.return_value.update(use_health_details=choice, health_context_revision=current_revision)
+    data.get_conversation.return_value = {**conversation(), "messages": [
+        {"role": "user", "text": "Play ideas?"},
+        {"role": "assistant", "text": "An earlier suggestion.", "status": "answered",
+         "health_context_used": True, "health_context_revision": "a" * 32},
+    ]}
+    assert client.post("/coach", json=coaching_payload()).status_code == 200
+    assert ("conversation_context" in coaching.generate.call_args.kwargs) is reused
+
+
 def test_coaching_saves_conversation_instead_of_duplicate_interaction(client, coaching_dependencies):
     data, _, coaching = coaching_dependencies
     response = client.post("/coach", json=coaching_payload())

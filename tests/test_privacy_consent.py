@@ -37,6 +37,21 @@ def test_notice_identifies_information_shared_outside_the_app():
     ))
 
 
+def test_notice_covers_optional_health_storage_and_explicit_reply_sharing():
+    health_notice = next(item for item in PRIVACY_NOTICE if "Optional health and care notes" in item)
+    assert "stored privately" in health_notice
+    assert "only when you enable" in health_notice
+    generation_notice = next(item for item in PRIVACY_NOTICE if "Gemini" in item)
+    assert "saved milestones" in generation_notice
+    assert "Health notes are not sent to Qdrant Cloud" in generation_notice
+
+
+def test_health_note_collection_requires_current_processing_consent(client, consent_api):
+    response = client.patch("/children/child-1", json={"health_details": {"history": "Example note"}})
+    assert response.status_code == 403
+    consent_api.update_child.assert_not_called()
+
+
 def test_notice_explains_single_response_counts_without_private_record_access():
     feedback_notice = next(item for item in PRIVACY_NOTICE if "Optional ratings" in item)
     assert "including when there is only one response" in feedback_notice
@@ -216,7 +231,8 @@ def test_acceptance_transaction_merges_and_preserves_existing_data():
         accepted_at = CaregiverDataService(storage).save_consent("account-a", CONSENT_VERSION)
     values = storage.transaction.return_value.set.call_args
     assert values.args[0] is document
-    assert values.args[1] == {"consent_version": CONSENT_VERSION, "consent_at": accepted_at, "caregiver_authority": True}
+    assert values.args[1] == {"consent_version": CONSENT_VERSION, "consent_at": accepted_at,
+                              "feedback_consent_at": accepted_at, "caregiver_authority": True}
     assert values.kwargs == {"merge": True}
     assert accepted_at.tzinfo is not None
 
@@ -231,3 +247,19 @@ def test_repeated_acceptance_preserves_original_timestamp():
     with patch("backend.services.caregiver_data.firestore.transactional", side_effect=lambda function: function):
         assert CaregiverDataService(storage).save_consent("account-a", CONSENT_VERSION) == original
     storage.transaction.return_value.set.assert_not_called()
+
+
+@pytest.mark.parametrize("old_version,preserve", [("2026-10-26.2", True), ("2026-10-26.1", False)])
+def test_notice_upgrade_preserves_only_existing_explicit_feedback_permission(old_version, preserve):
+    storage = MagicMock()
+    document = storage.collection.return_value.document.return_value
+    original = datetime(2026, 10, 28, tzinfo=timezone.utc)
+    document.get.return_value.exists = True
+    document.get.return_value.to_dict.return_value = {
+        "consent_version": old_version, "consent_at": original, "caregiver_authority": True,
+    }
+    with patch("backend.services.caregiver_data.firestore.transactional", side_effect=lambda function: function):
+        accepted_at = CaregiverDataService(storage).save_consent("account-a", CONSENT_VERSION)
+    saved = storage.transaction.return_value.set.call_args.args[1]
+    assert saved["consent_at"] == accepted_at
+    assert saved["feedback_consent_at"] == (original if preserve else accepted_at)
