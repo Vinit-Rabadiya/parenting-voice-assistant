@@ -957,14 +957,24 @@ still applies. Workflow validation alone does not verify a hosted deployment.
 
 Local development defaults to `APP_ENV=development`. Production startup requires
 `APP_ENV=production`, an explicit comma-separated `ALLOWED_HOSTS` list of API host
-names, and `GEMINI_PAID_SERVICES_CONFIRMED=true`. Host names must not include a URL
+names, and either `GEMINI_PAID_SERVICES_CONFIRMED=true` or
+`GEMINI_NONPERSONAL_TESTING_CONFIRMED=true`. Host names must not include a URL
 scheme, port or wildcard. Production requests to an unrecognized host are rejected;
 HTTP requests to an allowed host redirect to HTTPS.
 
 Set the paid-services confirmation only after checking active Cloud Billing and the
 applicable provider terms. This setting records an operator confirmation; it does
-not query billing or change how Google processes data. Free-tier development must
-use fictional, non-personal examples. The confirmation defaults to false.
+not query billing or change how Google processes data. Both confirmations default
+to false.
+
+For hosted free-tier testing with general, non-personal example messages, keep
+`GEMINI_PAID_SERVICES_CONFIRMED=false` and set
+`GEMINI_NONPERSONAL_TESTING_CONFIRMED=true`. This records an operator confirmation
+about model inputs; it does not remove identifying information or verify content.
+Publicly available text still requires checking for personal or sensitive details.
+The same restriction applies to follow-ups and conversation context. Normal sign-in,
+HTTPS and host restrictions remain enabled. Review the configuration before changing
+how the hosted application is used.
 
 When HTTPS terminates at a reverse proxy, configure Uvicorn to trust forwarded
 headers only from that proxy. Incorrect proxy settings can cause redirect loops.

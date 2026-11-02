@@ -14,6 +14,7 @@ def production_settings(**changes):
     value.APP_ENV = "production"
     value.ALLOWED_HOSTS = ["api.example.test"]
     value.GEMINI_PAID_SERVICES_CONFIRMED = True
+    value.GEMINI_NONPERSONAL_TESTING_CONFIRMED = False
     for key, item in changes.items():
         setattr(value, key, item)
     return value
@@ -35,6 +36,19 @@ def test_explicit_production_settings_are_accepted():
     production_settings().validate_deployment()
 
 
+def test_production_accepts_confirmed_nonpersonal_testing_without_paid_confirmation():
+    production_settings(GEMINI_PAID_SERVICES_CONFIRMED=False,
+                        GEMINI_NONPERSONAL_TESTING_CONFIRMED=True).validate_deployment()
+
+
+@pytest.mark.parametrize("hosts", [[], ["*"], ["https://api.example.test"]])
+def test_nonpersonal_testing_still_requires_production_host_restrictions(hosts):
+    with pytest.raises(ValueError, match="ALLOWED_HOSTS"):
+        production_settings(GEMINI_PAID_SERVICES_CONFIRMED=False,
+                            GEMINI_NONPERSONAL_TESTING_CONFIRMED=True,
+                            ALLOWED_HOSTS=hosts).validate_deployment()
+
+
 def test_development_remains_available_without_paid_service_confirmation():
     value = production_settings(APP_ENV="development", ALLOWED_HOSTS=[],
                                 GEMINI_PAID_SERVICES_CONFIRMED=False)
@@ -51,6 +65,7 @@ async def test_invalid_production_configuration_stops_before_firebase_initializa
     monkeypatch.setattr(settings, "APP_ENV", "production")
     monkeypatch.setattr(settings, "ALLOWED_HOSTS", ["api.example.test"])
     monkeypatch.setattr(settings, "GEMINI_PAID_SERVICES_CONFIRMED", False)
+    monkeypatch.setattr(settings, "GEMINI_NONPERSONAL_TESTING_CONFIRMED", False)
     initialize = Mock()
     monkeypatch.setattr("backend.main.initialize_firebase", initialize)
     with pytest.raises(ValueError, match="paid-service data terms"):

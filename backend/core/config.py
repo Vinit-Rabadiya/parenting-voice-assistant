@@ -27,6 +27,9 @@ class Settings:
     ALLOWED_HOSTS: list[str] = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "").split(",") if host.strip()]
     # An operator confirms the provider account terms; this is not a billing API check.
     GEMINI_PAID_SERVICES_CONFIRMED: bool = boolean_setting("GEMINI_PAID_SERVICES_CONFIRMED")
+    # An operator confirms that free-tier model requests contain only non-personal test material.
+    # This setting neither anonymizes input nor checks or enables billing.
+    GEMINI_NONPERSONAL_TESTING_CONFIRMED: bool = boolean_setting("GEMINI_NONPERSONAL_TESTING_CONFIRMED")
     FIREBASE_USE_ADC: bool = boolean_setting("FIREBASE_USE_ADC")
 
     HOST: str = os.getenv("HOST", "127.0.0.1")
@@ -64,8 +67,8 @@ class Settings:
             for host in self.ALLOWED_HOSTS
         ):
             raise ValueError("Production requires explicit host names in ALLOWED_HOSTS, without schemes, ports or wildcards.")
-        if not self.GEMINI_PAID_SERVICES_CONFIRMED:
-            raise ValueError("Production requires reviewed Gemini paid-service data terms. Unpaid services must not process personal or sensitive information.")
+        if not (self.GEMINI_PAID_SERVICES_CONFIRMED or self.GEMINI_NONPERSONAL_TESTING_CONFIRMED):
+            raise ValueError("Production requires reviewed Gemini paid-service data terms or confirmed non-personal testing. Unpaid services must not process personal or sensitive information.")
 
     def validate_coaching(self) -> None:
         """Check local generation settings without contacting the provider."""
