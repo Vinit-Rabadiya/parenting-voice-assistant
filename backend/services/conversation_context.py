@@ -4,6 +4,7 @@ import re
 from math import isfinite
 
 from backend.services.age import message_age_months
+from backend.services.profile_context import health_context_available
 from backend.services.care_response import AGE_CLARIFICATION_MESSAGES
 
 MAX_CONTEXT_MESSAGES = 6
@@ -36,12 +37,18 @@ def is_follow_up(question: str) -> bool:
     ) is not None
 
 
-def select_conversation_context(messages: list[dict]) -> list[dict]:
+def select_conversation_context(messages: list[dict], *, health_context_revision: str | None = None) -> list[dict]:
     """Keep bounded answers/clarifications; stop at a safety/error boundary."""
     selected: list[dict] = []
     characters = 0
     for index in range(len(messages) - 2, -1, -2):
         user, assistant = messages[index:index + 2]
+        # Do not re-send health-tailored replies after the provider permission is withdrawn.
+        if assistant.get("health_context_used") is True and (
+            not health_context_available() or not health_context_revision
+            or assistant.get("health_context_revision") != health_context_revision
+        ):
+            break
         usable = (assistant.get("status") == "answered" or (
             assistant.get("status") == "no_evidence"
             and assistant.get("response_kind") == "clarification"

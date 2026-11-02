@@ -5,11 +5,19 @@ import "./ChildProfiles.css";
 import ChatLoading from "./ChatLoading";
 import { readChildSelection, saveChildSelection } from "../services/childSelection";
 
+const HEALTH_FIELDS = [
+  ["allergies", "Known allergies"], ["conditions", "Diagnosed conditions"],
+  ["history", "Relevant health history"], ["care_instructions", "Clinician's care instructions"],
+  ["test_result_notes", "Test-result notes"],
+];
+
 export default function ChildProfiles({ selectedChild, onSelect, userId, guidanceBusy = false, allowChanges = true, isActive = true }) {
   const [children, setChildren] = useState([]);
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [milestones, setMilestones] = useState([]);
+  const [healthDetails, setHealthDetails] = useState({});
+  const [useHealthDetails, setUseHealthDetails] = useState(false);
   const [mode, setMode] = useState(null);
   const [pickerPosition, setPickerPosition] = useState(null);
   const [busy, setBusy] = useState(true);
@@ -22,6 +30,7 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
   const headingId = useId();
   const initialSelection = useRef(selectedChild?.id);
   const pickerOpen = pickerPosition !== null;
+  const healthContextAvailable = selectedChild?.health_context_available === true;
   const selectChild = useCallback((child) => {
     saveChildSelection(userId, child?.id);
     onSelect(child);
@@ -95,6 +104,8 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
     setName(nextMode === "edit" ? selectedChild.name : "");
     setDateOfBirth(nextMode === "edit" ? selectedChild.date_of_birth : "");
     setMilestones(nextMode === "edit" ? selectedChild.milestones || [] : []);
+    setHealthDetails(nextMode === "edit" ? selectedChild.health_details || {} : {});
+    setUseHealthDetails(nextMode === "edit" && healthContextAvailable && selectedChild.use_health_details === true);
     setMode(nextMode);
   }
 
@@ -110,7 +121,9 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
     setBusy(true); setError("");
     try {
       const values = { name, date_of_birth: dateOfBirth,
-        milestones: milestones.map((value) => value.trim()).filter(Boolean) };
+        milestones: milestones.map((value) => value.trim()).filter(Boolean),
+        health_details: Object.fromEntries(HEALTH_FIELDS.map(([key]) => [key, (healthDetails[key] || "").trim()])),
+        use_health_details: useHealthDetails };
       const child = mode === "edit" ? await updateChild(selectedChild.id, values) : await createChild(values);
       setChildren((current) => mode === "edit" ? current.map((item) => item.id === child.id ? child : item) : [...current, child]);
       dialogRef.current?.close(); setMode(null); selectChild(child); triggerRef.current?.focus();
@@ -167,6 +180,13 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
         <ul>{(selectedChild.baseline_milestones || []).map((milestone) => <li key={milestone}>{milestone}</li>)}</ul>
         {selectedChild.milestones?.length > 0 && <><h3>Additional milestones</h3>
           <ul>{selectedChild.milestones.map((milestone, index) => <li key={index}>{milestone}</li>)}</ul></>}
+        {HEALTH_FIELDS.some(([key]) => selectedChild.health_details?.[key]) && <details className="profile-health-notes">
+          <summary>Health and care details</summary>
+          <p>{healthContextAvailable && selectedChild.use_health_details ? "Used to tailor replies." : "Saved privately; not used in replies."}</p>
+          <dl>{HEALTH_FIELDS.filter(([key]) => selectedChild.health_details?.[key]).map(([key, label]) => <div key={key}>
+            <dt>{label}</dt><dd>{selectedChild.health_details[key]}</dd>
+          </div>)}</dl>
+        </details>}
         <div className="profile-dialog-actions">{allowChanges && <button type="button" disabled={busy || guidanceBusy} onClick={() => openDetails("edit")}>Edit child profile</button>}
           <button type="button" className="delete-action" disabled={busy || guidanceBusy} onClick={removeChild}>Delete child profile</button></div>
       </div> : <form className="child-form" onSubmit={saveChild}>
@@ -182,6 +202,19 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
             </div>)}
             <button type="button" disabled={milestones.length >= 20} onClick={() => setMilestones((current) => [...current, ""])}>Add milestone</button>
           </fieldset>
+          <details className="profile-health-notes">
+            <summary>Health and care details (optional)</summary>
+            <p>Add short notes relevant to everyday care. These notes are not a medical assessment.</p>
+            <div className="profile-health-fields">{HEALTH_FIELDS.map(([key, label]) => <label key={key}>{label}
+              <textarea rows={2} maxLength={600} value={healthDetails[key] || ""}
+                onChange={(event) => setHealthDetails((current) => ({ ...current, [key]: event.target.value }))} />
+            </label>)}</div>
+            {mode === "edit" && <label className="profile-health-choice"><input type="checkbox" checked={useHealthDetails}
+              disabled={!healthContextAvailable} onChange={(event) => setUseHealthDetails(event.target.checked)} />
+              Use health details to tailor replies</label>}
+            <p>{mode === "add" ? "Notes are saved privately. After saving, open Edit child profile to manage their use in replies."
+              : healthContextAvailable ? "Only enable this if you want these notes included when creating replies." : "These notes can be saved privately. Using them in replies is currently unavailable."}</p>
+          </details>
         </fieldset>
         <div className="profile-dialog-actions"><button type="button" disabled={busy} onClick={closeDialog}>Cancel</button>
           <button disabled={busy || guidanceBusy} type="submit">{busy ? "Saving…" : mode === "edit" ? "Save changes" : "Save child"}</button></div>

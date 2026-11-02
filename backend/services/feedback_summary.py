@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 import time
 
-from backend.core.privacy import CONSENT_VERSION
+from backend.core.privacy import FEEDBACK_CONSENT_VERSIONS
 from backend.schemas.admin import FeedbackBucket, FeedbackComment, FeedbackSummary
 
 MAX_DOCUMENTS_PER_GROUP = 10000
@@ -90,16 +90,17 @@ class FeedbackSummaryService:
                     if len(consent) >= MAX_ACCOUNTS:
                         raise RuntimeError("Aggregate report account limit exceeded.")
                     account = self.client.collection("users").document(uid).get(
-                        field_paths=["consent_version", "consent_at", "caregiver_authority"],
+                        field_paths=["consent_version", "consent_at", "caregiver_authority", "feedback_consent_at"],
                         timeout=5, retry=None,
                     )
                     consent[uid] = (account.to_dict() or {}) if account.exists else {}
                     check_budget()
                 accepted = consent[uid]
-                if (accepted.get("consent_version") != CONSENT_VERSION
+                feedback_at = accepted.get("feedback_consent_at", accepted.get("consent_at"))
+                if (accepted.get("consent_version") not in FEEDBACK_CONSENT_VERSIONS
                         or accepted.get("caregiver_authority") is not True
                         or not aware_time(accepted.get("consent_at"))
-                        or recorded < accepted["consent_at"]):
+                        or not aware_time(feedback_at) or recorded < feedback_at):
                     continue
                 # Retain only allowlisted values, even if a storage mock or future
                 # backend ignores the Firestore field projection.

@@ -51,6 +51,8 @@ class CoachingResponse(BaseModel):
     citations: list[CitationSchema]
     child_age_months: float
     subject_age_override: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    health_context_used: bool = False
+    health_context_revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
     caregiver_request: str | None = Field(default=None, max_length=1200)
     clarification_field: Literal["age"] | None = None
     processing_seconds: float

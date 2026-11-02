@@ -19,6 +19,7 @@ from backend.services.caregiver_data import CaregiverDataService
 from backend.services.age import message_age_months
 from backend.services.coaching import CoachingResult, CoachingService, generation_request_id, PROVIDER_BLOCK_MESSAGE
 from backend.services.usage import UsageControlService
+from backend.services.profile_context import child_reply_context
 from backend.services.retrieval import RetrievalService
 from backend.services.evidence import select_evidence
 from backend.services.care_guidance import select_care_references
@@ -51,6 +52,7 @@ async def save_coaching_response(data_service: CaregiverDataService, uid: str,
             "child_age_months", "subject_age_override", "processing_seconds",
             "answer_basis", "reference_status",
             "caregiver_request", "clarification_field",
+            "health_context_used", "health_context_revision",
         })
         if response.vaccination_country is not None:
             stored["vaccination_country"] = response.vaccination_country
@@ -177,7 +179,9 @@ async def coach(
             raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found for the selected child.")
-        context = select_conversation_context(conversation["messages"])
+        revision = (child.get("health_context_revision")
+                    if explicit_age is None and child.get("use_health_details") is True else None)
+        context = select_conversation_context(conversation["messages"], health_context_revision=revision)
     await run_in_threadpool(enforce_usage_limit, usage, user["uid"], "coaching")
     retrieval_query = contextual_retrieval_query(payload.question, context)
     # A direct follow-up keeps the age explicitly stated in its caregiver topic.
@@ -204,6 +208,7 @@ async def coach(
                                               child_age_months=age_months, outside_age_range=outside_age_range)
     stage = "Qdrant retrieval"
     reference_status = "no_match"
+    health_context_used = False
     try:
         with timed_stage(request_id, "retrieval"):
             # Do not retrieve arbitrary advice for a follow-up with no safe topic.
@@ -248,6 +253,12 @@ async def coach(
             stage = "Gemini generation"
             with timed_stage(request_id, "generation"):
                 context_options = {"conversation_context": context} if context else {}
+                # An explicit subject-age override does not establish that this is the selected child.
+                if subject_age_override is None:
+                    profile_context = child_reply_context(child)
+                    if profile_context:
+                        context_options["profile_context"] = profile_context
+                        health_context_used = bool(profile_context.get("health_details"))
                 result = await run_in_threadpool(
                     coaching_service.generate, payload.question, age_months,
                     payload.routine, evidence, **context_options,
@@ -305,6 +316,8 @@ async def coach(
         answer_basis=result.answer_basis if status == "answered" else None,
         reference_status=reference_status if status == "answered" else None,
         subject_age_override=subject_age_override,
+        health_context_used=health_context_used,
+        health_context_revision=child.get("health_context_revision") if health_context_used else None,
         caregiver_request=caregiver_request(payload.question, context),
         clarification_field=boundary.clarification_field if boundary is not None else None,
         citations=[CitationSchema(**citation) for citation in citations],
