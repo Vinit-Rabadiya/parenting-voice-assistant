@@ -4,7 +4,8 @@ A web application for caregivers of children from birth through 24 months.
 Ask a question by voice or text, review developmental guidance with source
 references, and listen to the answer.
 
-[Release v0.1.0](https://github.com/Vinit-Rabadiya/parenting-voice-assistant/releases/tag/v0.1.0)
+[Open LittleCare](https://littlecare.app)
+| [Release v0.2.0](https://github.com/Vinit-Rabadiya/parenting-voice-assistant/releases/tag/v0.2.0)
 | [Release notes](RELEASE.md) | [Changelog](CHANGELOG.md)
 | [Project issues](https://github.com/Vinit-Rabadiya/parenting-voice-assistant/issues)
 
@@ -67,7 +68,8 @@ scope of their tagged release.
 3. Type a question, or record speech and review the transcript.
 4. Select an optional routine and click **Get guidance**.
 5. The backend loads the child's stored birth date, calculates age, retrieves
-   reference passages, and sends the question, age, routine, and passages to Gemini.
+   reference passages, and sends the message, resolved age, routine, selected
+   milestones, enabled care notes, bounded conversation context and passages to Gemini.
 6. The chat scrolls to the new answer. Its text appears progressively after the complete
    response arrives; reduced-motion preferences skip the animation. When automatic
    playback is enabled, audio attempts to start afterward. Use **Listen** if the browser blocks automatic playback, or the same
@@ -969,7 +971,8 @@ role scoped to the existing Container App. The workflow updates that app; it doe
 not create a resource group, environment or registry. Runtime Gemini, Qdrant and
 Firebase Admin credentials remain in Azure's runtime secret configuration.
 
-While the application is running, successful main updates deploy automatically. While
+After the Azure identity and `AZURE_DEPLOY_ENABLED` are configured, successful main
+updates deploy automatically while the application is running. While
 it is stopped, the image is published and the app stays stopped. When needed,
 open **Actions → Deploy Application → Run workflow**, select **main**, and choose
 **start**. This builds or reuses the latest checked main image, starts the app,
@@ -982,6 +985,78 @@ Image publishing uses GitHub Actions minutes and cache storage. The hosted appli
 requires its HTTPS, host, proxy, provider terms and runtime secret configuration
 to be completed before enabling Azure deployment. Existing production validation
 still applies. Workflow validation alone does not verify a hosted deployment.
+
+Current hosting uses `littlecare-app` in `parenting-voice-rg`, with
+`littlecare-standard-env` in Switzerland North. Image publishing is configured;
+automatic Azure updates are not enabled yet. The published GitHub release and the
+image currently running on Azure can therefore have different commits.
+
+### Custom domain hosting
+
+Azure Container Apps Express does not support custom domains. The initial transfer
+to Standard Consumption hosting is defined in
+[`infra/azure-standard.json`](infra/azure-standard.json). It creates
+`littlecare-standard-env` and `littlecare-app` in Switzerland North, copies the
+source app's image, startup command, environment variables, probes and scaling,
+and reuses the existing logging workspace.
+The environment explicitly selects `WorkloadProfiles` mode with only the `Consumption`
+profile. Verify that mode and the environment's public IP before configuring DNS.
+Azure resolves the existing app's credentials during deployment; no secret values
+belong in the template, command arguments or deployment outputs. The host allowlist
+is updated for `littlecare.app` and the replacement app's generated Azure hostname.
+
+Preview the initial transfer without creating resources:
+
+```powershell
+az deployment group what-if --resource-group parenting-voice-rg --template-file infra/azure-standard.json --mode Incremental --result-format ResourceIdOnly
+```
+
+After reviewing the preview and Consumption costs, create the environment first:
+
+```powershell
+az deployment group create --resource-group parenting-voice-rg --name littlecare-standard-environment --template-file infra/azure-standard.json --parameters deployApplication=false --mode Incremental --query properties.outputs
+```
+
+Verify `WorkloadProfiles` mode and a nonempty public IP before copying the app:
+
+```powershell
+az deployment group create --resource-group parenting-voice-rg --name littlecare-standard-application --template-file infra/azure-standard.json --parameters deployApplication=true --mode Incremental --query properties.outputs
+```
+
+Use the existing deployment workflow for later image updates. Reapplying this initial
+transfer would copy settings from the source again and can replace later configuration.
+Keep `parenting-voice-app` stopped during the transfer and retain it until the replacement
+has passed the signed-in workflow checks. Firebase and Qdrant data remain in their
+existing services.
+
+The deployment outputs provide the replacement URL, apex A-record address and the
+public verification value for the `asuid` TXT record. Add those records at the domain
+registrar, then bind the domain with Azure's free managed certificate. The application
+must be running during certificate issuance and renewals. Add `littlecare.app` to
+Firebase Authentication's authorized domains and the Firebase browser key's allowed
+HTTPS website referrers before testing sign-in. Point the deployment workflow's app
+variable and Azure role scope at the replacement only after it has been verified.
+
+The public URL is **https://littlecare.app**. The root A record points to
+`74.161.125.239`; the `asuid` TXT record provides domain ownership verification.
+Azure's managed certificate supplies HTTPS without a separately purchased SSL
+certificate. On 2 November 2026, HTTPS returned the frontend and its JavaScript,
+`/api/health/live` returned 200, an unauthenticated `/api/me` returned 401, and
+HTTP redirected to HTTPS. Google sign-in and the chat screen also passed a manual
+check on this domain. This is a hosted smoke check, not a repeat of every workflow
+acceptance scenario.
+
+To operate the current app in the Azure portal:
+
+1. Open **Container Apps → littlecare-app → Overview**.
+2. Select **Start** before a session and wait for **Running** before opening the site.
+3. Select **Stop** when finished and confirm the status becomes **Stopped**.
+
+Keep `parenting-voice-app` stopped. Stopping compute does not remove stored data,
+the domain or the certificate. Requests cannot reach a stopped app. Stored logs,
+other services and domain renewal can still incur separate charges. The configured
+budget sends alerts; it is not a spending cap. Certificate renewal requires the app
+to be reachable, so check certificate validity before a session after a long shutdown.
 
 ### Production configuration
 
