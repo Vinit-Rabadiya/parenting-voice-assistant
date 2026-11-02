@@ -1,0 +1,141 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Copy an existing single-container deployment into Standard Consumption hosting. Secrets resolve within Azure; outputs contain only public connection details. Deploy in Incremental mode."
+  },
+  "parameters": {
+    "sourceAppName": {
+      "type": "string",
+      "defaultValue": "parenting-voice-app",
+      "allowedValues": ["parenting-voice-app"]
+    },
+    "appName": {
+      "type": "string",
+      "defaultValue": "littlecare-app",
+      "allowedValues": ["littlecare-app"]
+    },
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "littlecare-standard-env",
+      "allowedValues": ["littlecare-standard-env"]
+    },
+    "deployApplication": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Set false to provision and verify the Standard environment before copying the app."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "switzerlandnorth",
+      "allowedValues": ["switzerlandnorth", "uaenorth"]
+    },
+    "domain": {
+      "type": "string",
+      "defaultValue": "littlecare.app",
+      "allowedValues": ["littlecare.app"]
+    },
+    "logsWorkspaceName": {
+      "type": "string",
+      "defaultValue": "workspaceparentingvoicerg948b"
+    }
+  },
+  "variables": {
+    "sourceAppId": "[resourceId('Microsoft.App/containerApps', parameters('sourceAppName'))]",
+    "environmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('environmentName'))]",
+    "appId": "[resourceId('Microsoft.App/containerApps', parameters('appName'))]",
+    "logsWorkspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logsWorkspaceName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2026-07-01",
+      "name": "[parameters('environmentName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "environmentMode": "WorkloadProfiles",
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference(variables('logsWorkspaceId'), '2022-10-01').customerId]",
+            "sharedKey": "[listKeys(variables('logsWorkspaceId'), '2022-10-01').primarySharedKey]"
+          }
+        },
+        "publicNetworkAccess": "Enabled",
+        "zoneRedundant": false,
+        "workloadProfiles": [
+          {
+            "name": "Consumption",
+            "workloadProfileType": "Consumption"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "condition": "[parameters('deployApplication')]",
+      "apiVersion": "2025-07-01",
+      "name": "[parameters('appName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": ["[variables('environmentId')]"],
+      "properties": {
+        "managedEnvironmentId": "[variables('environmentId')]",
+        "workloadProfileName": "Consumption",
+        "configuration": {
+          "activeRevisionsMode": "Single",
+          "maxInactiveRevisions": 1,
+          "registries": "[reference(variables('sourceAppId'), '2025-07-01').configuration.registries]",
+          "secrets": "[listSecrets(variables('sourceAppId'), '2025-07-01').value]",
+          "ingress": {
+            "external": true,
+            "targetPort": 8000,
+            "transport": "auto",
+            "allowInsecure": false,
+            "traffic": [{"latestRevision": true, "weight": 100}]
+          }
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "[reference(variables('sourceAppId'), '2025-07-01').template.containers[0].name]",
+              "image": "[reference(variables('sourceAppId'), '2025-07-01').template.containers[0].image]",
+              "command": "[reference(variables('sourceAppId'), '2025-07-01').template.containers[0].command]",
+              "args": "[reference(variables('sourceAppId'), '2025-07-01').template.containers[0].args]",
+              "env": "[map(reference(variables('sourceAppId'), '2025-07-01').template.containers[0].env, lambda('entry', if(equals(lambdaVariables('entry').name, 'ALLOWED_HOSTS'), createObject('name', 'ALLOWED_HOSTS', 'value', format('{0},{1}.{2}', parameters('domain'), parameters('appName'), reference(variables('environmentId'), '2026-07-01').defaultDomain)), lambdaVariables('entry'))))]",
+              "probes": "[reference(variables('sourceAppId'), '2025-07-01').template.containers[0].probes]",
+              "resources": {
+                "cpu": "[reference(variables('sourceAppId'), '2025-07-01').template.containers[0].resources.cpu]",
+                "memory": "[reference(variables('sourceAppId'), '2025-07-01').template.containers[0].resources.memory]"
+              }
+            }
+          ],
+          "scale": "[reference(variables('sourceAppId'), '2025-07-01').template.scale]"
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "environmentMode": {
+      "type": "string",
+      "value": "[reference(variables('environmentId'), '2026-07-01').environmentMode]"
+    },
+    "applicationUrl": {
+      "type": "string",
+      "value": "[if(parameters('deployApplication'), format('https://{0}', reference(variables('appId'), '2025-07-01').configuration.ingress.fqdn), '')]"
+    },
+    "domain": {
+      "type": "string",
+      "value": "[parameters('domain')]"
+    },
+    "apexAddress": {
+      "type": "string",
+      "value": "[reference(variables('environmentId'), '2026-07-01').staticIp]"
+    },
+    "domainVerificationId": {
+      "type": "string",
+      "value": "[if(parameters('deployApplication'), reference(variables('appId'), '2025-07-01').customDomainVerificationId, '')]"
+    }
+  }
+}
