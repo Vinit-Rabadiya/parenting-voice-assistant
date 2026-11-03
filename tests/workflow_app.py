@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import anyio
 import uvicorn
+from fastapi import Request
 
 from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service, get_speech_service, get_usage_control_service
 from backend.core.privacy import CONSENT_VERSION
@@ -108,8 +109,12 @@ def transcribe(audio, **kwargs):
 
 if __name__ == "__main__":
     data = MemoryData()
+    def identity(request: Request):
+        request.state.account_role = "caregiver"
+        return {"uid": "workflow-account"}
+
     app.dependency_overrides.update({
-        require_authenticated_user: lambda: {"uid": "workflow-account"},
+        require_authenticated_user: identity,
         get_caregiver_data_service: lambda: data,
         get_coaching_service: lambda: SimpleNamespace(generate=generate),
         get_retrieval_service: lambda: SimpleNamespace(retrieve=lambda *a, **kw: [reference]),

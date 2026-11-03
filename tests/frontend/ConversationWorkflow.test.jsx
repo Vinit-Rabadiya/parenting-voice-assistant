@@ -7,6 +7,8 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@t
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import GuidanceWorkspace from "../../frontend/src/components/GuidanceWorkspace";
 import usePlaybackPreference from "../../frontend/src/hooks/usePlaybackPreference";
+import useAccountAccess from "../../frontend/src/hooks/useAccountAccess";
+import { auth } from "../../frontend/src/services/firebase";
 
 vi.mock("../../frontend/src/services/firebase", () => ({
   auth: { currentUser: { uid: "workflow-account", getIdToken: async () => "workflow-token" } },
@@ -83,6 +85,18 @@ async function openWorkspace() {
   render(<GuidanceWorkspace userId="workflow-account" />);
   return screen.findByRole("textbox", { name: "Question" });
 }
+
+it("opens chat from one verified startup request without reloading consent or profiles", async () => {
+  function StartupWorkspace() {
+    const access = useAccountAccess(auth.currentUser);
+    return access.verified ? <GuidanceWorkspace userId="workflow-account" startup={access.startup} /> : <p>Checking access</p>;
+  }
+  render(<StartupWorkspace />);
+  await screen.findByRole("textbox", { name: "Question" });
+  await waitFor(() => expect(screen.queryByText("Loading conversations…")).toBeNull());
+  expect(requests.filter(r => r.path === "/api/me/startup")).toHaveLength(1);
+  expect(requests.filter(r => ["/api/me", "/api/privacy/consent", "/api/children"].includes(r.path))).toHaveLength(0);
+});
 
 it("uses the saved account playback choice without disabling manual Listen", async () => {
   const preference = renderHook(() => usePlaybackPreference("workflow-account"));

@@ -37,6 +37,72 @@ async function selectProfile() {
   await screen.findByRole("button", { name: "New chat" });
 }
 
+it("sends a first turn in one request while history is still loading", async () => {
+  let finishHistory;
+  listConversations.mockReturnValue(new Promise(resolve => { finishHistory = resolve; }));
+  requestCoaching.mockImplementation(async payload => ({ conversation_id: payload.conversation_id,
+    message_id: "first-answer", answer: "Talk softly.", status: "answered" }));
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Feeding ideas" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await screen.findByText("Talk softly.");
+  const payload = requestCoaching.mock.calls[0][0];
+  expect(payload.start_conversation).toBe(true);
+  expect(payload.conversation_id).toMatch(/^[0-9a-f-]{36}$/);
+  expect(createConversation).not.toHaveBeenCalled();
+  await act(async () => finishHistory([{ id: payload.conversation_id, title: "Old snapshot title" }, { id: "older", title: "Earlier chat" }]));
+  expect(screen.getAllByRole("button", { name: "Feeding ideas" })).toHaveLength(1);
+  expect(screen.getByRole("button", { name: "Earlier chat" })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Another idea" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(2));
+  expect(requestCoaching.mock.calls[1][0].start_conversation).toBeUndefined();
+});
+
+it.each([404, 200])("checks an unconfirmed first conversation before the next send (lookup %s)", async status => {
+  requestCoaching.mockRejectedValueOnce(Object.assign(new Error("Request limit reached"), { status: 429 }))
+    .mockImplementationOnce(async payload => ({ conversation_id: payload.conversation_id,
+      message_id: "answer", answer: "Talk softly.", status: "answered" }));
+  getConversation.mockImplementation(async () => {
+    if (status === 404) throw Object.assign(new Error("Conversation not found"), { status: 404 });
+    return { messages: [] };
+  });
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  const send = text => {
+    fireEvent.change(screen.getByLabelText("Question"), { target: { value: text } });
+    fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  };
+  send("Feeding ideas");
+  await screen.findByText("Request limit reached");
+  send("More feeding ideas");
+  await screen.findByText("Talk softly.");
+  expect(getConversation).toHaveBeenCalledTimes(1);
+  const first = requestCoaching.mock.calls[0][0], second = requestCoaching.mock.calls[1][0];
+  expect(first.conversation_id).toBe(second.conversation_id);
+  expect(second.start_conversation).toBe(status === 404 ? true : undefined);
+});
+
+it("does not restore a deleted conversation when the initial history response arrives late", async () => {
+  let finishHistory;
+  listConversations.mockReturnValue(new Promise(resolve => { finishHistory = resolve; }));
+  requestCoaching.mockImplementation(async payload => ({ conversation_id: payload.conversation_id,
+    message_id: "first-answer", answer: "Talk softly.", status: "answered" }));
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Feeding ideas" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await screen.findByText("Talk softly.");
+  fireEvent.click(screen.getByRole("button", { name: "More options for Feeding ideas" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Feeding ideas" })).toBeNull());
+  const id = requestCoaching.mock.calls[0][0].conversation_id;
+  await act(async () => finishHistory([{ id, title: "Feeding ideas" }]));
+  expect(screen.queryByRole("button", { name: "Feeding ideas" })).toBeNull();
+});
+
 it("uses Kenya by default without country or support-contact controls", async () => {
   requestCoaching.mockResolvedValue({ status: "vaccination_notice", answer: "At 9 months: MR 1, IPV 2 and TCV. Confirm the next appointment with the clinic.",
     vaccination_country: "KE", citations: [
@@ -102,7 +168,7 @@ it("allows sending while history is pending and preserves the new chat when hist
     status: "answered", citations: [], processing_seconds: 1 });
   render(<GuidanceWorkspace />);
   await selectProfile();
-  expect(screen.getByText("Loading history...")).toBeTruthy();
+  expect(screen.getByText("Loading conversations…")).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Playing ideas" } });
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   await screen.findByText("Try a soft rattle.");

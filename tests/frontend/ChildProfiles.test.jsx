@@ -58,6 +58,29 @@ it("uses owned startup profiles without fetching them again and updates the pare
   expect(onSelect).toHaveBeenLastCalledWith(otherChild);
 });
 
+it("keeps edited profiles current across cached selector remounts", async () => {
+  const edited = { ...child, name: "Updated child" };
+  updateChild.mockResolvedValue(edited);
+  function Workspace() {
+    const [selected, select] = useState(child);
+    const [profiles, remember] = useState([child, otherChild]);
+    return <ChildProfiles key={selected.id} selectedChild={selected} onSelect={select}
+      initialChildren={profiles} onProfilesChange={remember} />;
+  }
+  render(<Workspace />);
+  await openPicker();
+  fireEvent.click(screen.getByRole("button", { name: "Edit child profile" }));
+  fireEvent.change(screen.getByLabelText("Child name"), { target: { value: edited.name } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await screen.findByRole("button", { name: /Updated child/ });
+  fireEvent.click(screen.getByRole("button", { name: /Updated child/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Another child/ }));
+  fireEvent.click(await screen.findByRole("button", { name: /Another child/ }));
+  expect(await screen.findByRole("button", { name: /Updated child/ })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /^Example/ })).toBeNull();
+  expect(listChildren).not.toHaveBeenCalled();
+});
+
 it("allows viewing and deleting a profile while changes require consent", async () => {
   const onSelect = vi.fn();
   vi.spyOn(window, "confirm").mockReturnValue(true);
