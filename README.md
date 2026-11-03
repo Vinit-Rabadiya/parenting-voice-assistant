@@ -383,6 +383,30 @@ lifespan cancellation so local resources can finish closing. A later lifespan
 creates fresh wrappers. HTTP endpoints use those startup-owned wrappers and
 return a generic unavailable response if they are absent.
 
+#### Coaching reads and reference cache
+
+For ordinary messages in an existing conversation, the owned profile and bounded
+conversation history load concurrently. A conservative safety screen keeps
+potential urgent reports on the profile-first path; final safety decisions still
+use the actual profile or explicit age. History failures never become empty context.
+
+Each retrieval service keeps up to 128 successful, nonempty reference results in
+memory for 60 seconds. Lookup keys use a keyed hash of the complete search text,
+exact age inputs, routine, search limits, collection, corpus revision and review
+mode. The cache contains copied source passages, not questions, profiles or generated
+answers. Cached passages retain their source links and applicability conditions.
+Different questions normally require a fresh search; caching does not shorten
+generation or guarantee a complete response within five seconds.
+
+`RETRIEVAL_CACHE_TTL_SECONDS=0` disables caching; permitted values are 0–300 seconds.
+After changing sources or review status within the same collection, change
+`QDRANT_CORPUS_REVISION` and restart every backend instance, or call the service's
+`clear_cache()` when updating it in-process. Without invalidation, earlier results
+can remain usable until their TTL expires. Errors and empty searches are not cached;
+expired results are not returned during an outage. Shutdown clears the cache.
+Coaching and retrieval evaluation commands disable it so repeated test questions
+still measure actual retrieval.
+
 ## API overview
 
 Protected endpoints require `Authorization: Bearer <Firebase ID token>` and verified
@@ -434,8 +458,8 @@ pages, use the first returned message ID. Message pages are returned in reading
 order. The interface can open saved conversations and display messages, sources,
 audio controls, and feedback. Its composer uses one editable field for typed text
 and speech transcription beneath the scrolling message thread. For conversation
-requests, the backend loads at most six recent messages and selects up to three
-complete answered exchanges within a 3,000-character budget. History helps
+requests, the backend loads at most eight recent messages and selects up to four
+complete answered exchanges within a 4,000-character budget. History helps
 interpret follow-ups but is not reference evidence. Safety responses and
 unsuccessful answers form a boundary: earlier turns are not carried past them.
 Legacy interactions remain unchanged and are not yet included in the conversation
