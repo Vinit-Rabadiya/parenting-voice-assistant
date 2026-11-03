@@ -1,0 +1,16 @@
+{
+  "environment": {
+    "accounts": 100,
+    "injected_rpc_delay_ms": 1.0,
+    "network": "synthetic storage; no live database"
+  },
+  "samples": 30,
+  "mean_ms": 171.538,
+  "p50_ms": 170.194,
+  "p95_ms": 184.021,
+  "p99_ms": 186.925,
+  "calls_per_sample": {
+    "scan_rpc": 2.0,
+    "consent_get_rpc": 100.0
+  }
+}

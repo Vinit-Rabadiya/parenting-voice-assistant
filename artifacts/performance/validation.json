@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-03",
+  "timezone": "Africa/Nairobi",
+  "baseline_source": "f7412ed",
+  "baseline": {
+    "backend_tests_passed": 1315,
+    "ui_tests_passed": 238,
+    "audio_tests_passed": 7
+  },
+  "final": {
+    "backend_tests_passed": 1333,
+    "ui_tests_passed": 254,
+    "audio_tests_passed": 7,
+    "python_lint": "passed",
+    "frontend_lint": "passed",
+    "frontend_build": "passed",
+    "diff_check": "passed"
+  },
+  "commands": [
+    "npm.cmd run check",
+    "npm.cmd --prefix frontend run test:ui -- tests/frontend/ChildProfiles.test.jsx"
+  ],
+  "scope": "local synthetic experiments; no deployment or live service latency claims"
+}
