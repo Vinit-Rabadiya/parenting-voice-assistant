@@ -16,6 +16,7 @@ from backend.api.v1.router import api_router
 from backend.services.speech import SpeechService
 from backend.services.coaching import CoachingService
 from backend.services.retrieval import RetrievalService
+from backend.services.account_security import AccountSecurityService
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -27,6 +28,7 @@ async def lifespan(app: FastAPI):
     # connect to firebase when the server starts.
     app.state.firebase = initialize_firebase()
     try:
+        app.state.account_security_service = AccountSecurityService(app.state.firebase, max_idle_sessions=8)
         # Own one wrapper per process; remote clients remain lazy until first use.
         app.state.coaching_service = CoachingService()
         app.state.retrieval_service = RetrievalService()
@@ -39,7 +41,7 @@ async def lifespan(app: FastAPI):
     finally:
         # Finish releasing local resources even if the lifespan was cancelled.
         with CancelScope(shield=True):
-            for name in ("retrieval_service", "coaching_service"):
+            for name in ("retrieval_service", "coaching_service", "account_security_service"):
                 service = getattr(app.state, name, None)
                 if service is not None:
                     delattr(app.state, name)
