@@ -178,6 +178,31 @@ def test_conversation_routes_require_authentication(client):
     assert client.get("/conversations?child_id=child-1").status_code == 401
 
 
+def test_new_conversation_creation_has_no_readback_and_cannot_overwrite():
+    from google.api_core.exceptions import AlreadyExists
+
+    service = CaregiverDataService(MagicMock())
+    service.get_child = MagicMock(return_value={"id": "child-1"})
+    reference = service._conversations("account-a").document.return_value
+    reference.id = "00000000-0000-4000-8000-000000000001"
+    created = service.create_conversation("account-a", "child-1", conversation_id=reference.id)
+    assert created["id"] == reference.id
+    assert created["created_at"].utcoffset() is not None
+    reference.create.assert_called_once()
+    reference.get.assert_not_called()
+    reference.create.side_effect = AlreadyExists("PRIVATE_DATABASE_DETAILS")
+    with pytest.raises(AlreadyExists):
+        service.create_conversation("account-a", "child-1", conversation_id=reference.id)
+    reference.set.assert_not_called()
+
+
+def test_new_conversation_still_requires_owned_child_before_writing():
+    service = CaregiverDataService(MagicMock())
+    service.get_child = MagicMock(return_value=None)
+    assert service.create_conversation("account-a", "foreign-child", conversation_id="id") is None
+    service.client.collection.assert_not_called()
+
+
 @pytest.fixture
 def coaching_dependencies(history_service):
     retrieval, coaching = MagicMock(), MagicMock()
@@ -195,6 +220,59 @@ def coaching_dependencies(history_service):
     yield history_service, retrieval, coaching
     app.dependency_overrides.pop(get_retrieval_service, None)
     app.dependency_overrides.pop(get_coaching_service, None)
+
+
+def test_first_message_starts_and_answers_in_one_request_without_reading_empty_history(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    cid = "00000000-0000-4000-8000-000000000001"
+    response = client.post("/coach", json={"child_id": "child-1", "conversation_id": cid,
+                                            "start_conversation": True, "question": "Dressing ideas?"})
+    assert response.status_code == 200
+    assert response.json()["conversation_id"] == cid
+    data.create_conversation.assert_called_once_with("account-a", "child-1", conversation_id=cid)
+    data.get_conversation.assert_not_called()
+    coaching.generate.assert_called_once()
+    data.save_conversation_turn.assert_called_once()
+    data.create_interaction.assert_not_called()
+
+
+def test_first_message_collision_cannot_overwrite_or_generate(client, coaching_dependencies):
+    from google.api_core.exceptions import AlreadyExists
+
+    data, retrieval, coaching = coaching_dependencies
+    data.create_conversation.side_effect = AlreadyExists("PRIVATE_DATABASE_DETAILS")
+    response = client.post("/coach", json={"child_id": "child-1",
+        "conversation_id": "00000000-0000-4000-8000-000000000001",
+        "start_conversation": True, "question": "Dressing ideas?"})
+    assert response.status_code == 409
+    assert "PRIVATE_DATABASE_DETAILS" not in response.text
+    coaching.generate.assert_not_called()
+    data.save_conversation_turn.assert_not_called()
+
+
+def test_urgent_first_message_survives_conversation_creation_failure(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    data.create_conversation.side_effect = RuntimeError("PRIVATE_DATABASE_DETAILS")
+    response = client.post("/coach", json={"child_id": "child-1",
+        "conversation_id": "00000000-0000-4000-8000-000000000001", "start_conversation": True,
+        "question": "My baby cannot breathe", "support_country": "KE"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "escalated"
+    assert response.json()["message_id"] is None
+    assert response.json()["support_resources"]
+    assert "PRIVATE_DATABASE_DETAILS" not in response.text
+    coaching.generate.assert_not_called()
+    retrieval.retrieve.assert_not_called()
+
+
+@pytest.mark.parametrize("cid", [None, "existing-firestore-id", "00000000-0000-1000-8000-000000000001"])
+def test_start_requires_a_new_canonical_uuid(client, coaching_dependencies, cid):
+    data, _, coaching = coaching_dependencies
+    response = client.post("/coach", json={"child_id": "child-1", "conversation_id": cid,
+                                            "start_conversation": True, "question": "Dressing ideas?"})
+    assert response.status_code == 422
+    data.create_conversation.assert_not_called()
+    coaching.generate.assert_not_called()
 
 
 def coaching_payload(question="Play ideas"):

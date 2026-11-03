@@ -5,6 +5,9 @@ import httpx
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
+from unittest.mock import patch
+import logging
+import time
 
 from backend.core.http_security import (
     HTTPSecurityMiddleware, MAX_BODY_BYTES, MAX_JSON_BYTES, configure_http_security,
@@ -31,6 +34,37 @@ def test_denied_private_responses_cannot_be_cached_or_framed(client, path):
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Referrer-Policy"] == "no-referrer"
+
+
+def test_request_duration_includes_authentication_without_logging_identity_or_query(client, caplog):
+    def verify(*args, **kwargs):
+        time.sleep(0.02)
+        return {"uid": "PRIVATE_ACCOUNT", "email_verified": True, "firebase": {}}
+
+    with caplog.at_level(logging.INFO, logger="uvicorn.error.request_timing"):
+        with patch("backend.core.security.auth.verify_id_token", side_effect=verify):
+            response = client.get("/me?secret=PRIVATE_QUERY", headers={"Authorization": "Bearer PRIVATE_TOKEN"})
+    assert response.status_code == 200
+    assert float(response.headers["Server-Timing"].split("=")[1]) >= 15
+    request_id = response.headers["X-Request-ID"]
+    assert len(request_id) == 12
+    messages = "\n".join(r.message for r in caplog.records if r.name == "uvicorn.error.request_timing")
+    assert f"request={request_id}" in messages
+    assert "stage=token_verification" in messages and "stage=account_security" in messages
+    assert "route=/me status=200" in messages
+    assert all(secret not in messages for secret in ("PRIVATE_ACCOUNT", "PRIVATE_QUERY", "PRIVATE_TOKEN"))
+
+
+def test_speech_request_timing_excludes_audio_and_query_text(client, caplog):
+    with caplog.at_level(logging.INFO, logger="uvicorn.error.request_timing"):
+        response = client.post("/speech/transcribe?private=PRIVATE_QUERY", content=b"PRIVATE_AUDIO",
+                               headers={"Content-Type": "audio/wav"})
+    assert response.status_code == 401
+    assert "Server-Timing" in response.headers
+    assert len(response.headers["X-Request-ID"]) == 12
+    messages = "\n".join(r.message for r in caplog.records if r.name == "uvicorn.error.request_timing")
+    assert "route=/speech/transcribe status=401" in messages
+    assert "PRIVATE_AUDIO" not in messages and "PRIVATE_QUERY" not in messages
 
 
 def test_https_sets_transport_security_without_redirecting_local_http(upload_app):

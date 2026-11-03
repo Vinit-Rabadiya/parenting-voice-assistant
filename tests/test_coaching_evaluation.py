@@ -236,8 +236,9 @@ def test_capture_uses_the_same_age_clarification_route_as_the_application():
     record = capture_case(case, profile, retrieval, coaching, messages=messages)
     assert record["outcome"] == "answered"
     assert record["subject_age"]["age_months"] == 18
-    assert retrieval.retrieve.call_args.args[1] == 18
-    assert retrieval.retrieve.call_args.args[0].startswith("What food can I make for my toddler?")
+    retrieval.retrieve.assert_not_called()
+    assert record["supplied_evidence"][0]["source_age_label"] == "12-25 months (upper bound excluded)"
+    assert record["search_query"].startswith("What food can I make for my toddler?")
     assert record["caregiver_request"] == "What food can I make for my toddler?"
 
 

@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # set test environment variables so tests can run on their own.
 os.environ.setdefault("FIREBASE_PROJECT_ID", "test-project")
+os.environ.setdefault("COACHING_PROVIDER", "gemini")
 os.environ.setdefault("FIREBASE_ADMIN_KEY_PATH", ".secrets/firebase-admin.json")
 
 

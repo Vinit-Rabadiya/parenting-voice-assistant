@@ -41,6 +41,51 @@ def test_question_whitespace_is_trimmed():
     assert CoachingRequest(child_id="child-1", question="  Play ideas  ").question == "Play ideas"
 
 
+def test_age_scope_correction_and_answer_repair_keep_the_original_question(client, services):
+    data, retrieval, coaching = services
+    messages = []
+    data.get_conversation.return_value = {"messages": messages}
+    topic = "At what time should I feed a 3 year old some chillies?"
+
+    def save(uid, conversation_id, child_id, question, routine, answer):
+        messages.extend([{"role": "user", "text": question}, {"role": "assistant", **answer}])
+        return f"message-{len(messages)}"
+
+    data.save_conversation_turn.side_effect = save
+    retrieval.retrieve.return_value = []
+    coaching.generate.return_value = CoachingResult("Offer mild food rather than very spicy food.", [])
+    for question, expected in [(topic, "no_evidence"), ("sorry I meant she is 23 months", "answered"),
+                               ("you did not respond to the question", "answered")]:
+        response = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1", "question": question})
+        assert response.status_code == 200
+        assert response.json()["status"] == expected
+        if expected == "answered":
+            assert coaching.generate.call_args.args[1] == 23
+            retrieval.retrieve.assert_not_called()
+            assert coaching.generate.call_args.args[3][0].source_age_label == "6-25 months (upper bound excluded)"
+            assert response.json()["caregiver_request"] == topic
+    assert coaching.generate.call_count == 2
+
+
+@pytest.mark.parametrize("topic,kind", [
+    ("Write Python code for my 3 year old child.", "unrelated"),
+    ("Calculate a medicine dose for my 3 year old child.", "professional_referral"),
+])
+def test_age_correction_cannot_bypass_the_retained_request_boundaries(client, services, topic, kind):
+    data, retrieval, coaching = services
+    data.get_conversation.return_value = {"messages": [
+        {"role": "user", "text": topic},
+        {"role": "assistant", "text": "Birth through 24 months only.", "status": "no_evidence", "response_kind": "age_out_of_scope"},
+    ]}
+    data.save_conversation_turn.return_value = "corrected"
+    response = client.post("/coach", json={"child_id": "child-1", "conversation_id": "conversation-1",
+                                            "question": "sorry I meant she is 23 months"})
+    assert response.status_code == 200
+    assert response.json()["response_kind"] == kind
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
 @pytest.mark.parametrize("question,kind", [
     ("I am batting my baby.", "clarification"),
     ("I wnt to lern coding but dnt knw wer to start", "unrelated"),
@@ -293,8 +338,12 @@ def test_short_follow_up_keeps_subject_age_context_and_original_saved_message(cl
     assert response.status_code == 200
     assert response.json()["status"] == "answered"
     assert response.json()["child_age_months"] == pytest.approx(15 / 30.4375)
-    assert retrieval.retrieve.call_args.args[:2] == (f"{topic}\nFollow-up: {question}", 0)
-    assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 15
+    if question == "How many times a day?":
+        retrieval.retrieve.assert_not_called()
+        assert coaching.generate.call_args.args[3][0].source_age_label == "0-6 months (upper bound excluded)"
+    else:
+        assert retrieval.retrieve.call_args.args[:2] == (f"{topic}\nFollow-up: {question}", 0)
+        assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 15
     coaching.generate.assert_called_once()
     assert coaching.generate.call_args.args[0] == question
     assert coaching.generate.call_args.kwargs["conversation_context"][0]["text"] == topic
@@ -344,7 +393,8 @@ def test_age_clarification_then_short_age_reply_uses_the_right_child(client, ser
     assert body["status"] == status
     if status == "answered":
         assert coaching.generate.call_args.args[1] == age
-        assert retrieval.retrieve.call_args.args[0] == f"{question}\nFollow-up: {reply}"
+        retrieval.retrieve.assert_not_called()
+        assert coaching.generate.call_args.args[3][0].source_age_label == "12-25 months (upper bound excluded)"
         stored = data.save_conversation_turn.call_args.args[5]
         assert stored["subject_age_override"] == age
         assert stored["caregiver_request"] == question
@@ -358,7 +408,8 @@ def test_age_clarification_then_short_age_reply_uses_the_right_child(client, ser
                                            "question": "What else can I try?"}).json()
         assert later["child_age_months"] == age
         assert later["status"] == "answered"
-        assert retrieval.retrieve.call_args.args[0] == f"{question}\nFollow-up: What else can I try?"
+        retrieval.retrieve.assert_not_called()
+        assert coaching.generate.call_args.args[3][0].source_age_label == "12-25 months (upper bound excluded)"
     else:
         assert body["response_kind"] == "age_out_of_scope"
         coaching.generate.assert_not_called()
@@ -733,3 +784,17 @@ def test_gemini_quota_error_returns_limit_message_without_saving_answer(client, 
     assert "status" not in response.json()
     coaching.generate.assert_called_once()
     data.create_interaction.assert_not_called()
+
+
+@pytest.mark.parametrize("code,expected", [(429, 429), (503, 503), (None, 502)])
+def test_groq_failure_keeps_error_handling_without_saving_an_answer(client, services, code, expected):
+    from backend.services.groq_client import GenerationProviderError
+
+    data, retrieval, coaching = services
+    coaching.provider = "groq"
+    coaching.generate.side_effect = GenerationProviderError(code)
+    response = client.post("/coach", json={"child_id": "child-1", "question": "Feeding ideas"})
+    assert response.status_code == expected
+    assert "answer" not in response.json()
+    data.create_interaction.assert_not_called()
+    data.save_conversation_turn.assert_not_called()

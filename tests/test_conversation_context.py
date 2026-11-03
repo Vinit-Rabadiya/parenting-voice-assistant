@@ -103,6 +103,34 @@ def test_follow_up_without_an_anchor_remains_unchanged():
     assert contextual_retrieval_query("What else can I try?", []) == "What else can I try?"
 
 
+@pytest.mark.parametrize("reply", ["sorry I meant she is 23 months", "23 months", "Actually, she is 23 months old"])
+def test_age_correction_resumes_the_question_after_an_age_scope_refusal(reply):
+    topic = "At what time should I feed a 3 year old some chillies?"
+    refused = pair(topic, "This service covers birth through 24 months.", status="no_evidence")
+    refused[-1].update(response_kind="age_out_of_scope", subject_age_override=36)
+    context = select_conversation_context(pair("How often should I change a diaper?") + refused)
+    assert len(context) == 2
+    assert caregiver_request(reply, context) == topic
+    assert contextual_age_months(reply, context) == 23
+    assert contextual_retrieval_query(reply, context) == f"{topic}\nFollow-up: {reply}"
+
+
+@pytest.mark.parametrize("complaint", ["you did not respond to the question", "You didn't answer my question.", "That is not what I asked", "You misunderstood me"])
+def test_repair_request_keeps_the_food_question_and_corrected_age(complaint):
+    topic = "At what time should I feed a 3 year old some chillies?"
+    messages = pair(topic, "This service covers birth through 24 months.", status="no_evidence")
+    messages[-1].update(response_kind="age_out_of_scope", subject_age_override=36)
+    messages += pair("sorry I meant she is 23 months", "Unrelated play advice.")
+    # Older stored turns may have incorrectly kept the short reply as their topic.
+    messages[-1].update(caregiver_request="sorry I meant she is 23 months", subject_age_override=23)
+    context = select_conversation_context(messages)
+    assert is_follow_up(complaint)
+    assert caregiver_request(complaint, context) == topic
+    assert contextual_age_months(complaint, context) == 23
+    assert "Unrelated play advice" not in contextual_retrieval_query(complaint, context)
+    assert caregiver_request("I am bathing my baby.", context) == "I am bathing my baby."
+
+
 @pytest.mark.parametrize("question", [
     "what is full bath, top and tailing?", "What does top and tailing mean?",
     "Can you explain a full bath?", "What is top-and-tailing?",

@@ -414,8 +414,8 @@ def test_generation_diagnostics_log_phases_and_counts_without_content(caplog):
     messages = "\n".join(record.getMessage() for record in caplog.records)
     assert result.answer == "PRIVATE_ANSWER"
     for phase in ("client_initialization", "sdk_request", "response_handling"):
-        assert f"request=diagnostic-trace phase={phase} event=started" in messages
-        assert f"request=diagnostic-trace phase={phase} event=completed seconds=" in messages
+        assert f"request=diagnostic-trace provider=gemini phase={phase} event=started" in messages
+        assert f"request=diagnostic-trace provider=gemini phase={phase} event=completed seconds=" in messages
     assert "prompt_tokens=100 answer_tokens=20 thought_tokens=200 total_tokens=320" in messages
     for private in ("PRIVATE_KEY", "PRIVATE_QUESTION", "PRIVATE_REFERENCE", "PRIVATE_ANSWER"):
         assert private not in messages

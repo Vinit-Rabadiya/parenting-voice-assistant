@@ -21,7 +21,7 @@ def production_settings(**changes):
 
 
 def test_production_requires_confirmation_of_provider_data_terms():
-    with pytest.raises(ValueError, match="paid-service data terms"):
+    with pytest.raises(ValueError, match="data terms for the selected provider"):
         production_settings(GEMINI_PAID_SERVICES_CONFIRMED=False).validate_deployment()
 
 
@@ -68,7 +68,7 @@ async def test_invalid_production_configuration_stops_before_firebase_initializa
     monkeypatch.setattr(settings, "GEMINI_NONPERSONAL_TESTING_CONFIRMED", False)
     initialize = Mock()
     monkeypatch.setattr("backend.main.initialize_firebase", initialize)
-    with pytest.raises(ValueError, match="paid-service data terms"):
+    with pytest.raises(ValueError, match="data terms for the selected provider"):
         async with lifespan(app):
             pytest.fail("Invalid production settings must not start the server.")
     initialize.assert_not_called()
