@@ -2,6 +2,7 @@
 
 import logging
 import time
+from asyncio import gather
 from contextlib import contextmanager
 from uuid import uuid4
 from typing import Annotated
@@ -113,6 +114,29 @@ def timed_stage(request_id: str, stage: str):
         )
 
 
+async def read_coaching_data(data_service, uid: str, payload: CoachingRequest,
+                             request_id: str, *, parallel: bool):
+    async def read(stage, method, *args, **kwargs):
+        with timed_stage(request_id, stage):
+            return await run_in_threadpool(method, *args, **kwargs)
+
+    profile = read("profile_lookup", data_service.get_child, uid, payload.child_id)
+    if parallel:
+        # Both reads remain account-scoped. Defer a history error until after
+        # profile validation and age-specific safety checks below.
+        child, conversation = await gather(
+            profile,
+            read("conversation_context", data_service.get_conversation, uid,
+                 payload.conversation_id, MAX_CONTEXT_MESSAGES, expected_child_id=payload.child_id),
+            return_exceptions=True,
+        )
+    else:
+        child, conversation = (await gather(profile, return_exceptions=True))[0], None
+    if isinstance(child, Exception):
+        raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
+    return child, conversation
+
+
 async def respond_to_safety(data_service: CaregiverDataService, uid: str,
                             payload: CoachingRequest, age_months: float,
                             triage, crisis, request_id: str, started: float) -> CoachingResponse:
@@ -159,8 +183,17 @@ async def coach(
     # Random diagnostic correlation only; never log account or child identifiers.
     request_id = getattr(request.state, "performance_request_id", None) or uuid4().hex[:12]
     started = getattr(request.state, "performance_started", time.perf_counter())
-    with timed_stage(request_id, "profile_lookup"):
-        child = await run_in_threadpool(data_service.get_child, user["uid"], payload.child_id)
+    with timed_stage(request_id, "caregiver_safety"):
+        crisis = inspect_crisis(payload.question, payload.support_country)
+    has_history = payload.conversation_id is not None and not payload.start_conversation
+    # The youngest-age screen only decides whether reads may overlap; it does
+    # not choose the response age. Potential urgent reports never wait on history.
+    parallel = has_history and not crisis.kind and not inspect_input(
+        payload.question, 0, child_age_days=0,
+    ).escalate
+    child, conversation = await read_coaching_data(
+        data_service, user["uid"], payload, request_id, parallel=parallel,
+    )
     if child is None:
         raise HTTPException(status_code=404, detail="Select a child profile before asking for guidance.")
     explicit_age = message_age_months(payload.question)
@@ -171,8 +204,6 @@ async def coach(
     age_days = child["age_days"] if explicit_age is None else round(explicit_age * 30.4375)
     # Urgent reports take priority over retrieval and ordinary generation.
     triage_started = started
-    with timed_stage(request_id, "caregiver_safety"):
-        crisis = inspect_crisis(payload.question, payload.support_country)
     with timed_stage(request_id, "input_safety"):
         triage = inspect_input(payload.question, completed_months, child_age_days=age_days)
     timing_logger.info(
@@ -189,14 +220,17 @@ async def coach(
             data_service, user["uid"], payload, age_months, triage, crisis, request_id, triage_started,
         )
     context = []
-    if payload.conversation_id is not None and not payload.start_conversation:
-        try:
-            with timed_stage(request_id, "conversation_context"):
-                conversation = await run_in_threadpool(
-                    data_service.get_conversation, user["uid"], payload.conversation_id,
-                    MAX_CONTEXT_MESSAGES, expected_child_id=payload.child_id,
-                )
-        except Exception:
+    if has_history:
+        if not parallel:
+            try:
+                with timed_stage(request_id, "conversation_context"):
+                    conversation = await run_in_threadpool(
+                        data_service.get_conversation, user["uid"], payload.conversation_id,
+                        MAX_CONTEXT_MESSAGES, expected_child_id=payload.child_id,
+                    )
+            except Exception:
+                raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
+        if isinstance(conversation, Exception):
             raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found for the selected child.")

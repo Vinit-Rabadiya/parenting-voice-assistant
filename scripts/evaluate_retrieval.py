@@ -260,7 +260,8 @@ def main() -> None:
     print(f"Loaded {len(queries)} evaluation queries from {queries_path.name}")
 
     # connect to the live qdrant index.
-    service = RetrievalService(collection_name=args.collection, allow_candidate_content=args.allow_candidate_content)
+    service = RetrievalService(collection_name=args.collection, allow_candidate_content=args.allow_candidate_content,
+                               cache_ttl_seconds=0)
     if args.rerank:
         if args.split != "development":
             parser.error("The experimental reranker is restricted to the development split.")

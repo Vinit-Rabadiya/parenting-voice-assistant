@@ -7,8 +7,8 @@ from backend.services.age import message_age_months
 from backend.services.profile_context import health_context_available
 from backend.services.care_response import AGE_CLARIFICATION_MESSAGES
 
-MAX_CONTEXT_MESSAGES = 6
-MAX_CONTEXT_CHARACTERS = 3000
+MAX_CONTEXT_MESSAGES = 8
+MAX_CONTEXT_CHARACTERS = 4000
 
 
 def is_follow_up(question: str) -> bool:
