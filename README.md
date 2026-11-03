@@ -19,10 +19,10 @@ references, and listen to the answer.
 - Guidance defaults to Kenya without a country picker; relevant safety responses include Kenya support contacts.
 - Source-checked Kenya vaccination education covers routine visit ages, vaccine purposes
   and common side effects. Clinics confirm individual due doses and regional eligibility.
-- Qdrant retrieval from 216 selected source-linked passages and age-aware Gemini guidance.
+- Qdrant retrieval from 216 selected source-linked passages and age-aware guidance with a configurable model provider.
   Baby-care questions can also receive guidance when references are missing or incomplete.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
-- New answers reveal progressively after generation, with one Listen/Stop audio control
+- Complete checked answers appear immediately, with one Listen/Stop audio control
   and a caregiver-controlled automatic playback setting.
 - Stored interactions and 1–5 helpfulness ratings, with optional reasons and comments
   submitted together through one Save feedback action. Historical Helpful/Not helpful
@@ -69,12 +69,45 @@ scope of their tagged release.
 4. Select an optional routine and click **Get guidance**.
 5. The backend loads the child's stored birth date, calculates age, retrieves
    reference passages, and sends the message, resolved age, routine, selected
-   milestones, enabled care notes, bounded conversation context and passages to Gemini.
-6. The chat scrolls to the new answer. Its text appears progressively after the complete
-   response arrives; reduced-motion preferences skip the animation. When automatic
-   playback is enabled, audio attempts to start afterward. Use **Listen** if the browser blocks automatic playback, or the same
+   milestones, enabled care notes, bounded conversation context and passages to the selected model provider.
+6. The chat scrolls to the new answer and displays the complete text immediately.
+   When automatic playback is enabled, audio attempts to start without a word-reveal delay.
+   Use **Listen** if the browser blocks automatic playback, or the same
    button to stop or replay it. Saved answers do not replay automatically.
 7. Review the references and submit feedback if desired.
+
+Chat startup uses `GET /me/startup` to check the current login, email, revocation
+and MFA policy once, then return the current consent notice and owned profiles.
+The first message starts its conversation within `POST /coach`, avoiding a separate
+conversation-creation round trip. The client supplies a UUID so a cancelled wait
+can still be associated with the same conversation; an existing ID cannot be overwritten.
+History loads in the sidebar without blocking the composer. Up to three recently
+used child workspaces retain drafts and loaded history in memory, scoped to the
+signed-in account; deletion, consent changes and logout discard the affected state.
+Account settings reuse a display-only security summary for at most 60 seconds.
+Explicit verification refresh and MFA changes invalidate it; backend authorization,
+revocation and MFA enforcement remain live for protected requests. Opening settings
+does not force a Firebase token refresh.
+The browser reuses that response in memory while opening chat instead of fetching
+consent and profiles again. Administrators receive neither. Data deletion refreshes
+startup; a changed notice invalidates the consent view. Profile creation, edits and
+deletion update the workspace's profile list, including when its controls remount.
+Conversation history remains a separate authenticated request.
+
+For questions covered by the selected local basic-care references, coaching uses
+those references directly rather than making a vector search whose results would
+be discarded. Other topics retain age-filtered retrieval. Metadata-only request
+timings include token verification, account security and consent. `X-Request-ID`
+correlates these with coaching stages, and `Server-Timing` reports server duration.
+Logged routes come from a fixed set; identifiers, query strings, tokens and messages
+are excluded. Response time now includes authentication and profile lookup, while
+browser/network overhead remains outside that server measurement.
+
+An age-range refusal retains its caregiver request so an explicit correction can
+resume the same question at the corrected age. Requests to repair an irrelevant
+answer also retain the original question. Other safety boundaries still stop
+conversation context, and the restored question is checked for domain and individual
+medical-assessment restrictions before generation.
 
 In **My Account → Settings**, turn **Read replies automatically**
 on or off. It defaults to on and is remembered separately for each account in the
@@ -107,7 +140,7 @@ flowchart TD
     E --> F[FastAPI coaching endpoint]
     F --> G[Firestore: load child and calculate age]
     G --> H[Qdrant: retrieve reference passages]
-    H --> I[Gemini: generate coaching answer]
+    H --> I[Selected model: generate coaching answer]
     I --> J[Firestore: save interaction]
     J --> K[React: answer and references]
     K --> L[Browser speech playback]
@@ -128,7 +161,7 @@ The default model is `tiny.en`; it is pretrained. Coaching uses retrieval-augmen
 | Storage | Cloud Firestore through backend Admin SDK |
 | Speech recognition | faster-whisper and PyAV |
 | Retrieval | Qdrant Cloud inference, all-MiniLM-L6-v2 embeddings |
-| Coaching | google-genai SDK, configurable Gemini model |
+| Coaching | Configurable Gemini or Groq provider, shared prompts and response checks |
 | Speech playback | Browser Web Speech API |
 | Checks | Pytest, Ruff, ESLint, Vitest, Node audio tests, GitHub Actions |
 
@@ -146,7 +179,7 @@ place of `npm.cmd`.
   through Firebase Authentication with Identity Platform.
 - A Firebase Admin service-account key and a default Firestore database.
 - A Qdrant Cloud collection with cloud inference available.
-- A Gemini API key and access to the configured model.
+- An API key for the selected generation provider and access to its configured model.
 - Internet access for cloud services and the first Whisper model download.
 - A browser supporting AudioWorklet and microphone access on localhost or HTTPS.
 
@@ -197,6 +230,7 @@ STT_MODEL=base
 QDRANT_URL=https://your-cluster-url.qdrant.io
 QDRANT_API_KEY=your-qdrant-api-key
 QDRANT_COLLECTION=caregiver_guidance_everyday_v4
+COACHING_PROVIDER=gemini
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.5-flash-lite
 GEMINI_FALLBACK_MODEL=gemini-3.8-flash
@@ -215,12 +249,21 @@ For verification, `npm.cmd run lint` runs only Python/frontend lint and
 `npm.cmd test` runs only Python/frontend tests. `npm.cmd run check` retains the
 full lint, test, and frontend-build sequence used by the pre-push hook.
 
-Flash Lite is the primary coaching model. If it returns a quota error (429),
+Gemini Flash Lite is the default coaching model. If it returns a quota error (429),
 the backend tries the fallback once with identical context and references.
 Leave `GEMINI_FALLBACK_MODEL` empty to disable fallback. Each model receives one
 SDK attempt; other errors do not trigger fallback. Fallback availability depends
 on its own quota and does not guarantee lower latency. Restart the backend after
 changing these settings. The selected model is recorded in technical logs.
+
+For Groq, set `COACHING_PROVIDER=groq`, `GROQ_API_KEY` and
+`GROQ_MODEL=qwen/qwen3.8-27b` in the private root `.env`. Groq uses pooled HTTPS
+requests with reasoning disabled for this model. `GROQ_FALLBACK_MODEL` defaults to
+empty; there is no automatic switch to Gemini. No billing is enabled by these settings.
+Groq has its own request/token limits; a faster model does not guarantee a five-second
+complete browser request. Switching providers changes the privacy-notice version
+and requires acceptance before further processing. Groq data-term and non-personal
+testing confirmations are separate from the Gemini flags; see `.env.example`.
 
 Place the Admin JSON key at the configured path. The service account must belong
 to the configured Firebase project and have the required Firestore permissions.
@@ -358,8 +401,8 @@ proxy is not included in the static build.
 
 #### Backend service lifecycle
 
-Both development and production require a non-empty `GEMINI_API_KEY` and
-`GEMINI_MODEL` before startup. An empty `GEMINI_FALLBACK_MODEL` disables the
+Both development and production require the selected provider's API key and
+model before startup. An empty provider fallback setting disables the
 fallback. Missing generation settings stop startup before Firebase initialization
 or speech-model loading; error messages name the setting without revealing its
 value. Production also applies the host and provider-term requirements described
@@ -393,6 +436,7 @@ email. TOTP is required when enrolled or enforced by policy. Backend routes are 
 |---|---|---|
 | GET | `/health/live` | Public liveness check |
 | GET | `/me` | Verify account access |
+| GET | `/me/startup` | Verify access once and return the current consent notice and owned profiles for chat startup; administrators receive no caregiver data |
 | GET | `/me/security` | Read MFA status and policy for the current verified account |
 | POST | `/me/security/mfa/disable` | Disable optional MFA after a recent full sign-in |
 | GET | `/children` | List the authenticated user's profiles |
@@ -466,7 +510,7 @@ the application. Edited text is submitted only when **Get guidance** is selected
 
 Qdrant Cloud inference processes question text for retrieval; explicit follow-ups
 can also include a recent caregiver message from the selected conversation.
-Gemini receives the question, current calculated age, routine, retrieved reference
+The selected generation provider receives the question, current calculated age, routine, retrieved reference
 passages, and bounded recent conversation context when available.
 Saved additional milestones are passed as caregiver-reported context, without treating
 the baseline milestone display as achieved abilities. The conversation privacy disclosure explains that application history
@@ -509,7 +553,7 @@ queries. Explicit conversation age overrides do not inherit saved profile contex
 
 Health notes are saved privately by default. Using them in replies requires both the
 profile's **Use health details to tailor replies** choice and either the reviewed
-paid-service confirmation or explicit non-personal testing confirmation. The latter
+provider data-term confirmation or explicit non-personal testing confirmation. The latter
 permits only non-personal test notes and does not enable billing or authorize personal
 health information. The generation service rechecks this configuration before building
 the prompt. Without either confirmation, notes remain available for private storage
@@ -598,9 +642,9 @@ are separate from the existing automated coverage.
 |---|---|
 | Authentication temporarily unavailable | Backend internet access to Firebase; a healthy liveness endpoint does not verify cloud connectivity |
 | Child profiles fail to load | Firestore API activation, default database creation, service-account permissions, and backend logs |
-| Guidance generation fails | Qdrant/Gemini configuration, model access, quotas, and backend diagnostic messages |
-| Coaching service temporarily busy (503) | Gemini reported service unavailability. Retry later; the application does not add automatic retries. |
-| Coaching service request limit reached (429) | Check the configured project's Gemini quota and usage. Wait for the limit to reset or review the account plan before retrying. |
+| Guidance generation fails | Qdrant and selected provider configuration, model access, quotas, and backend diagnostic messages |
+| Coaching service temporarily busy (503) | The selected provider reported service unavailability. Retry later; the application does not add automatic retries. |
+| Coaching service request limit reached (429) | Check the selected provider's quota and usage. Wait for the limit to reset before retrying. |
 | Guidance could not be provided (`safety_blocked`) | The model service blocked a response or an answer matched an output guardrail. Only a clear replacement message is returned and stored, without supporting source cards. |
 | Frontend reports connection refused | Backend is ready on port 8000 and both development servers are running |
 | Microphone is unavailable | Site permission, supported browser, and localhost or HTTPS |
@@ -867,12 +911,15 @@ Before public deployment:
 - Retain Firestore rules that deny direct client access. The backend uses server
   credentials, so its IAM permissions must be limited separately.
 - Restrict the public Firebase browser key to the Firebase APIs required by the app;
-  keep Gemini on a separate private key. Add only the intended authentication domains.
+  keep generation-service keys private and separate. Add only the intended authentication domains.
 - Enable repository secret scanning and push protection where available.
 - Confirm the model provider's data-handling terms for the configured account and
   service tier before processing personal information. Gemini's unpaid-service terms
   prohibit submitting sensitive, confidential or personal information; see the
   [Gemini API terms](https://ai.google.dev/gemini-api/terms).
+  For Groq, review [GroqCloud data handling](https://console.groq.com/docs/your-data),
+  the account's Data Controls and applicable terms separately. Do not infer permission
+  from Gemini settings or claim zero retention without checking the actual account.
 
 Dependency audits and automated tests do not replace checking the deployed host,
 cloud permissions and provider account configuration.
@@ -1062,15 +1109,18 @@ to be reachable, so check certificate validity before a session after a long shu
 
 Local development defaults to `APP_ENV=development`. Production startup requires
 `APP_ENV=production`, an explicit comma-separated `ALLOWED_HOSTS` list of API host
-names, and either `GEMINI_PAID_SERVICES_CONFIRMED=true` or
-`GEMINI_NONPERSONAL_TESTING_CONFIRMED=true`. Host names must not include a URL
+names, and the selected provider's data-term or non-personal testing confirmation.
+For Gemini these are `GEMINI_PAID_SERVICES_CONFIRMED` and
+`GEMINI_NONPERSONAL_TESTING_CONFIRMED`; for Groq they are
+`GROQ_DATA_TERMS_CONFIRMED` and `GROQ_NONPERSONAL_TESTING_CONFIRMED`.
+Host names must not include a URL
 scheme, port or wildcard. Production requests to an unrecognized host are rejected;
 HTTP requests to an allowed host redirect to HTTPS.
 
 Set the paid-services confirmation only after checking active Cloud Billing and the
-applicable provider terms. This setting records an operator confirmation; it does
-not query billing or change how Google processes data. Both confirmations default
-to false.
+applicable provider terms. Groq has its own data-term confirmation. These settings
+record operator confirmations; they do not query billing or change provider data
+handling. All confirmations default to false.
 
 For hosted free-tier testing with general, non-personal example messages, keep
 `GEMINI_PAID_SERVICES_CONFIRMED=false` and set
