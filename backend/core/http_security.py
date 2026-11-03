@@ -1,6 +1,10 @@
 """Bound incoming bodies and prevent caching of private API responses."""
 
 from anyio import fail_after
+from contextlib import contextmanager
+import logging
+import time
+from uuid import uuid4
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.responses import JSONResponse
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
@@ -11,6 +15,21 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 MAX_JSON_BYTES = 64 * 1024
 MAX_BODY_BYTES = 1024 * 1024
 BODY_TIMEOUT_SECONDS = 15
+timing_logger = logging.getLogger("uvicorn.error.request_timing")
+TIMED_ROUTES = {prefix + path for prefix in ("", "/api", "/api/v1")
+                for path in ("/me", "/me/startup", "/children", "/conversations", "/coach", "/speech/transcribe")}
+
+
+@contextmanager
+def timed_request_stage(request, stage: str):
+    started = time.perf_counter()
+    try:
+        yield
+    finally:
+        request_id = getattr(request.state, "performance_request_id", None)
+        if request_id:
+            timing_logger.info("request_stage request=%s stage=%s seconds=%.3f",
+                               request_id, stage, time.perf_counter() - started)
 
 
 def configure_http_security(app, *, production: bool, allowed_hosts: list[str]) -> None:
@@ -30,9 +49,24 @@ class HTTPSecurityMiddleware:
             await self.app(scope, receive, send)
             return
 
+        started = time.perf_counter()
+        timed = scope.get("path") in TIMED_ROUTES
+        if timed:
+            state = scope.setdefault("state", {})
+            state["performance_started"] = started
+            state["performance_request_id"] = uuid4().hex[:12]
+
         async def secure_send(message: Message):
             if message["type"] == "http.response.start":
                 headers = MutableHeaders(scope=message)
+                if timed:
+                    seconds = time.perf_counter() - started
+                    request_id = scope["state"]["performance_request_id"]
+                    headers["Server-Timing"] = f"app;dur={seconds * 1000:.1f}"
+                    headers["X-Request-ID"] = request_id
+                    # The path is from a fixed set; queries, identities and text are excluded.
+                    timing_logger.info("request_timing request=%s route=%s status=%d seconds=%.3f",
+                                       request_id, scope["path"], message["status"], seconds)
                 headers["Cache-Control"] = "no-store"
                 headers["X-Content-Type-Options"] = "nosniff"
                 headers["X-Frame-Options"] = "DENY"

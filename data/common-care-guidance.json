@@ -4,6 +4,13 @@
   "review_kind": "source_checked_basic_care_not_clinical_validation",
   "scope": "Selected practical care and precautions. No diagnosis, medicine selection, doses, treatment timings or individual vaccination decisions. General-care selections omit overseas service numbers and local protocols.",
   "sources": {
+    "firststeps-food-flavours": {
+      "publisher": "First Steps Nutrition Trust",
+      "title": "Eating well: the first year — herbs and spices",
+      "url": "https://healthiertogether.westlondon.nhs.uk/application/files/7217/0773/5171/First_Step_Nutrition_-_Introductions_to_Solids_-_Udpated_2021.pdf",
+      "checked_on": "2026-11-03",
+      "applicability": "General food-flavour education from PDF page 54, including gradual transition to family foods after one year. No universal safe chilli dose, age or feeding time is established. Overseas clinical protocols and service contacts are excluded."
+    },
     "nhs-first-foods": {
       "publisher": "NHS",
       "title": "Your baby's first solid foods",
@@ -162,6 +169,20 @@
     }
   },
   "entries": [
+    {
+      "id": "food-flavours",
+      "topic": "food_flavours",
+      "min_months": 6,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "firststeps-food-flavours",
+          "section": "Can I add herbs and spices to food for babies?",
+          "pdf_page": 54,
+          "text": "For a child already eating suitable solid foods, herbs and garlic can add flavour without added salt. Introduce spices gradually and in moderation. Very spicy food, particularly chilli, may be unpleasant for a baby. Flavours can gradually increase as children over one year join family meals; individual children differ in what they enjoy."
+        }
+      ]
+    },
     {
       "id": "milk-feeding",
       "topic": "feeding",

@@ -94,14 +94,16 @@ class CaregiverDataService:
                 "title": data["title"], "created_at": data["created_at"],
                 "updated_at": data["updated_at"]}
 
-    def create_conversation(self, uid: str, child_id: str) -> dict | None:
+    def create_conversation(self, uid: str, child_id: str, *, conversation_id: str | None = None) -> dict | None:
         if self.get_child(uid, child_id) is None:
             return None
-        document = self._conversations(uid).document()
-        document.set({"child_id": child_id, "title": "New conversation",
-                      "created_at": firestore.SERVER_TIMESTAMP,
-                      "updated_at": firestore.SERVER_TIMESTAMP})
-        return self._conversation_response(document.get())
+        document = self._conversations(uid).document(conversation_id) if conversation_id else self._conversations(uid).document()
+        now = datetime.now(timezone.utc)
+        values = {"child_id": child_id, "title": "New conversation", "created_at": now, "updated_at": now}
+        # Create fails on a collision; never overwrite an existing conversation.
+        # Application-server time avoids reading the new document back just to get its timestamp.
+        document.create(values)
+        return {"id": document.id, **values}
 
     def list_conversations(self, uid: str, child_id: str, limit: int = 30,
                            before: str | None = None) -> list[dict]:

@@ -7,7 +7,7 @@ from uuid import uuid4
 from typing import Annotated
 
 from google.genai import errors as genai_errors
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service
@@ -18,6 +18,7 @@ from backend.schemas.coaching import CoachingRequest, CoachingResponse, Citation
 from backend.services.caregiver_data import CaregiverDataService
 from backend.services.age import message_age_months
 from backend.services.coaching import CoachingResult, CoachingService, generation_request_id, PROVIDER_BLOCK_MESSAGE
+from backend.services.groq_client import GenerationProviderError
 from backend.services.usage import UsageControlService
 from backend.services.profile_context import child_reply_context
 from backend.services.retrieval import RetrievalService
@@ -43,9 +44,28 @@ timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
 REQUEST_ERROR = "Something went wrong. Please try again."
 
 
+async def start_conversation(data_service: CaregiverDataService, uid: str,
+                             payload: CoachingRequest) -> CoachingRequest:
+    if not payload.start_conversation:
+        return payload
+    from google.api_core.exceptions import AlreadyExists
+    try:
+        item = await run_in_threadpool(data_service.create_conversation, uid, payload.child_id,
+                                      conversation_id=payload.conversation_id)
+    except AlreadyExists:
+        raise HTTPException(status_code=409, detail="This conversation already exists. Reopen it before sending again.") from None
+    except Exception:
+        raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
+    if item is None:
+        raise HTTPException(status_code=404, detail="Child profile not found.")
+    return payload.model_copy(update={"start_conversation": False})
+
+
 async def save_coaching_response(data_service: CaregiverDataService, uid: str,
                                  payload: CoachingRequest, response: CoachingResponse) -> None:
     """Use one storage path per answer; never duplicate new messages as interactions."""
+    # Urgent fixed responses reach this path before ordinary chat initialization.
+    payload = await start_conversation(data_service, uid, payload)
     if payload.conversation_id is not None:
         stored = response.model_dump(include={
             "citations", "support_resources", "status", "safety",
@@ -129,6 +149,7 @@ async def respond_to_safety(data_service: CaregiverDataService, uid: str,
 @router.post("", response_model=CoachingResponse, dependencies=[Depends(require_processing_consent)])
 async def coach(
     payload: CoachingRequest,
+    request: Request,
     user: dict = Depends(require_authenticated_user),
     data_service: CaregiverDataService = Depends(get_caregiver_data_service),
     retrieval_service: RetrievalService = Depends(get_retrieval_service),
@@ -136,7 +157,8 @@ async def coach(
     usage: UsageControlService = Depends(get_usage_control_service),
 ) -> CoachingResponse:
     # Random diagnostic correlation only; never log account or child identifiers.
-    request_id = uuid4().hex[:12]
+    request_id = getattr(request.state, "performance_request_id", None) or uuid4().hex[:12]
+    started = getattr(request.state, "performance_started", time.perf_counter())
     with timed_stage(request_id, "profile_lookup"):
         child = await run_in_threadpool(data_service.get_child, user["uid"], payload.child_id)
     if child is None:
@@ -148,7 +170,7 @@ async def coach(
     completed_months = child["completed_months"] if explicit_age is None else int(explicit_age)
     age_days = child["age_days"] if explicit_age is None else round(explicit_age * 30.4375)
     # Urgent reports take priority over retrieval and ordinary generation.
-    triage_started = time.perf_counter()
+    triage_started = started
     with timed_stage(request_id, "caregiver_safety"):
         crisis = inspect_crisis(payload.question, payload.support_country)
     with timed_stage(request_id, "input_safety"):
@@ -166,9 +188,8 @@ async def coach(
         return await respond_to_safety(
             data_service, user["uid"], payload, age_months, triage, crisis, request_id, triage_started,
         )
-    started = time.perf_counter()
     context = []
-    if payload.conversation_id is not None:
+    if payload.conversation_id is not None and not payload.start_conversation:
         try:
             with timed_stage(request_id, "conversation_context"):
                 conversation = await run_in_threadpool(
@@ -183,6 +204,8 @@ async def coach(
                     if explicit_age is None and child.get("use_health_details") is True else None)
         context = select_conversation_context(conversation["messages"], health_context_revision=revision)
     await run_in_threadpool(enforce_usage_limit, usage, user["uid"], "coaching")
+    with timed_stage(request_id, "conversation_start"):
+        payload = await start_conversation(data_service, user["uid"], payload)
     retrieval_query = contextual_retrieval_query(payload.question, context)
     # A direct follow-up keeps the age explicitly stated in its caregiver topic.
     # Current profile age remains the fallback when no subject age was supplied.
@@ -203,16 +226,22 @@ async def coach(
                 )
     vaccination = inspect_vaccination(payload.question, age_months, topic=retrieval_query)
     unresolved_follow_up = needs_topic_clarification(payload.question, context)
-    assessment = professional_assessment_response(payload.question)
+    request_topic = caregiver_request(payload.question, context)
+    assessment = (professional_assessment_response(payload.question)
+                  or professional_assessment_response(request_topic))
     boundary = conversation_boundary_response(payload.question, unresolved_follow_up=unresolved_follow_up,
                                               child_age_months=age_months, outside_age_range=outside_age_range)
+    if boundary is None and request_topic != payload.question:
+        boundary = conversation_boundary_response(request_topic, child_age_months=age_months)
     stage = "Qdrant retrieval"
     reference_status = "no_match"
     health_context_used = False
     try:
+        local_references = (select_care_references(payload.question, age_months, context, [])
+                            if boundary is None and vaccination is None and assessment is None else [])
         with timed_stage(request_id, "retrieval"):
             # Do not retrieve arbitrary advice for a follow-up with no safe topic.
-            if boundary is not None or vaccination is not None or assessment is not None:
+            if local_references or boundary is not None or vaccination is not None or assessment is not None:
                 passages = []
             else:
                 try:
@@ -227,9 +256,8 @@ async def coach(
                     passages = []
         stage = "Evidence selection"
         with timed_stage(request_id, "evidence_selection"):
-            evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
-            if boundary is None and vaccination is None and assessment is None:
-                evidence = select_care_references(payload.question, age_months, context, evidence)
+            # Local selections replace vector results, so skip the unused remote search.
+            evidence = local_references or select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
         timing_logger.info(
             "coach_timing request=%s passages=%d evidence=%d evidence_characters=%d",
             request_id, len(passages), len(evidence), sum(len(item.text) for item in evidence),
@@ -250,7 +278,7 @@ async def coach(
             result = CoachingResult(answer=assessment.answer, passages=[])
         else:
             status = "answered"
-            stage = "Gemini generation"
+            stage = "Groq generation" if getattr(coaching_service, "provider", None) == "groq" else "Gemini generation"
             with timed_stage(request_id, "generation"):
                 context_options = {"conversation_context": context} if context else {}
                 # An explicit subject-age override does not establish that this is the selected child.
@@ -278,16 +306,16 @@ async def coach(
     except ValueError:
         raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
     except Exception as exc:
-        if (stage == "Gemini generation" and isinstance(exc, genai_errors.ClientError)
+        if (stage in {"Gemini generation", "Groq generation"} and isinstance(exc, (genai_errors.ClientError, GenerationProviderError))
                 and exc.code == 429):
-            logger.warning("Gemini generation request limit reached (primary_model=%s, code=429)", coaching_service.model)
+            logger.warning("Generation request limit reached (primary_model=%s, code=429)", coaching_service.model)
             raise HTTPException(
                 status_code=429,
                 detail="Please wait a little before trying again.",
             ) from None
-        if (stage == "Gemini generation" and isinstance(exc, genai_errors.ServerError)
+        if (stage in {"Gemini generation", "Groq generation"} and isinstance(exc, (genai_errors.ServerError, GenerationProviderError))
                 and exc.code == 503):
-            logger.warning("Gemini generation unavailable (primary_model=%s, code=503)", coaching_service.model)
+            logger.warning("Generation unavailable (primary_model=%s, code=503)", coaching_service.model)
             raise HTTPException(
                 status_code=503,
                 detail=REQUEST_ERROR,

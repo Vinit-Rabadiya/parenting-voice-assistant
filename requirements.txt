@@ -4,6 +4,8 @@ uvicorn==0.53.0
 pydantic==2.13.5
 python-dotenv==1.2.3
 requests==2.34.2
+# Pooled, thread-safe transport for Groq generation.
+httpx==0.28.1
 # Patched transitive dependencies used by HTTPS, model downloads and tracing.
 certifi==2026.10.23
 filelock==4.2.4

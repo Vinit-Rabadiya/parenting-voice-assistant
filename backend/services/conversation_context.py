@@ -19,6 +19,8 @@ def is_follow_up(question: str) -> bool:
         r"(?:can|could) you explain (?:that|this)|how (?:do|can) i do (?:that|this)|"
         r"(?:another|one more) (?:idea|activity|example)(?: please)?|something else|"
         r"tell me more|anything else(?: i can (?:try|do))?|please explain (?:that|this)|"
+        r"you (?:did not|didn't|have not|haven't) (?:answer|respond to|address) (?:my |the )?(?:question|message|request)|"
+        r"(?:that|this) (?:is not|isn't|was not|wasn't) what i (?:asked|meant)|you misunderstood(?: (?:me|my question))?|"
         r"what (?:does|do) (?:that|this|it|they) mean|"
         r"what side[ -]?effects? can (?:it|they|that|this) (?:have|cause)|"
         r"what are (?:its|their) side[ -]?effects?|"
@@ -55,6 +57,9 @@ def select_conversation_context(messages: list[dict], *, health_context_revision
         ) or (
             assistant.get("status") == "vaccination_notice"
             and bool(assistant.get("citations"))
+        ) or (
+            assistant.get("status") == "no_evidence"
+            and assistant.get("response_kind") == "age_out_of_scope"
         ))
         if (user.get("role") != "user" or assistant.get("role") != "assistant"
                 or not usable
@@ -83,15 +88,22 @@ def select_conversation_context(messages: list[dict], *, health_context_revision
             # these fixed application messages identify an age clarification.
             if assistant.get("clarification_field") == "age" or answer in AGE_CLARIFICATION_MESSAGES:
                 previous_answer["clarification_field"] = "age"
+        if assistant.get("response_kind") == "age_out_of_scope":
+            previous_answer["response_kind"] = "age_out_of_scope"
         selected[:0] = [{"role": "user", "text": question}, previous_answer]
         characters += pair_size
+        # Retain the refused request so an explicit age correction can resume it,
+        # without carrying an older, unrelated topic across the boundary.
+        if assistant.get("response_kind") == "age_out_of_scope":
+            break
     return selected
 
 
 def caregiver_request(question: str, context: list[dict]) -> str:
     """Keep the requested help across short replies without borrowing AI claims."""
-    if context and context[-1].get("response_kind") == "clarification":
-        if (context[-1].get("clarification_field") == "age"
+    if context and context[-1].get("response_kind") in {"clarification", "age_out_of_scope"}:
+        if ((context[-1].get("clarification_field") == "age"
+             or context[-1].get("response_kind") == "age_out_of_scope")
                 and _clarified_age_months(question, context) is not None):
             if context[-1].get("caregiver_request"):
                 return context[-1]["caregiver_request"]
@@ -101,12 +113,14 @@ def caregiver_request(question: str, context: list[dict]) -> str:
     clarification = clarifies_recent_answer(question, context)
     if is_follow_up(question) or clarification:
         if context and context[-1].get("caregiver_request"):
-            return context[-1]["caregiver_request"]
+            request = context[-1]["caregiver_request"]
+            if not is_follow_up(request) and _age_reply_months(request) is None:
+                return request
         for index in range(len(context) - 1, -1, -1):
             message = context[index]
             if (message["role"] == "user" and not is_follow_up(message["text"])
                     and not clarifies_recent_answer(message["text"], context[:index])
-                    and _clarified_age_months(message["text"], context[:index]) is None):
+                    and _age_reply_months(message["text"]) is None):
                 return message["text"]
     return question
 
@@ -148,16 +162,20 @@ def needs_topic_clarification(question: str, context: list[dict]) -> bool:
 
 
 def _clarified_age_months(question: str, context: list[dict]) -> float | None:
-    if context and context[-1].get("response_kind") == "clarification":
-        age_reply = question.strip().rstrip(".!?")
-        match = re.fullmatch(
-            r"(?:(?:he|she|they|(?:my|our|the) (?:baby|child|infant|toddler)) (?:is|are) )?"
-            r"(?P<age>\d+(?:\.\d+)?\s*[- ]?(?:days?|weeks?|months?|years?))"
-            r"(?:[- ]old)?(?: please)?", age_reply, re.I,
-        )
-        if match:
-            return message_age_months(f"My baby is {match['age']}")
+    if context and context[-1].get("response_kind") in {"clarification", "age_out_of_scope"}:
+        return _age_reply_months(question)
     return None
+
+
+def _age_reply_months(question: str) -> float | None:
+    """Recognise a short age clarification/correction without inventing a topic."""
+    match = re.fullmatch(
+        r"(?:sorry[ ,]*\s*)?(?:(?:i meant|actually|correction)[ ,]*\s*)?"
+        r"(?:(?:he|she|they|(?:my|our|the) (?:baby|child|infant|toddler)) (?:is|are) )?"
+        r"(?P<age>\d+(?:\.\d+)?\s*[- ]?(?:days?|weeks?|months?|years?))"
+        r"(?:[- ]old)?(?: please)?", question.strip().rstrip(".!?"), re.I,
+    )
+    return message_age_months(f"My baby is {match['age']}") if match else None
 
 
 def clarifies_recent_answer(question: str, context: list[dict]) -> bool:

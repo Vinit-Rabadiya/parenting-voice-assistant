@@ -14,14 +14,13 @@ class ReplyProfileContext(BaseModel):
 
 def health_context_available() -> bool:
     # Non-personal test notes use the same context path without changing billing.
-    return (settings.GEMINI_PAID_SERVICES_CONFIRMED is True
-            or settings.GEMINI_NONPERSONAL_TESTING_CONFIRMED is True)
+    return settings.provider_data_allowed
 
 
-def validate_reply_context(context: dict) -> dict:
+def validate_reply_context(context: dict, *, provider: str | None = None) -> dict:
     """Recheck the provider gate immediately before constructing a model prompt."""
     values = {"milestones": context.get("milestones", [])}
-    if health_context_available():
+    if settings.data_allowed_for(provider or settings.COACHING_PROVIDER):
         values["health_details"] = context.get("health_details") or {}
     return ReplyProfileContext.model_validate(values).model_dump(exclude_defaults=True)
 

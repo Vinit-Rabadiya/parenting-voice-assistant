@@ -15,6 +15,7 @@ from backend.services.retrieval import RetrievedPassage
 
 REFERENCE_PATH = Path(__file__).resolve().parents[2] / "data/common-care-guidance.json"
 TOPICS = {
+    "food_flavours": r"\b(?:chill(?:i|ies)|chili(?:es)?|spic(?:e|es|y)|hot sauce|hot peppers?)\b",
     "reflux": r"\b(?:reflux|regurgitat\w*|spit(?:s|ting)? up|spitting)\b|\b(?:milk|feeds?)\b.{0,45}\b(?:comes? back|coming back|dribbles? back|back up|brought up)\b|\bbring(?:s|ing)? up\b.{0,25}\bmilk\b|\bbrings? (?:some )?milk back\b",
     "nappy_rash": r"\b(?:nappy|diaper)[ -]?(?:area )?(?:rash|soreness|irritation)\b|\b(?:bottom|nappy area|diaper area)\b.{0,30}\b(?:sore|red|irritated)\b|\b(?:sore|red|irritated)\b.{0,55}\b(?:bottom|nappy area|diaper area)\b",
     "sleep": r"\b(?:sleep|sleeping|bedtime|night waking)\b|\bwake[sn]?\b.{0,25}\b(?:night|often)\b|\bwaking\b.{0,25}\bnight\b|\bsettle\b.{0,30}\bnight\b",
@@ -67,7 +68,7 @@ def load_references():
     date.fromisoformat(data["checked_on"])
     for source in data["sources"].values():
         url = urlsplit(source["url"])
-        if (url.scheme != "https" or url.hostname not in {"www.nhs.uk", "www.unicef.org"}
+        if (url.scheme != "https" or url.hostname not in {"www.nhs.uk", "www.unicef.org", "healthiertogether.westlondon.nhs.uk"}
                 or url.username or url.password or not source["publisher"] or not source["title"]):
             raise ValueError("Invalid basic-care source.")
     ids = set()
@@ -110,6 +111,9 @@ class CareGuidance:
                 rules.append("Do not supply feeding quantities: none were requested.")
             if self.food_ideas:
                 rules.append("Give food examples; do not add talking, singing or play activities.")
+        if self.topic == "food_flavours":
+            rules.append("Distinguish mild herbs/spices from very hot chilli. Follow the selected source on gradual introduction and the child's tolerance. Do not invent a universal age or time of day for chilli, or claim it damages an immature digestive system.")
+            rules.append("The selected source establishes no chilli quantity, frequency or clock time. Do not recommend pinches, spoonfuls, once-a-day use, morning/afternoon use or a bedtime interval. If asked when, explain that no special feeding time is established by this guidance; discuss gradual flavour introduction without prescribing a schedule.")
         if self.topic in HEALTH_TOPICS:
             rules.append("Give basic care and conditional assessment advice. Do not select creams, active ingredients or treatment durations.")
         if self.topic in {"reflux", "cough_cold"}:
@@ -126,6 +130,16 @@ class CareGuidance:
 
     def findings(self, answer: str) -> tuple[str, ...]:
         reasons = []
+        if self.topic == "food_flavours" and re.search(
+            r"\b(?:immature|underdeveloped)\s+digestive|\bdigestive system\b[^.!?\n]{0,50}\b(?:matur\w*|develop\w*)\b|"
+            r"\b(?:avoid|never (?:give|offer))\s+all\s+(?:spices|seasonings)\b", answer, re.I,
+        ):
+            reasons.append("unsupported_food_flavour_restriction")
+        if self.topic == "food_flavours" and re.search(
+            r"\b(?:once|twice|thrice)\s+(?:a|per|each)\s+(?:day|meal)\b|"
+            r"\b(?:mid-morning|early afternoon|before bedtime|pinch(?:es)?|spoonfuls?)\b", answer, re.I,
+        ):
+            reasons.append("unsupported_food_flavour_schedule")
         if self.topic == "feeding":
             if not self.allow_schedule and MEAL_SCHEDULE.search(answer):
                 reasons.append("unrequested_feeding_schedule")
@@ -182,11 +196,16 @@ def get_care_guidance(question: str, age_months: float, context: list[dict] | No
         concerns = ["teething_illness"]
     if len(concerns) > 1:
         return None
-    topic = concerns[0] if concerns else "sleep" if "sleep" in matched else next((topic for topic in reversed(TOPICS) if topic in matched), None)
+    topic = concerns[0] if concerns else "food_flavours" if "food_flavours" in matched else "sleep" if "sleep" in matched else next((topic for topic in reversed(TOPICS) if topic in matched), None)
     food_ideas = bool(FOOD_IDEAS.search(text))
     if re.search(r"\b(?:for myself|for me|what (?:should|can) i (?:eat|drink)|my (?:sleep|insomnia))\b|\bi (?:cannot|can't|am not|don't) sleep\b|\bi have (?:a )?(?:reflux|heartburn|rash)\b", text, re.I):
         return None
+    if topic == "food_flavours" and re.search(r"\b(?:eyes?|burn\w*|pain|allerg\w*|reaction|irritat\w*|chok\w*)\b", text, re.I):
+        return None
     if topic == "feeding" and re.search(r"\b(?:pretend|teddy|doll|toy food|toy kitchen)\b", text, re.I):
+        return None
+    if topic == "soothing" and re.search(r"\b(?:when|whenever|while|during|after|every time|each time)\b", text, re.I):
+        # A specific trigger needs its own references, not only generic comfort advice.
         return None
     if topic == "feeding":
         # These selections cover simple food ideas and feeding statements, not
@@ -211,7 +230,7 @@ def get_care_guidance(question: str, age_months: float, context: list[dict] | No
         source = data["sources"][item["source"]]
         references.append(RetrievedPassage(
             passage_id=f"basic-care-{entry['id']}-{item['source']}", text=item["text"], title=item["section"],
-            source_title=f"{source['publisher']}: {source['title']}", source_url=source["url"], pdf_page=None,
+            source_title=f"{source['publisher']}: {source['title']}", source_url=source["url"], pdf_page=item.get("pdf_page"),
             score=0.0, source_age_label=f"{entry['min_months']}-{entry['max_months_exclusive']} months (upper bound excluded)",
             routines=[], selection_method="source_checked_basic_care",
         ))

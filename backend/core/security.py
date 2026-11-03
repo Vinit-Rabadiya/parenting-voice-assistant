@@ -5,6 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth, exceptions
 from requests.exceptions import RequestException
 from backend.services.account_security import AccountSecurityService
+from backend.core.http_security import timed_request_stage
 
 # read the login token from the request header.
 bearer = HTTPBearer(auto_error=False)
@@ -24,11 +25,12 @@ def require_verified_user(
 
     # check that firebase issued this token and it is still valid.
     try:
-        claims = auth.verify_id_token(
-            credential.credentials,
-            app=request.app.state.firebase,
-            check_revoked=True,
-        )
+        with timed_request_stage(request, "token_verification"):
+            claims = auth.verify_id_token(
+                credential.credentials,
+                app=request.app.state.firebase,
+                check_revoked=True,
+            )
     except auth.CertificateFetchError:
         # stop if firebase server keys cannot be reached right now.
         raise HTTPException(
@@ -86,7 +88,8 @@ def get_account_security_service(request: Request) -> AccountSecurityService:
 def get_account_security_state(request: Request, user: dict = Depends(require_verified_user),
                                service: AccountSecurityService = Depends(get_account_security_service)) -> dict:
     try:
-        state = dict(service.read(user["uid"]))
+        with timed_request_stage(request, "account_security"):
+            state = dict(service.read(user["uid"]))
     except PermissionError:
         raise HTTPException(status_code=403, detail="Account verification required.") from None
     except Exception:

@@ -3,18 +3,43 @@
 from fastapi import APIRouter, Depends, Response, Request, HTTPException
 import time
 from math import isfinite
+from asyncio import gather
+from starlette.concurrency import run_in_threadpool
 from firebase_admin import auth
 from backend.api.dependencies import get_caregiver_data_service
 from backend.services.caregiver_data import CaregiverDataService
 from backend.core.security import (require_authenticated_user,
                                    get_account_security_state, get_account_security_service, require_caregiver_user)
-from backend.schemas.auth import UserResponse, AccountSecurityResponse
+from backend.schemas.auth import UserResponse, AccountSecurityResponse, StartupResponse
+from backend.api.v1.endpoints.privacy import consent_response
 from backend.services.account_security import AccountSecurityService
 from backend.api.dependencies import get_usage_control_service, usage_limits
 from backend.schemas.usage import UsageResponse
 from backend.services.usage import UsageControlService
 
 router = APIRouter()
+
+
+@router.get("/me/startup", response_model=StartupResponse, response_model_exclude_none=True)
+async def chat_startup(request: Request, response: Response,
+                       user: dict = Depends(require_authenticated_user),
+                       service: CaregiverDataService = Depends(get_caregiver_data_service)):
+    """Verify access once, then return the owned data needed to open the chat."""
+    response.headers["Cache-Control"] = "no-store"
+    if request.state.account_role == "administrator":
+        return StartupResponse(uid=user["uid"], role="administrator")
+    try:
+        # Reading existing owned profiles does not generate/process a new message.
+        # Never return them here unless the current processing notice is accepted.
+        saved_consent, children = await gather(
+            run_in_threadpool(service.get_consent, user["uid"]),
+            run_in_threadpool(service.list_children, user["uid"]),
+        )
+        consent = consent_response(saved_consent)
+        return StartupResponse(uid=user["uid"], consent=consent,
+                               children=children if consent.accepted else None)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Chat could not be loaded. Please retry.") from None
 
 
 @router.get("/me/security", response_model=AccountSecurityResponse)

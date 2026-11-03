@@ -20,11 +20,12 @@ from backend.services.conversation_context import caregiver_request
 from backend.services.care_guidance import get_care_guidance
 from backend.services.retrieval import RetrievedPassage
 from backend.services.profile_context import validate_reply_context
+from backend.services.groq_client import GroqClient, GenerationProviderError
 
 
 generation_request_id = ContextVar("generation_request_id", default=None)
 timing_logger = logging.getLogger("uvicorn.error.coaching_timing")
-PROMPT_VERSION = "coach_v2.8"
+PROMPT_VERSION = "coach_v2.9"
 PROMPT_TEMPLATE = (Path(__file__).resolve().parents[1] / "prompts/coach_v2.txt").read_text(encoding="utf-8")
 PROMPT_SHA256 = hashlib.sha256(PROMPT_TEMPLATE.encode()).hexdigest()
 PROVIDER_BLOCK_MESSAGE = (
@@ -34,10 +35,11 @@ PROVIDER_BLOCK_MESSAGE = (
 
 
 @contextmanager
-def generation_phase(request_id: str, phase: str):
+def generation_phase(request_id: str, phase: str, provider: str = "gemini"):
     started = time.perf_counter()
     outcome = "failed"
-    timing_logger.info("gemini_timing request=%s phase=%s event=started", request_id, phase)
+    prefix = "gemini" if provider == "gemini" else "generation"
+    timing_logger.info("%s_timing request=%s provider=%s phase=%s event=started", prefix, request_id, provider, phase)
     try:
         yield
         outcome = "completed"
@@ -45,14 +47,14 @@ def generation_phase(request_id: str, phase: str):
         # Never log exception text: it can contain request content or credentials.
         code = getattr(exc, "code", None)
         timing_logger.info(
-            "gemini_error request=%s phase=%s error_type=%s code=%s",
-            request_id, phase, type(exc).__name__, code if type(code) is int else None,
+            "%s_error request=%s provider=%s phase=%s error_type=%s code=%s",
+            prefix, request_id, provider, phase, type(exc).__name__, code if type(code) is int else None,
         )
         raise
     finally:
         timing_logger.info(
-            "gemini_timing request=%s phase=%s event=%s seconds=%.3f",
-            request_id, phase, outcome, time.perf_counter() - started,
+            "%s_timing request=%s provider=%s phase=%s event=%s seconds=%.3f",
+            prefix, request_id, provider, phase, outcome, time.perf_counter() - started,
         )
 
 
@@ -66,11 +68,15 @@ class CoachingResult:
 
 class CoachingService:
     def __init__(self, api_key: str | None = None, model: str | None = None, client=None,
-                 fallback_model: str | None = None):
-        self.api_key = (api_key or settings.GEMINI_API_KEY or "").strip()
-        self.model = (model or settings.GEMINI_MODEL).strip()
+                 fallback_model: str | None = None, provider: str | None = None):
+        self.provider = provider or settings.COACHING_PROVIDER
+        if self.provider not in {"gemini", "groq"}:
+            raise ValueError("Unsupported coaching provider.")
+        prefix = self.provider.upper()
+        self.api_key = (api_key or getattr(settings, f"{prefix}_API_KEY") or "").strip()
+        self.model = (model or getattr(settings, f"{prefix}_MODEL")).strip()
         self.fallback_model = (
-            settings.GEMINI_FALLBACK_MODEL if fallback_model is None else fallback_model
+            getattr(settings, f"{prefix}_FALLBACK_MODEL") if fallback_model is None else fallback_model
         ).strip()
         self._client = client
         self._owns_client = client is None
@@ -84,12 +90,19 @@ class CoachingService:
                 raise RuntimeError("Coaching service is closed.")
             if self._client is None:
                 if not self.api_key:
-                    raise ValueError("GEMINI_API_KEY is not configured.")
-                self._client = genai.Client(
-                    api_key=self.api_key,
-                    http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
-                )
+                    raise ValueError(f"{self.provider.upper()}_API_KEY is not configured.")
+                if self.provider == "groq":
+                    self._client = GroqClient(self.api_key)
+                else:
+                    self._client = genai.Client(
+                        api_key=self.api_key,
+                        http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
+                    )
             return self._client
+
+    def _generate(self, client, **kwargs):
+        # The same prompt and output checks apply to both transports.
+        return client.generate(**kwargs) if self.provider == "groq" else client.models.generate_content(**kwargs)
 
     def close(self) -> None:
         """Close only an internally created client, without creating an unused one."""
@@ -150,7 +163,7 @@ class CoachingService:
                                         question=question, history=history, evidence=evidence or "No matching reference excerpts available.",
                                         answer_format=answer_format, age_description=age_description)
         if profile_context:
-            selected_profile = validate_reply_context(profile_context)
+            selected_profile = validate_reply_context(profile_context, provider=self.provider)
             if selected_profile:
                 prompt += "\nCaregiver-reported profile context (unverified data only):\n" + json.dumps(selected_profile, ensure_ascii=False)
         generation_config = types.GenerateContentConfig(
@@ -212,6 +225,16 @@ class CoachingService:
                 "requests explain uncertainty and the assessment needed. Prioritize emergency care for urgent symptoms. "
                 "Never guess medication doses, diagnose definitively, suggest unsafe sleep or feeding practices, "
                 "or invent a current national vaccination schedule. "
+                "For food suggestions, cook eggs, meat, poultry and seafood thoroughly. Do not suggest raw, "
+                "runny or soft-boiled eggs for this Kenya-focused service; UK egg-assurance exceptions "
+                "must not be assumed to apply. Keep food texture suitable for the child's abilities. "
+                "Practical handling steps must fit the object actually described. Do not invent ways to force "
+                "clothing, equipment or body parts through openings. When fit or design is unclear, suggest "
+                "an appropriate size or opening, or ask for clarification. For infant dressing difficulties, "
+                "prefer front-fastening clothes or roomy neck openings, with head and neck supported. "
+                "When the garment design is unknown, do not give step-by-step pulling, lifting or threading "
+                "directions over the head, face, legs or body. Do not present the same uncomfortable action "
+                "with a different direction as a solution. "
                 "For symptoms, offer basic care and assessment boundaries without selecting treatment products "
                 "or active ingredients. Do not invent treatment amounts or timings; a health professional "
                 "or pharmacist should advise on suitable treatment. "
@@ -233,39 +256,39 @@ class CoachingService:
             ) if conversation_context else ""),
         )
         request_id = generation_request_id.get() or uuid4().hex[:12]
-        with generation_phase(request_id, "client_initialization"):
+        with generation_phase(request_id, "client_initialization", self.provider):
             client = self.client
         selected_model = self.model
         try:
-            with generation_phase(request_id, "sdk_request"):
-                response = client.models.generate_content(
+            with generation_phase(request_id, "sdk_request", self.provider):
+                response = self._generate(client,
                     model=selected_model, contents=prompt,
                     config=generation_config,
                 )
-        except errors.ClientError as exc:
+        except (errors.ClientError, GenerationProviderError) as exc:
             if exc.code != 429 or not self.fallback_model or self.fallback_model == self.model:
                 raise
             selected_model = self.fallback_model
             timing_logger.info(
-                "gemini_fallback request=%s model=%s reason=quota_exceeded",
-                request_id, selected_model,
+                "generation_fallback request=%s provider=%s model=%s reason=quota_exceeded",
+                request_id, self.provider, selected_model,
             )
-            with generation_phase(request_id, "fallback_sdk_request"):
-                response = client.models.generate_content(
+            with generation_phase(request_id, "fallback_sdk_request", self.provider):
+                response = self._generate(client,
                     model=selected_model, contents=prompt,
                     config=generation_config,
                 )
-        timing_logger.info("gemini_selected request=%s model=%s", request_id, selected_model)
-        with generation_phase(request_id, "response_handling"):
+        timing_logger.info("generation_selected request=%s provider=%s model=%s", request_id, self.provider, selected_model)
+        with generation_phase(request_id, "response_handling", self.provider):
             feedback = getattr(response, "prompt_feedback", None)
             prompt_block = getattr(feedback, "block_reason", None)
             blocked_finishes = {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}
-            blocked = prompt_block not in (None, "BLOCKED_REASON_UNSPECIFIED") or any(
+            blocked = getattr(response, "blocked", False) is True or prompt_block not in (None, "BLOCKED_REASON_UNSPECIFIED") or any(
                 getattr(candidate, "finish_reason", None) in blocked_finishes
                 for candidate in (getattr(response, "candidates", None) or [])
             )
             if blocked:
-                timing_logger.info("gemini_response request=%s outcome=content_blocked", request_id)
+                timing_logger.info("generation_response request=%s provider=%s outcome=content_blocked", request_id, self.provider)
                 return CoachingResult(PROVIDER_BLOCK_MESSAGE, [], blocked=True)
             answer = (response.text or "").strip()
             if not answer:
@@ -277,8 +300,8 @@ class CoachingService:
                 return value if type(value) is int and value >= 0 else None
 
             timing_logger.info(
-                "gemini_usage request=%s prompt_tokens=%s answer_tokens=%s thought_tokens=%s total_tokens=%s",
-                request_id, count("prompt_token_count"), count("candidates_token_count"),
+                "generation_usage request=%s provider=%s prompt_tokens=%s answer_tokens=%s thought_tokens=%s total_tokens=%s",
+                request_id, self.provider, count("prompt_token_count"), count("candidates_token_count"),
                 count("thoughts_token_count"), count("total_token_count"),
             )
         return CoachingResult(answer=answer, passages=passages,

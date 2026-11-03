@@ -21,6 +21,21 @@ class CoachingRequest(BaseModel):
     routine: str | None = Field(default=None, max_length=40)
     support_country: Literal["KE"] | None = None
     vaccination_country: Literal["KE"] = "KE"
+    start_conversation: bool = Field(default=False, strict=True)
+
+    @model_validator(mode="after")
+    def require_new_conversation_id(self):
+        if self.start_conversation:
+            from uuid import UUID
+            if self.conversation_id is None:
+                raise ValueError("A new conversation needs an ID.")
+            try:
+                identifier = UUID(self.conversation_id)
+            except ValueError:
+                raise ValueError("A new conversation needs a UUID.") from None
+            if identifier.version != 4 or str(identifier) != self.conversation_id:
+                raise ValueError("A new conversation needs a canonical UUID v4.")
+        return self
 
     @field_validator("question", mode="before")
     @classmethod
