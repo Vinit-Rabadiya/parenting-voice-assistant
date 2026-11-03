@@ -50,6 +50,9 @@ class HTTPSecurityMiddleware:
             return
 
         started = time.perf_counter()
+        # Mounts may copy the ASGI scope; share the state mapping with the static
+        # host so only its validated public assets can opt into caching.
+        scope.setdefault("state", {})
         timed = scope.get("path") in TIMED_ROUTES
         if timed:
             state = scope.setdefault("state", {})
@@ -67,7 +70,10 @@ class HTTPSecurityMiddleware:
                     # The path is from a fixed set; queries, identities and text are excluded.
                     timing_logger.info("request_timing request=%s route=%s status=%d seconds=%.3f",
                                        request_id, scope["path"], message["status"], seconds)
-                headers["Cache-Control"] = "no-store"
+                headers["Cache-Control"] = (
+                    "public, max-age=31536000, immutable"
+                    if scope.get("state", {}).get("immutable_frontend_asset") else "no-store"
+                )
                 headers["X-Content-Type-Options"] = "nosniff"
                 headers["X-Frame-Options"] = "DENY"
                 # Firebase browser-key restrictions need the public page's origin,

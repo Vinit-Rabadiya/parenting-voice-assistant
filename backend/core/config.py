@@ -41,6 +41,8 @@ class Settings:
     QDRANT_URL: str | None = os.getenv("QDRANT_URL")
     QDRANT_API_KEY: str | None = os.getenv("QDRANT_API_KEY")
     QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "caregiver_guidance_everyday_v4")
+    QDRANT_CORPUS_REVISION: str = os.getenv("QDRANT_CORPUS_REVISION", "")
+    RETRIEVAL_CACHE_TTL_SECONDS: float = float(os.getenv("RETRIEVAL_CACHE_TTL_SECONDS", "60"))
     # Provisional cutoff from recorded development examples; not a confidence percentage.
     RETRIEVAL_MIN_SCORE: float = float(os.getenv("RETRIEVAL_MIN_SCORE", "0.50"))
     KENYA_VACCINATION_SCHEDULE_ENABLED: bool = boolean_setting("KENYA_VACCINATION_SCHEDULE_ENABLED", "true")

@@ -43,16 +43,19 @@ def test_keeps_recent_complete_pairs_in_chronological_order():
     messages = sum((pair(f"Question {index}") for index in range(5)), [])
     selected = select_conversation_context(messages)
     assert len(selected) == MAX_CONTEXT_MESSAGES
-    assert selected[0]["text"] == "Question 2"
+    assert selected[0]["text"] == "Question 1"
+    assert all(message["text"] != "Question 0" for message in selected)
     assert selected[-2]["text"] == "Question 4"
 
 
 def test_limits_text_without_cutting_a_message_in_half():
-    selected = select_conversation_context(pair("A" * 1600, "B" * 1500))
+    selected = select_conversation_context(pair("A" * 1000, "B" * (MAX_CONTEXT_CHARACTERS - 999)))
     assert selected == []
     selected = select_conversation_context(pair("A" * 1000, "B" * 1000) + pair("C" * 1000, "D" * 1000))
-    assert len(selected) == 2
+    assert len(selected) == 4
     assert sum(len(message["text"]) for message in selected) <= MAX_CONTEXT_CHARACTERS
+    older = pair("An older request", "An older answer")
+    assert select_conversation_context(older + pair("A" * 1000, "B" * 1000) + pair("C" * 1000, "D" * 1000)) == selected
 
 
 @pytest.mark.parametrize("status", ["no_evidence", "safety_blocked", "escalated", "crisis_support", "caregiver_support"])

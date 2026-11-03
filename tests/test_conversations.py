@@ -1,6 +1,7 @@
 """Conversation routes use authenticated ownership and bounded history reads."""
 
 from datetime import datetime, timezone
+from threading import Barrier
 from unittest.mock import MagicMock
 from google.api_core.exceptions import FailedPrecondition
 
@@ -11,7 +12,7 @@ from backend.core.security import require_authenticated_user
 from backend.main import app
 from backend.services.caregiver_data import CaregiverDataService
 from backend.services.coaching import CoachingResult
-from backend.services.retrieval import RetrievedPassage
+from backend.services.retrieval import RetrievalService, RetrievedPassage
 from backend.services.response_safety import SAFE_RESPONSE
 
 
@@ -222,6 +223,136 @@ def coaching_dependencies(history_service):
     app.dependency_overrides.pop(get_coaching_service, None)
 
 
+def test_profile_and_owned_history_reads_overlap_before_generation(client, coaching_dependencies):
+    data, _, coaching = coaching_dependencies
+    both_reading = Barrier(2)
+    child, history = data.get_child.return_value, data.get_conversation.return_value
+
+    def read_child(*args, **kwargs):
+        both_reading.wait(timeout=3)
+        return child
+
+    def read_history(*args, **kwargs):
+        both_reading.wait(timeout=3)
+        return history
+
+    data.get_child.side_effect = read_child
+    data.get_conversation.side_effect = read_history
+    response = client.post("/coach", json=coaching_payload("How can we play with stacking cups?"))
+    assert response.status_code == 200
+    data.get_child.assert_called_once_with("account-a", "child-1")
+    data.get_conversation.assert_called_once_with("account-a", "chat-1", 8, expected_child_id="child-1")
+    coaching.generate.assert_called_once()
+
+
+def test_cached_sources_still_reload_profile_and_generate_each_answer(client, coaching_dependencies, monkeypatch):
+    data, _, coaching = coaching_dependencies
+    source_client = MagicMock()
+    source_client.query_points.return_value.points = [MagicMock(id="p1", score=0.9, payload={
+        "passage_id": "p1", "text": "Talk together gently.", "title": "Sharing a book",
+        "source_title": "Care reference", "source_url": "https://example.test/book", "pdf_page": 2,
+        "source_age": {"min_months": 0, "max_months_exclusive": 25}, "routines": ["reading"],
+    })]
+    retrieval = RetrievalService(client=source_client, cache_ttl_seconds=60)
+    app.dependency_overrides[get_retrieval_service] = lambda: retrieval
+    monkeypatch.setattr("backend.api.v1.endpoints.coaching.select_care_references", lambda *args: [])
+    coaching.generate.side_effect = lambda question, age, routine, passages, **kwargs: CoachingResult(
+        "Talk together gently." if coaching.generate.call_count == 1 else "Point at a picture together.", passages,
+    )
+    question = coaching_payload("How can we enjoy a cloth picture book?")
+    try:
+        first = client.post("/coach", json=question)
+        data.get_child.return_value["milestones"] = ["A new saved observation"]
+        second = client.post("/coach", json=question)
+        assert first.status_code == second.status_code == 200
+        assert first.json()["answer"] != second.json()["answer"]
+        assert second.json()["citations"] == first.json()["citations"]
+        assert second.json()["citations"][0]["source_url"] == "https://example.test/book"
+        assert data.get_child.call_count == data.get_conversation.call_count == coaching.generate.call_count == 2
+        assert coaching.generate.call_args.kwargs["profile_context"] == {"milestones": ["A new saved observation"]}
+        assert "A new saved observation" not in repr(retrieval._cache)
+        source_client.query_points.assert_called_once()
+    finally:
+        retrieval.close()
+
+
+def test_missing_profile_takes_priority_over_parallel_history_failure(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    data.get_child.return_value = None
+    data.get_conversation.side_effect = RuntimeError("PRIVATE_HISTORY_DETAILS")
+    response = client.post("/coach", json=coaching_payload("How can we play with stacking cups?"))
+    assert response.status_code == 404
+    assert "PRIVATE_HISTORY_DETAILS" not in response.text
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+@pytest.mark.parametrize("question", ["My baby has a fever.", "My baby's skin looks yellow."])
+def test_age_specific_urgent_messages_skip_parallel_history(client, coaching_dependencies, question):
+    data, retrieval, coaching = coaching_dependencies
+    data.get_child.return_value.update(age_months=0, completed_months=0, age_days=0)
+    data.get_conversation.side_effect = RuntimeError("History must not be read")
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    assert response.json()["status"] == "escalated"
+    data.get_conversation.assert_not_called()
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_cautious_prefetch_screen_does_not_change_actual_profile_age(client, coaching_dependencies):
+    data, _, coaching = coaching_dependencies
+    child = data.get_child.return_value
+    profile_read = []
+
+    def read_child(*args):
+        profile_read.append(True)
+        return child
+
+    def read_history(*args, **kwargs):
+        assert profile_read
+        return {**conversation(), "messages": []}
+
+    data.get_child.side_effect = read_child
+    data.get_conversation.side_effect = read_history
+    response = client.post("/coach", json=coaching_payload("My baby has a fever."))
+    assert response.status_code == 200
+    assert response.json()["child_age_months"] == 6
+    assert response.json()["status"] != "escalated"
+    data.get_conversation.assert_called_once()
+    coaching.generate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_cancelling_parallel_reads_cleans_up_both_tasks(monkeypatch):
+    import asyncio
+    from backend.api.v1.endpoints import coaching as endpoint
+    from backend.schemas.coaching import CoachingRequest
+
+    started = {"get_child": asyncio.Event(), "get_conversation": asyncio.Event()}
+    finished = set()
+
+    async def blocked_read(method, *args, **kwargs):
+        name = method.__name__
+        started[name].set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            finished.add(name)
+
+    monkeypatch.setattr(endpoint, "run_in_threadpool", blocked_read)
+    service = CaregiverDataService(MagicMock())
+    task = asyncio.create_task(endpoint.read_coaching_data(
+        service, "account-a", CoachingRequest(**coaching_payload()), "test-request", parallel=True,
+    ))
+    for event in started.values():
+        await asyncio.wait_for(event.wait(), timeout=3)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert finished == set(started)
+
+
 def test_first_message_starts_and_answers_in_one_request_without_reading_empty_history(client, coaching_dependencies):
     data, retrieval, coaching = coaching_dependencies
     cid = "00000000-0000-4000-8000-000000000001"
@@ -391,7 +522,7 @@ def test_follow_up_uses_server_history_for_retrieval_and_generation(client, coac
     response = client.post("/coach", json={**coaching_payload("What else can I try?"),
         "conversation_context": [{"role": "assistant", "text": "BROWSER_SUPPLIED_HISTORY"}]})
     assert response.status_code == 200
-    data.get_conversation.assert_called_once_with("account-a", "chat-1", 6, expected_child_id="child-1")
+    data.get_conversation.assert_called_once_with("account-a", "chat-1", 8, expected_child_id="child-1")
     assert "How can I talk during feeding?" in retrieval.retrieve.call_args.args[0]
     assert retrieval.retrieve.call_args.args[1] == 6
     assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 183
@@ -400,6 +531,22 @@ def test_follow_up_uses_server_history_for_retrieval_and_generation(client, coac
         {"role": "user", "text": history[0]["text"]}, {"role": "assistant", "text": history[1]["text"]},
     ]
     assert data.save_conversation_turn.call_args.args[3] == "What else can I try?"
+
+
+def test_follow_up_retains_original_request_four_exchanges_back(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    topic = "How can I share a cloth picture book with my baby?"
+    history = []
+    for question in [topic, "More ideas", "Tell me more", "Anything else I can do?"]:
+        history.extend([{"role": "user", "text": question},
+                        {"role": "assistant", "text": "Talk together gently.", "status": "answered"}])
+    data.get_conversation.return_value = {**conversation(), "messages": history}
+    response = client.post("/coach", json=coaching_payload("What else can I try?"))
+    assert response.status_code == 200
+    data.get_conversation.assert_called_once_with("account-a", "chat-1", 8, expected_child_id="child-1")
+    assert topic in retrieval.retrieve.call_args.args[0]
+    assert len(coaching.generate.call_args.kwargs["conversation_context"]) == 8
+    assert coaching.generate.call_args.kwargs["conversation_context"][0]["text"] == topic
 
 
 def test_follow_up_preserves_explicit_subject_age_instead_of_different_profile_age(client, coaching_dependencies):

@@ -371,7 +371,8 @@ def main():
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
     (output / "manifest.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    retrieval = RetrievalService(collection_name=args.collection, allow_candidate_content=args.allow_candidate_content)
+    retrieval = RetrievalService(collection_name=args.collection, allow_candidate_content=args.allow_candidate_content,
+                                 cache_ttl_seconds=0)
     coaching = CoachingService()
     last_started = None
     for case, profile in selected:

@@ -82,7 +82,10 @@ def require_verified_user(
 
 
 def get_account_security_service(request: Request) -> AccountSecurityService:
-    return AccountSecurityService(request.app.state.firebase)
+    service = getattr(request.app.state, "account_security_service", None)
+    if service is None:
+        raise HTTPException(status_code=503, detail="Account security is temporarily unavailable.")
+    return service
 
 
 def get_account_security_state(request: Request, user: dict = Depends(require_verified_user),

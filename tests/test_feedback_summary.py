@@ -9,7 +9,8 @@ from backend.api.dependencies import get_caregiver_data_service
 from backend.core.privacy import CONSENT_VERSION
 from backend.main import app
 from backend.services.feedback_summary import (
-    FeedbackSummaryService, MAX_DOCUMENTS_PER_GROUP, PROJECTED_FIELDS, summarize_feedback,
+    CONSENT_BATCH_SIZE, CONSENT_FIELDS, FeedbackSummaryService, MAX_DOCUMENTS_PER_GROUP,
+    PROJECTED_FIELDS, summarize_feedback,
 )
 from scripts.set_feedback_admin import main, update_permission
 
@@ -41,11 +42,54 @@ def storage(messages=(), interactions=(), accepted=None):
     def account(uid):
         value = (accepted or {}).get(uid, {"consent_version": CONSENT_VERSION,
                  "consent_at": NOW - timedelta(days=1), "caregiver_authority": True})
-        snapshot = SimpleNamespace(exists=bool(value), to_dict=lambda: value)
-        return SimpleNamespace(get=lambda **kwargs: snapshot)
+        reference = SimpleNamespace(path=f"users/{uid}")
+        snapshot = SimpleNamespace(reference=reference, exists=bool(value), to_dict=lambda: value)
+        reference.get = MagicMock(return_value=snapshot)
+        reference.snapshot = snapshot
+        return reference
 
     client.collection.return_value.document.side_effect = account
+    client.get_all.side_effect = lambda references, **kwargs: (
+        reference.snapshot for reference in reversed(references))
     return client, queries
+
+
+def test_consent_reads_are_batched_projected_and_matched_by_path_instead_of_order():
+    rows = [record(f"u{i}") for i in range(CONSENT_BATCH_SIZE + 3)]
+    client, _ = storage(rows, accepted={"u0": {}, "u100": {}})
+    report = FeedbackSummaryService(client).read()
+    assert report.ratings[3].count == CONSENT_BATCH_SIZE + 1
+    assert client.get_all.call_count == 2
+    for call in client.get_all.call_args_list:
+        assert len(call.args[0]) <= CONSENT_BATCH_SIZE
+        assert call.kwargs == {"field_paths": CONSENT_FIELDS, "timeout": 5, "retry": None}
+        for reference in call.args[0]:
+            reference.get.assert_not_called()
+
+
+def test_an_incomplete_consent_batch_never_publishes_partial_counts():
+    client, _ = storage([record("one"), record("two")])
+    client.get_all.side_effect = lambda references, **kwargs: [references[0].snapshot]
+    with pytest.raises(RuntimeError, match="Incomplete aggregate consent"):
+        FeedbackSummaryService(client).read()
+
+
+def test_failed_consent_batch_cannot_publish_a_partial_report():
+    client, _ = storage([record("one"), record("two")])
+    def broken(references, **kwargs):
+        yield references[0].snapshot
+        raise RuntimeError("batch failed")
+    client.get_all.side_effect = broken
+    with pytest.raises(RuntimeError, match="batch failed"):
+        FeedbackSummaryService(client).read()
+
+
+def test_unexpected_consent_path_is_rejected():
+    client, _ = storage([record("one")])
+    client.get_all.side_effect = lambda references, **kwargs: [SimpleNamespace(
+        reference=SimpleNamespace(path="users/other"))]
+    with pytest.raises(RuntimeError, match="consent response"):
+        FeedbackSummaryService(client).read()
 
 
 @pytest.mark.parametrize("count", [0, 1, 4, 5, 9, 10])

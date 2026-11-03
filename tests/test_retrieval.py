@@ -1,7 +1,170 @@
 from unittest.mock import MagicMock
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 import pytest
 
 from backend.services.retrieval import RetrievalService, is_age_eligible
+
+
+@pytest.fixture
+def cached_retrieval(monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr("backend.services.retrieval.monotonic", lambda: clock[0])
+    point = MagicMock(id="p1", score=0.9, payload={
+        "passage_id": "p1", "text": "Public reference text.", "title": "Play together",
+        "source_title": "Care reference", "source_url": "https://example.test/care", "pdf_page": 4,
+        "source_age": {"min_months": 0, "max_months_exclusive": 25}, "routines": ["play"],
+        "applicability_conditions": ["Stay nearby"],
+    })
+    client = MagicMock()
+    client.query_points.return_value.points = [point]
+    return RetrievalService(client=client, cache_ttl_seconds=60), client, clock
+
+
+def test_repeated_retrieval_uses_copied_sources_without_retaining_question(cached_retrieval):
+    service, client, _ = cached_retrieval
+    first = service.retrieve("PRIVATE_CAREGIVER_MESSAGE", 6, "play", child_age_days=183)
+    first[0].text = "CHANGED_BY_CALLER"
+    first[0].routines.append("feeding")
+    first[0].applicability_conditions.clear()
+    second = service.retrieve("PRIVATE_CAREGIVER_MESSAGE", 6, "play", child_age_days=183)
+    assert second[0].text == "Public reference text."
+    assert second[0].routines == ["play"]
+    assert second[0].applicability_conditions == ["Stay nearby"]
+    assert second[0].source_url == "https://example.test/care" and second[0].pdf_page == 4
+    second[0].text = "ALSO_CHANGED"
+    assert service.retrieve("PRIVATE_CAREGIVER_MESSAGE", 6, "play", child_age_days=183)[0].text == "Public reference text."
+    assert "PRIVATE_CAREGIVER_MESSAGE" not in repr(service._cache)
+    client.query_points.assert_called_once()
+
+
+@pytest.mark.parametrize("change", [
+    {"query": "A different question"}, {"child_age_months": 7}, {"child_age_days": 184},
+    {"routine": "feeding"}, {"limit": 2}, {"candidate_limit": 20},
+])
+def test_cache_separates_complete_query_age_routine_and_search_limits(cached_retrieval, change):
+    service, client, _ = cached_retrieval
+    options = dict(query="Play ideas", child_age_months=6, routine="play", child_age_days=183)
+    service.retrieve(**options)
+    service.retrieve(**{**options, **change})
+    assert client.query_points.call_count == 2
+
+
+@pytest.mark.parametrize("attribute,value", [
+    ("collection_name", "updated-collection"), ("corpus_revision", "review-2"),
+    ("allow_candidate_content", True),
+])
+def test_collection_revision_and_review_policy_have_separate_cache_entries(cached_retrieval, attribute, value):
+    service, client, _ = cached_retrieval
+    service.retrieve("Play ideas", 6)
+    setattr(service, attribute, value)
+    service.retrieve("Play ideas", 6)
+    assert client.query_points.call_count == 2
+
+
+def test_cache_expires_at_deadline_and_does_not_serve_stale_sources_on_error(cached_retrieval):
+    service, client, clock = cached_retrieval
+    service.retrieve("Play ideas", 6)
+    clock[0] += 59.9
+    service.retrieve("Play ideas", 6)
+    client.query_points.assert_called_once()
+    clock[0] += 0.1
+    client.query_points.side_effect = RuntimeError("Query unavailable")
+    with pytest.raises(RuntimeError, match="Query unavailable"):
+        service.retrieve("Play ideas", 6)
+    client.query_points.side_effect = None
+    assert service.retrieve("Play ideas", 6)
+    assert client.query_points.call_count == 3
+
+
+@pytest.mark.parametrize("empty", [True, False])
+def test_empty_or_failed_results_are_not_cached(cached_retrieval, empty):
+    service, client, _ = cached_retrieval
+    if empty:
+        client.query_points.return_value.points = []
+        assert service.retrieve("Play ideas", 6) == []
+    else:
+        client.query_points.side_effect = RuntimeError("Query unavailable")
+        with pytest.raises(RuntimeError):
+            service.retrieve("Play ideas", 6)
+        client.query_points.side_effect = None
+    service.retrieve("Play ideas", 6)
+    assert client.query_points.call_count == 2
+
+
+def test_cache_age_filter_preserves_first_week_boundary(cached_retrieval):
+    service, client, _ = cached_retrieval
+    client.query_points.return_value.points[0].payload["source_age"] = {"min_days": 0, "max_days_exclusive": 7}
+    assert service.retrieve("Play ideas", 0, child_age_days=6)
+    assert service.retrieve("Play ideas", 0, child_age_days=7) == []
+    assert service.retrieve("Play ideas", 0, child_age_days=6)
+    assert client.query_points.call_count == 2
+
+
+def test_cache_evicts_least_recently_used_and_can_be_cleared(cached_retrieval):
+    service, client, _ = cached_retrieval
+    for number in range(128):
+        service.retrieve(f"Play ideas {number}", 6)
+    service.retrieve("Play ideas 0", 6)
+    service.retrieve("Play ideas 128", 6)
+    assert len(service._cache) == 128
+    service.retrieve("Play ideas 0", 6)
+    assert client.query_points.call_count == 129
+    service.retrieve("Play ideas 1", 6)
+    assert client.query_points.call_count == 130
+    service.clear_cache()
+    assert not service._cache
+    service.retrieve("Play ideas 0", 6)
+    assert client.query_points.call_count == 131
+
+
+def test_clearing_cache_during_query_prevents_late_repopulation(cached_retrieval):
+    service, client, _ = cached_retrieval
+    started, release = Event(), Event()
+    result = client.query_points.return_value
+
+    def slow_query(**kwargs):
+        started.set()
+        assert release.wait(3)
+        return result
+
+    client.query_points.side_effect = slow_query
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(service.retrieve, "Play ideas", 6)
+        try:
+            assert started.wait(3)
+            service.clear_cache()
+        finally:
+            release.set()
+        assert pending.result(timeout=3)
+    assert not service._cache
+
+
+def test_warm_cache_is_thread_safe_and_close_removes_sources(cached_retrieval):
+    service, client, _ = cached_retrieval
+    service.retrieve("Play ideas", 6)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda _: service.retrieve("Play ideas", 6), range(12)))
+    assert all(result[0].passage_id == "p1" for result in results)
+    client.query_points.assert_called_once()
+    service.close()
+    assert not service._cache
+    with pytest.raises(RuntimeError, match="closed"):
+        service.retrieve("Play ideas", 6)
+
+
+def test_cache_can_be_disabled_for_live_evaluations(cached_retrieval):
+    _, client, _ = cached_retrieval
+    service = RetrievalService(client=client, cache_ttl_seconds=0)
+    service.retrieve("Play ideas", 6)
+    service.retrieve("Play ideas", 6)
+    assert client.query_points.call_count == 2 and not service._cache
+
+
+@pytest.mark.parametrize("ttl", [-1, float("inf"), float("nan"), True, "60", 301])
+def test_cache_duration_is_bounded(ttl):
+    with pytest.raises(ValueError, match="TTL"):
+        RetrievalService(client=MagicMock(), cache_ttl_seconds=ttl)
 
 
 @pytest.mark.parametrize("metadata", [

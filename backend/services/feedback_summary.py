@@ -9,6 +9,8 @@ MAX_DOCUMENTS_PER_GROUP = 10000
 MAX_ACCOUNTS = 500
 MAX_SCAN_SECONDS = 10
 MAX_COMMENTS = 50
+CONSENT_BATCH_SIZE = 100
+CONSENT_FIELDS = ("consent_version", "consent_at", "caregiver_authority", "feedback_consent_at")
 PROJECTED_FIELDS = ("feedback.rating", "feedback.helpful", "feedback.reasons",
                     "feedback.comment", "feedback.recorded_at", "role")
 REASONS = {
@@ -52,7 +54,7 @@ class FeedbackSummaryService:
         self.client = client
 
     def read(self) -> FeedbackSummary:
-        records, consent = [], {}
+        records, consent, pending = [], {}, []
         now = datetime.now(timezone.utc)
         started = time.perf_counter()
 
@@ -89,19 +91,7 @@ class FeedbackSummaryService:
                 if uid not in consent:
                     if len(consent) >= MAX_ACCOUNTS:
                         raise RuntimeError("Aggregate report account limit exceeded.")
-                    account = self.client.collection("users").document(uid).get(
-                        field_paths=["consent_version", "consent_at", "caregiver_authority", "feedback_consent_at"],
-                        timeout=5, retry=None,
-                    )
-                    consent[uid] = (account.to_dict() or {}) if account.exists else {}
-                    check_budget()
-                accepted = consent[uid]
-                feedback_at = accepted.get("feedback_consent_at", accepted.get("consent_at"))
-                if (accepted.get("consent_version") not in FEEDBACK_CONSENT_VERSIONS
-                        or accepted.get("caregiver_authority") is not True
-                        or not aware_time(accepted.get("consent_at"))
-                        or not aware_time(feedback_at) or recorded < feedback_at):
-                    continue
+                    consent[uid] = {}
                 # Retain only allowlisted values, even if a storage mock or future
                 # backend ignores the Firestore field projection.
                 reasons = value.get("reasons", [])
@@ -111,7 +101,39 @@ class FeedbackSummaryService:
                              "comment": comment.strip() if isinstance(comment, str) and len(comment) <= 500 else None,
                              "recorded_at": recorded,
                              "reasons": [reason for reason in REASONS if isinstance(reasons, list) and reason in reasons]}
-                records.append(candidate)
+                pending.append((uid, candidate))
+
+        # Read current consent once per account, in bounded BatchGet RPCs rather
+        # than a serial network round trip for every account. Firestore does not
+        # guarantee response order; match replies by canonical document path.
+        accounts = list(consent)
+        for offset in range(0, len(accounts), CONSENT_BATCH_SIZE):
+            check_budget()
+            batch_accounts = accounts[offset:offset + CONSENT_BATCH_SIZE]
+            references = [self.client.collection("users").document(uid) for uid in batch_accounts]
+            expected = {reference.path: account_uid
+                        for account_uid, reference in zip(batch_accounts, references)}
+            seen = set()
+            for snapshot in self.client.get_all(references, field_paths=CONSENT_FIELDS, timeout=5, retry=None):
+                check_budget()
+                path = snapshot.reference.path
+                if path not in expected or path in seen:
+                    raise RuntimeError("Invalid aggregate consent response.")
+                seen.add(path)
+                consent[expected[path]] = (snapshot.to_dict() or {}) if snapshot.exists else {}
+            if seen != set(expected):
+                raise RuntimeError("Incomplete aggregate consent response.")
+
+        for uid, candidate in pending:
+            check_budget()
+            accepted = consent[uid]
+            feedback_at = accepted.get("feedback_consent_at", accepted.get("consent_at"))
+            if (accepted.get("consent_version") not in FEEDBACK_CONSENT_VERSIONS
+                    or accepted.get("caregiver_authority") is not True
+                    or not aware_time(accepted.get("consent_at"))
+                    or not aware_time(feedback_at) or candidate["recorded_at"] < feedback_at):
+                continue
+            records.append(candidate)
         check_budget()
         records.sort(key=lambda value: value["recorded_at"], reverse=True)
         return summarize_feedback(records)
