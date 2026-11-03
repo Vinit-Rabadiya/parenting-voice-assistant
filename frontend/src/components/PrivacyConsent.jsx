@@ -10,7 +10,10 @@ function validNotice(value) {
 }
 
 export default function PrivacyConsent({ children, initialNotice }) {
-  const [notice, setNotice] = useState(() => validNotice(initialNotice) ? initialNotice : null);
+  // Bootstrap data belongs only to this mounted account workspace. Reloads and
+  // server consent challenges always fetch a fresh notice.
+  const [initial] = useState(() => validNotice(initialNotice) ? initialNotice : null);
+  const [notice, setNotice] = useState(initial);
   const [accepted, setAccepted] = useState(false);
   const [authority, setAuthority] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -32,7 +35,7 @@ export default function PrivacyConsent({ children, initialNotice }) {
   }, []);
 
   useEffect(() => {
-    if (attempt === 0 && validNotice(initialNotice)) return;
+    if (attempt === 0 && initial) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
       controller.abort();
@@ -45,7 +48,7 @@ export default function PrivacyConsent({ children, initialNotice }) {
     }).catch((cause) => { if (!controller.signal.aborted) setError(cause.message); })
       .finally(() => clearTimeout(timer));
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [attempt, initialNotice]);
+  }, [attempt, initial]);
 
   async function accept(event) {
     event.preventDefault();
@@ -64,7 +67,7 @@ export default function PrivacyConsent({ children, initialNotice }) {
     finally { if (!controller.signal.aborted) setBusy(false); saveRequest.current = null; }
   }
 
-  if (notice?.accepted) return children(true);
+  if (notice?.accepted) return children(true, attempt === 0 && initial?.accepted === true);
   if (!notice && !error) return <ChatLoading />;
   return <div className={`privacy-boundary${readOnly ? " privacy-boundary--history" : ""}`}>
     <section className="privacy-notice" aria-labelledby="privacy-title">

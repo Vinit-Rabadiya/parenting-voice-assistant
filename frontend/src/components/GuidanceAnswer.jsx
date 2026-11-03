@@ -1,9 +1,9 @@
-import { useId, useState } from "react";
+import { memo, useId, useState } from "react";
 import { sendFeedback } from "../services/caregiving";
 import useGuidanceAudio from "../hooks/useGuidanceAudio";
 import GuidanceText from "./GuidanceText";
 
-export default function GuidanceAnswer({ message, childName, conversationId, allowFeedback = true, fresh = false, automaticPlayback = true, active = true }) {
+function GuidanceAnswer({ message, childName, conversationId, allowFeedback = true, fresh = false, automaticPlayback = true, active = true }) {
   const headingId = useId();
   const commentId = useId();
   const ratingId = useId();
@@ -109,4 +109,8 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         <p role="status">{feedbackStatus}</p></div>}
     </section>);
 }
+
+// Draft typing and sidebar changes do not change saved answers. Keep each
+// answer's parsing, feedback controls and audio hooks out of those renders.
+export default memo(GuidanceAnswer);
 

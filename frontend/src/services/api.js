@@ -64,6 +64,13 @@ export async function getCurrentAccount(signal) {
 
   if (body?.uid !== user.uid) throw accessError("Unable to confirm account access. Please retry.", "unavailable");
   if (!["caregiver", "administrator"].includes(body.role)) throw accessError("Unable to confirm account access. Please retry.", "unavailable");
+  if (body.role === "caregiver" && (
+    typeof body.consent?.version !== "string" || !body.consent.version
+    || typeof body.consent.accepted !== "boolean" || !Array.isArray(body.consent.notice)
+    || !body.consent.notice.length || !body.consent.notice.every(item => typeof item === "string")
+    || (body.consent.accepted && (!Array.isArray(body.children)
+      || !body.children.every(child => typeof child?.id === "string" && child.id.length > 0)))
+  )) throw accessError("Unable to load your account. Please retry.", "unavailable");
 
   return body;
 }

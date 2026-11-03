@@ -152,7 +152,7 @@ export default function useConversations(childId, onBusyChange) {
       setHistoryError("");
       setConversations((items) => {
         const ids = new Set(items.map((item) => item.id));
-        return [...items, ...page.filter((item) => !ids.has(item.id))];
+        return [...items, ...page.filter((item) => !ids.has(item.id) && !removedIds.current.has(item.id))];
       });
       setMoreConversations(page.length === 30);
     });

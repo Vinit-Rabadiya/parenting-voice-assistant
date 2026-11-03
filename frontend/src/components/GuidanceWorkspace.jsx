@@ -119,7 +119,7 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
           chat.newChat(); setQuestion(""); setRoutine(""); setSidebarOpen(false);
         }}>New chat</button>
         <h2 className="history-label">Your conversations</h2>
-        {chat.loading && <p role="status">Loading history...</p>}
+        {chat.loading && <p role="status">Loading conversations…</p>}
         {chat.historyError && <><p role="alert">History could not be loaded: {chat.historyError}</p>
           <button type="button" disabled={chat.busy || voiceBusy} onClick={chat.loadOlderConversations}>Retry history</button></>}
         {!chat.loading && !chat.historyError && !chat.conversations.length && <p>No saved conversations for this child yet.</p>}
@@ -199,6 +199,16 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
 
 function Workspace({ processingAllowed, isActive, userId, initialChildren }) {
   const [knownChildren, setKnownChildren] = useState(initialChildren);
+  const [reuseProfiles, setReuseProfiles] = useState(true);
+  const rememberProfiles = useCallback((items) => {
+    setKnownChildren(items); setReuseProfiles(true);
+  }, []);
+  useEffect(() => {
+    if (knownChildren === undefined) return;
+    // Expire selector reuse without discarding mounted child chats or drafts.
+    const timer = setTimeout(() => setReuseProfiles(false), 60000);
+    return () => clearTimeout(timer);
+  }, [knownChildren]);
   const [child, setChild] = useState(null);
   const [busy, setBusy] = useState(false);
   const [visited, setVisited] = useState([]);
@@ -206,7 +216,7 @@ function Workspace({ processingAllowed, isActive, userId, initialChildren }) {
     stopGuidanceAudio(); setBusy(false); setChild(nextChild);
     if (nextChild) setVisited((ids) => [...ids.filter((id) => id !== nextChild.id), nextChild.id].slice(-3));
   }, []);
-  const profileControls = <ChildProfiles userId={userId} selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} isActive={isActive} initialChildren={knownChildren} onProfilesChange={setKnownChildren} />;
+  const profileControls = <ChildProfiles userId={userId} selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} isActive={isActive} initialChildren={reuseProfiles ? knownChildren : undefined} onProfilesChange={rememberProfiles} />;
   return <div className="guidance-workspace">
     {child ? (knownChildren || [child]).filter((item) => visited.includes(item.id)).map((item) =>
       <ConversationWorkspace key={item.id} child={item.id === child.id ? child : item} userId={userId}
@@ -217,6 +227,6 @@ function Workspace({ processingAllowed, isActive, userId, initialChildren }) {
 }
 
 export default function GuidanceWorkspace({ isActive = true, userId, startup }) {
-  return <PrivacyConsent initialNotice={startup?.consent}>{(allowed) => <Workspace key={String(allowed)} processingAllowed={allowed} isActive={isActive} userId={userId}
-    initialChildren={allowed && startup?.consent?.accepted ? startup.children : undefined} />}</PrivacyConsent>;
+  return <PrivacyConsent initialNotice={startup?.consent}>{(allowed, reuseInitialData) => <Workspace key={String(allowed)} processingAllowed={allowed} isActive={isActive} userId={userId}
+    initialChildren={reuseInitialData ? startup?.children : undefined} />}</PrivacyConsent>;
 }

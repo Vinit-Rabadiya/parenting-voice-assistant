@@ -13,7 +13,6 @@ import {
   totpSignInFactors,
   turnOffMfa,
 } from "../services/auth";
-import QRCode from "qrcode";
 import AccountUsage from "../components/AccountUsage";
 import AccountConsent from "../components/AccountConsent";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
@@ -245,6 +244,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     let qrDataUrl = null;
     try {
       const setupUri = pending.secret.generateQrCodeUrl(email, "Parenting Voice Assistant");
+      const { default: QRCode } = await import("qrcode");
       qrDataUrl = await QRCode.toDataURL(setupUri, { width: 240, margin: 4 });
     } catch { /* Manual setup with the same secret remains available. */ }
     if (attempt !== setupAttempt.current) return;
