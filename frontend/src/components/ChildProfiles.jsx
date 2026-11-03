@@ -11,7 +11,7 @@ const HEALTH_FIELDS = [
   ["test_result_notes", "Test-result notes"],
 ];
 
-export default function ChildProfiles({ selectedChild, onSelect, userId, guidanceBusy = false, allowChanges = true, isActive = true }) {
+export default function ChildProfiles({ selectedChild, onSelect, userId, guidanceBusy = false, allowChanges = true, isActive = true, initialChildren, onProfilesChange }) {
   const [children, setChildren] = useState([]);
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -29,6 +29,7 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
   const pickerId = useId();
   const headingId = useId();
   const initialSelection = useRef(selectedChild?.id);
+  const initialProfiles = useRef({ userId, children: initialChildren });
   const pickerOpen = pickerPosition !== null;
   const healthContextAvailable = selectedChild?.health_context_available === true;
   const selectChild = useCallback((child) => {
@@ -40,16 +41,19 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
     let active = true;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
-    listChildren(controller.signal).then((items) => {
+    const seed = initialProfiles.current.userId === userId ? initialProfiles.current.children : undefined;
+    const profiles = Array.isArray(seed) ? Promise.resolve(seed) : listChildren(controller.signal);
+    profiles.then((items) => {
       if (!active) return;
       setChildren(items);
+      onProfilesChange?.(items);
       const savedId = initialSelection.current || readChildSelection(userId);
       const restored = items.find((item) => item.id === savedId) || items[0] || null;
       selectChild(restored);
     }).catch((cause) => active && setError(controller.signal.aborted ? "Profiles could not be loaded. Please reload to retry." : cause.message))
       .finally(() => { clearTimeout(timer); if (active) { setBusy(false); setInitialLoading(false); } });
     return () => { active = false; clearTimeout(timer); controller.abort(); };
-  }, [selectChild, userId]);
+  }, [selectChild, userId, onProfilesChange]);
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -125,7 +129,8 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
         health_details: Object.fromEntries(HEALTH_FIELDS.map(([key]) => [key, (healthDetails[key] || "").trim()])),
         use_health_details: useHealthDetails };
       const child = mode === "edit" ? await updateChild(selectedChild.id, values) : await createChild(values);
-      setChildren((current) => mode === "edit" ? current.map((item) => item.id === child.id ? child : item) : [...current, child]);
+      const nextChildren = mode === "edit" ? children.map((item) => item.id === child.id ? child : item) : [...children, child];
+      setChildren(nextChildren); onProfilesChange?.(nextChildren);
       dialogRef.current?.close(); setMode(null); selectChild(child); triggerRef.current?.focus();
     } catch (cause) { setError(cause.message); }
     finally { setBusy(false); }
@@ -138,7 +143,7 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
     try {
       await deleteChild(selectedChild.id);
       const remaining = children.filter((item) => item.id !== selectedChild.id);
-      dialogRef.current?.close(); setChildren(remaining); setMode(null); selectChild(remaining[0] || null);
+      dialogRef.current?.close(); setChildren(remaining); onProfilesChange?.(remaining); setMode(null); selectChild(remaining[0] || null);
       triggerRef.current?.focus();
     } catch (cause) { setError(cause.message); }
     finally { setBusy(false); }

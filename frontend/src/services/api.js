@@ -24,7 +24,7 @@ export async function getCurrentAccount(signal) {
   // send the login token through vite to fastapi for checking.
   let response;
   try {
-    response = await fetch("/api/me", {
+    response = await fetch("/api/me/startup", {
     method: "GET",
     signal,
     credentials: "omit",

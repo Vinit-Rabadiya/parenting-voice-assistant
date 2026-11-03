@@ -78,7 +78,6 @@ main.landing-shell:has(.landing-page--guest) { width: calc(100% - 64px); max-wid
 }
 .guidance-text { font-size: 18px; line-height: 1.65; white-space: pre-wrap; }
 .guidance-text p { margin: 0 0 8px; }
-.guidance-word--pending { visibility: hidden; }
 .guidance-text ul, .guidance-text ol { padding-left: 24px; }
 .answer-actions { position: relative; flex-wrap: wrap; }
 .audio-help { display: flex; align-items: center; gap: 8px; max-width: min(320px, 100%); padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--code-bg); color: var(--text-h); font-size: 12px; box-shadow: var(--shadow); }

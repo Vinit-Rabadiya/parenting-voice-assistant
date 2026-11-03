@@ -129,8 +129,8 @@ export const listConversations = (childId, before = null, signal) => {
   if (before) query.set("before", before);
   return request(`/conversations?${query}`, { signal });
 };
-export const getConversation = (id, before = null) => {
+export const getConversation = (id, before = null, signal) => {
   const query = new URLSearchParams({ limit: "50" });
   if (before) query.set("before", before);
-  return request(`/conversations/${encodeURIComponent(id)}?${query}`);
+  return request(`/conversations/${encodeURIComponent(id)}?${query}`, { signal });
 };

@@ -5,7 +5,6 @@ import GuidanceAnswer from "./GuidanceAnswer";
 import MicrophoneControls from "./MicrophoneControls";
 import useConversations from "../hooks/useConversations";
 import PrivacyConsent from "./PrivacyConsent";
-import ChatLoading from "./ChatLoading";
 import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
 import usePlaybackPreference from "../hooks/usePlaybackPreference";
 
@@ -67,7 +66,11 @@ function ConversationListItem({ conversation, active, disabled, onOpen, onDelete
   </li>;
 }
 
-function ConversationWorkspace({ child, userId, onBusyChange, profileControls, readOnly = false, isActive }) {
+function ConversationWorkspace({ child, userId, onBusyChange, profileControls, readOnly = false, isActive, visible = true }) {
+  const inputId = useId();
+  const routineId = useId();
+  const sidebarId = useId();
+  const threadTitleId = useId();
   const chat = useConversations(child.id, onBusyChange);
   const { automatic } = usePlaybackPreference(userId);
   const [question, setQuestion] = useState("");
@@ -100,26 +103,26 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
 
   async function submit(event) {
     event.preventDefault();
-    if (readOnly || chat.busy || voiceBusy || chat.loading || question.trim().length < 2 || question.length > 1200) return;
+    if (readOnly || chat.busy || voiceBusy || question.trim().length < 2 || question.length > 1200) return;
     stopGuidanceAudio();
     const message = question.trim();
     setQuestion("");
     await chat.submit(message, routine, "KE");
   }
 
-  if (chat.loading) return <ChatLoading />;
-  return <div className={`chat-shell${sidebarOpen ? " chat-shell--history-open" : ""}`}>
+  return <div className={`chat-shell${sidebarOpen ? " chat-shell--history-open" : ""}`} hidden={!visible}>
     {sidebarOpen && <button type="button" className="history-backdrop" aria-label="Close history" onClick={() => setSidebarOpen(false)} />}
-    <aside className="chat-sidebar" aria-label="Conversation history" id="conversation-sidebar">
+    <aside className="chat-sidebar" aria-label="Conversation history" id={sidebarId}>
       <div className="sidebar-brand">Caregiver coaching</div>
       <section className="conversation-history" aria-label="Conversations">
         <button type="button" disabled={readOnly || chat.busy || voiceBusy} onClick={() => {
           chat.newChat(); setQuestion(""); setRoutine(""); setSidebarOpen(false);
         }}>New chat</button>
         <h2 className="history-label">Your conversations</h2>
+        {chat.loading && <p role="status">Loading history...</p>}
         {chat.historyError && <><p role="alert">History could not be loaded: {chat.historyError}</p>
           <button type="button" disabled={chat.busy || voiceBusy} onClick={chat.loadOlderConversations}>Retry history</button></>}
-        {!chat.historyError && !chat.conversations.length && <p>No saved conversations for this child yet.</p>}
+        {!chat.loading && !chat.historyError && !chat.conversations.length && <p>No saved conversations for this child yet.</p>}
         <ul className="conversation-list">{chat.conversations.map((item) => <ConversationListItem
           key={item.id} conversation={item} active={chat.conversationId === item.id} workspaceActive={isActive}
           disabled={chat.busy || voiceBusy} onDelete={chat.remove}
@@ -130,11 +133,11 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
     </aside>
     <div className={`chat-main${chat.messages.length ? "" : " chat-main--empty"}`}>
       <header className="chat-heading">
-        <button type="button" className="history-toggle" aria-controls="conversation-sidebar" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((value) => !value)}>History</button>
-        <h2 id="thread-title">{child.name}</h2><p>{child.age_label}</p>
+        <button type="button" className="history-toggle" aria-controls={sidebarId} aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((value) => !value)}>History</button>
+        <h2 id={threadTitleId}>{child.name}</h2><p>{child.age_label}</p>
       </header>
       <div className="chat-stage">
-      <section className="conversation-thread" aria-labelledby="thread-title" ref={threadRef} tabIndex={0}>
+      <section className="conversation-thread" aria-labelledby={threadTitleId} ref={threadRef} tabIndex={0}>
         {chat.moreMessages && <button type="button" disabled={chat.busy} onClick={chat.loadOlderMessages}>Load earlier messages</button>}
         {chat.messages.map((message) => message.role === "user"
           ? <article className="caregiver-message" data-message-id={message.id} key={message.id}><h3>You</h3><p>{message.text}</p>
@@ -151,8 +154,8 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
       </section>
       {readOnly ? <p className="chat-composer">Read-only access: you can review or delete existing data. Accept the notice above to request coaching.</p> : <section className="question-panel chat-composer" aria-label="Message composer">
         <form onSubmit={submit}>
-          <label className="visually-hidden" htmlFor="caregiver-question">Question</label>
-          <textarea ref={composerRef} id="caregiver-question" rows="1" value={question} readOnly={voiceBusy} maxLength={1200}
+          <label className="visually-hidden" htmlFor={inputId}>Question</label>
+          <textarea ref={composerRef} id={inputId} rows="1" value={question} readOnly={voiceBusy} maxLength={1200}
             onKeyDown={(event) => {
               if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || event.keyCode === 229) return;
               event.preventDefault();
@@ -161,8 +164,8 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
             onChange={(event) => setQuestion(event.target.value)} placeholder="Type a message, or use the microphone…" />
           <details className="composer-options"><summary aria-label="Care options">＋</summary>
             <div className="composer-option-fields">
-              <label htmlFor="routine">Routine (optional)</label>
-              <select id="routine" value={routine} onChange={(event) => setRoutine(event.target.value)}>
+              <label htmlFor={routineId}>Routine (optional)</label>
+              <select id={routineId} value={routine} onChange={(event) => setRoutine(event.target.value)}>
                 <option value="">General caregiving</option><option value="feeding">Feeding</option><option value="bathing">Bathing</option>
                 <option value="play">Play</option><option value="dressing">Dressing</option><option value="reading">Reading</option>
               </select>
@@ -181,7 +184,9 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
             ? "Voice input in progress. Your words will appear here for review."
             : "Record up to 30 seconds. Review and edit your words here before sending."}</p>
         </form>
-        {chat.error && <p role="alert">{chat.error}</p>}
+        {chat.error && <><p role="alert">{chat.error}</p>
+          {chat.conversationId && <button type="button" disabled={chat.busy || voiceBusy}
+            onClick={() => chat.open(chat.conversationId)}>Check for reply</button>}</>}
         <details className="conversation-privacy"><summary>Conversation privacy</summary>
           <p>Conversations and feedback stay in your history until you delete the conversation, its child profile, or your account.</p>
           <p>To answer follow-ups, recent messages from this conversation may be sent to the AI service. Reference search may include a recent caregiver message. Recorded audio is processed for transcription and is not deliberately saved by the application.</p>
@@ -192,19 +197,26 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
   </div>;
 }
 
-function Workspace({ processingAllowed, isActive, userId }) {
+function Workspace({ processingAllowed, isActive, userId, initialChildren }) {
+  const [knownChildren, setKnownChildren] = useState(initialChildren);
   const [child, setChild] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [visited, setVisited] = useState([]);
   const selectChild = useCallback((nextChild) => {
     stopGuidanceAudio(); setBusy(false); setChild(nextChild);
+    if (nextChild) setVisited((ids) => [...ids.filter((id) => id !== nextChild.id), nextChild.id].slice(-3));
   }, []);
-  const profileControls = <ChildProfiles userId={userId} selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} isActive={isActive} />;
+  const profileControls = <ChildProfiles userId={userId} selectedChild={child} onSelect={selectChild} guidanceBusy={busy} allowChanges={processingAllowed} isActive={isActive} initialChildren={knownChildren} onProfilesChange={setKnownChildren} />;
   return <div className="guidance-workspace">
-    {child ? <ConversationWorkspace key={child.id} child={child} userId={userId} onBusyChange={setBusy} profileControls={profileControls} readOnly={!processingAllowed} isActive={isActive} />
+    {child ? (knownChildren || [child]).filter((item) => visited.includes(item.id)).map((item) =>
+      <ConversationWorkspace key={item.id} child={item.id === child.id ? child : item} userId={userId}
+        onBusyChange={setBusy} profileControls={item.id === child.id ? profileControls : null}
+        readOnly={!processingAllowed} visible={item.id === child.id} isActive={isActive && item.id === child.id} />)
       : <div className="profile-onboarding">{profileControls}<p>Select or add a child profile first.</p></div>}
   </div>;
 }
 
-export default function GuidanceWorkspace({ isActive = true, userId }) {
-  return <PrivacyConsent>{(allowed) => <Workspace key={String(allowed)} processingAllowed={allowed} isActive={isActive} userId={userId} />}</PrivacyConsent>;
+export default function GuidanceWorkspace({ isActive = true, userId, startup }) {
+  return <PrivacyConsent initialNotice={startup?.consent}>{(allowed) => <Workspace key={String(allowed)} processingAllowed={allowed} isActive={isActive} userId={userId}
+    initialChildren={allowed && startup?.consent?.accepted ? startup.children : undefined} />}</PrivacyConsent>;
 }

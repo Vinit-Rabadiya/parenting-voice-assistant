@@ -28,7 +28,8 @@ export default function useAccountAccess(user) {
         const account = await getCurrentAccount(request.signal);
         if (active && controller === request && !request.signal.aborted) {
           accessConfirmed = true;
-          setResult({ user, attempt, verified: true, status: "verified", role: account.role, error: "" });
+          setResult({ user, attempt, verified: true, status: "verified", role: account.role,
+            startup: { consent: account.consent, children: account.children }, error: "" });
         }
       } catch (cause) {
         if (active && controller === request && !request.signal.aborted) {
@@ -58,5 +59,6 @@ export default function useAccountAccess(user) {
 
   if (!user) return { verified: false, checking: false, error: "" };
   if (result.user !== user || result.attempt !== attempt) return { verified: false, checking: true, status: "checking", error: "", retry };
-  return { verified: result.verified, checking: false, status: result.status, role: result.role, error: result.error, retry };
+  return { verified: result.verified, checking: false, status: result.status, role: result.role,
+    startup: result.startup, error: result.error, retry };
 }

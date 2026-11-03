@@ -51,7 +51,7 @@ export default function LandingPage({ isAuthenticated, userId, accountAccess, on
             </p>
           )}
           {/* a changed user key clears private child and question state from the prior account. */}
-          {accountAccess?.verified && <GuidanceWorkspace key={`guidance-${userId}`} userId={userId} isActive={isActive} />}
+          {accountAccess?.verified && <GuidanceWorkspace key={`guidance-${userId}`} userId={userId} isActive={isActive} startup={accountAccess.startup} />}
         </div>
     </div>
   );

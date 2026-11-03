@@ -180,7 +180,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     setBusy(true);
     setMessage("");
     try {
-      const status = await getAccountSecurityStatus();
+      const status = await getAccountSecurityStatus({ refresh: true });
       const isVerified = status.emailVerified;
 
       setEmailVerified(isVerified);
@@ -324,16 +324,11 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     }
   }
 
-  // wait for the first account check before showing setup buttons.
-  if (checkingStatus) {
-    return <p className="account-initial-loading" role="status">Loading account…</p>;
-  }
-
   return (
     <section className="account-page" aria-labelledby="account-page-title">
       <header className="account-page-heading">
         <p className="account-eyebrow">ACCOUNT SETTINGS</p>
-        <h1 id="account-page-title">{emailVerified ? "Your account" : "Verify your email"}</h1>
+        <h1 id="account-page-title">{emailVerified === false ? "Verify your email" : "Your account"}</h1>
         <p>Manage your sign-in security and saved information.</p>
       </header>
       <div className="account-identity-card">
@@ -349,9 +344,9 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
             <circle cx="12" cy="12" r="11" fill="currentColor" />
             <path d="m7 12 3 3 7-7" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>}
-          {enrollmentComplete === true ? "MFA enabled" : enrollmentComplete === false ? (mfaRequired ? "MFA required" : "MFA off") : "MFA status unavailable"}
+          {enrollmentComplete === true ? "MFA enabled" : enrollmentComplete === false ? (mfaRequired ? "MFA required" : "MFA off") : checkingStatus ? "MFA" : "MFA status unavailable"}
         </h2></div>
-      {emailVerified ? (
+      {checkingStatus ? <p role="status">Loading security settings...</p> : emailVerified === null ? null : emailVerified ? (
         <div className="account-security-content">
           {!accountAccess?.verified && <p className="email-verified">Email verified.</p>}
 

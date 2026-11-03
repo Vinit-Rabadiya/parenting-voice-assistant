@@ -9,8 +9,8 @@ function validNotice(value) {
     && value.notice.length > 0 && value.notice.every((item) => typeof item === "string");
 }
 
-export default function PrivacyConsent({ children }) {
-  const [notice, setNotice] = useState(null);
+export default function PrivacyConsent({ children, initialNotice }) {
+  const [notice, setNotice] = useState(() => validNotice(initialNotice) ? initialNotice : null);
   const [accepted, setAccepted] = useState(false);
   const [authority, setAuthority] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -32,6 +32,7 @@ export default function PrivacyConsent({ children }) {
   }, []);
 
   useEffect(() => {
+    if (attempt === 0 && validNotice(initialNotice)) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
       controller.abort();
@@ -44,7 +45,7 @@ export default function PrivacyConsent({ children }) {
     }).catch((cause) => { if (!controller.signal.aborted) setError(cause.message); })
       .finally(() => clearTimeout(timer));
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [attempt]);
+  }, [attempt, initialNotice]);
 
   async function accept(event) {
     event.preventDefault();

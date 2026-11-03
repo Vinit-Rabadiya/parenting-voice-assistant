@@ -98,7 +98,7 @@ function MainContent() {
           key={`account-${user.uid}`}
           email={user.email}
           accountAccess={accountAccess}
-          onDataDeleted={() => { saveChildSelection(user.uid, null); setDataRevision((value) => value + 1); }}
+          onDataDeleted={() => { saveChildSelection(user.uid, null); setDataRevision((value) => value + 1); accountAccess.retry?.(); }}
           // pass email status only if it belongs to this user.
           verificationEmailRequested={
             signupResult?.user.uid === user.uid

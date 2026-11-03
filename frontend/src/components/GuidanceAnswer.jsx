@@ -1,4 +1,4 @@
-import { useCallback, useId, useState } from "react";
+import { useId, useState } from "react";
 import { sendFeedback } from "../services/caregiving";
 import useGuidanceAudio from "../hooks/useGuidanceAudio";
 import GuidanceText from "./GuidanceText";
@@ -21,10 +21,7 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
   const [saving, setSaving] = useState(false);
   const [rating, setRating] = useState(message.feedback?.rating || "");
   const [reasons, setReasons] = useState(message.feedback?.reasons || []);
-  const animate = fresh && message.status === "answered";
-  const [textReady, setTextReady] = useState(!animate);
-  const finishText = useCallback(() => setTextReady(true), []);
-  const audio = useGuidanceAudio(result.answer, { automatic: fresh && automaticPlayback, ready: textReady, active });
+  const audio = useGuidanceAudio(result.answer, { automatic: fresh && automaticPlayback, active });
   const audioBusy = ["preparing", "playing"].includes(audio.state);
   const reasonOptions = [
     ["unclear", "Unclear"], ["repeated_advice", "Repeated advice"],
@@ -62,10 +59,10 @@ export default function GuidanceAnswer({ message, childName, conversationId, all
         : result.response_kind === "professional_referral" ? "Professional advice needed"
         : result.response_kind === "insufficient_references" ? "More information needed"
         : result.status === "no_evidence" ? "No suitable guidance found" : `Guidance for ${childName}`}</h2>
-      <GuidanceText text={result.answer} animate={animate && !textReady} active={active} onComplete={finishText} />
+      <GuidanceText text={result.answer} />
       <p className="guidance-meta">Response time: {result.processing_seconds.toFixed(2)} seconds.</p>
       <div className="answer-actions"><button type="button" disabled={!active} aria-label={audioBusy ? "Stop audio" : "Listen"}
-        onClick={() => { if (audioBusy) audio.stop(); else { finishText(); audio.play(); } }}>
+        onClick={() => { if (audioBusy) audio.stop(); else audio.play(); }}>
         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           {audioBusy ? <rect x="6" y="6" width="12" height="12" rx="1" /> : <path d="M7 4v16l14-8z" />}
         </svg>{audioBusy ? "Stop audio" : "Listen"}</button>
