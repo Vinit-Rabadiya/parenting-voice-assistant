@@ -44,6 +44,20 @@ async function openPicker() {
   return trigger;
 }
 
+it("uses owned startup profiles without fetching them again and updates the parent after deletion", async () => {
+  const onSelect = vi.fn(), onProfilesChange = vi.fn();
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  deleteChild.mockResolvedValue(undefined);
+  render(<ChildProfiles userId="account-one" selectedChild={child} onSelect={onSelect}
+    initialChildren={[child, otherChild]} onProfilesChange={onProfilesChange} />);
+  await openPicker();
+  expect(listChildren).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "View child details" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete child profile" }));
+  await waitFor(() => expect(onProfilesChange).toHaveBeenLastCalledWith([otherChild]));
+  expect(onSelect).toHaveBeenLastCalledWith(otherChild);
+});
+
 it("allows viewing and deleting a profile while changes require consent", async () => {
   const onSelect = vi.fn();
   vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -85,6 +99,27 @@ it("adds a child through a dialog with optional milestones", async () => {
     health_details: emptyHealthDetails, use_health_details: false }));
   await waitFor(() => expect(onSelect).toHaveBeenCalledWith(created));
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("retains a newly created profile when the empty workspace becomes a chat", async () => {
+  createChild.mockResolvedValue(child);
+  function StartupProfiles() {
+    const [profiles, setProfiles] = useState([]);
+    const [selected, setSelected] = useState(null);
+    return <ChildProfiles key={selected ? "chat" : "onboarding"} userId="startup-owner"
+      selectedChild={selected} onSelect={setSelected} initialChildren={profiles} onProfilesChange={setProfiles} />;
+  }
+  render(<StartupProfiles />);
+  const trigger = await screen.findByRole("button", { name: /Choose child profile/ });
+  await waitFor(() => expect(trigger.disabled).toBe(false));
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole("button", { name: /Add child/ }));
+  const dialog = screen.getByRole("dialog", { name: "Add child" });
+  fireEvent.change(within(dialog).getByLabelText("Child name"), { target: { value: child.name } });
+  fireEvent.change(within(dialog).getByLabelText("Date of birth"), { target: { value: child.date_of_birth } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save child" }));
+  await screen.findByRole("button", { name: /Example/ });
+  expect(listChildren).not.toHaveBeenCalled();
 });
 
 it("prefills the edit dialog and keeps existing milestones", async () => {

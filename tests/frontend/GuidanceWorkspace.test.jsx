@@ -90,6 +90,45 @@ it("sends a message with Enter through the existing submission flow", async () =
   expect(requestCoaching).toHaveBeenCalledTimes(1);
   expect(requestCoaching.mock.calls[0][0].question).toBe("Feeding ideas");
   expect(input.value).toBe("");
+  expect(createConversation).not.toHaveBeenCalled();
+  expect(requestCoaching.mock.calls[0][0].start_conversation).toBe(true);
+  expect(requestCoaching.mock.calls[0][0].conversation_id).toMatch(/^[0-9a-f-]{36}$/);
+});
+
+it("allows sending while history is pending and preserves the new chat when history arrives", async () => {
+  let finishHistory;
+  listConversations.mockReturnValue(new Promise((resolve) => { finishHistory = resolve; }));
+  requestCoaching.mockResolvedValue({ message_id: "answer-1", answer: "Try a soft rattle.",
+    status: "answered", citations: [], processing_seconds: 1 });
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  expect(screen.getByText("Loading history...")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Playing ideas" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await screen.findByText("Try a soft rattle.");
+  await act(async () => { finishHistory([{ id: "older", title: "Older conversation" }]); });
+  expect(screen.getByRole("button", { name: "Playing ideas" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Older conversation" })).toBeTruthy();
+});
+
+it("can start the same new conversation after a failed request that never created it", async () => {
+  requestCoaching.mockRejectedValueOnce(Object.assign(new Error("Please wait before trying again."), { status: 429 }))
+    .mockResolvedValueOnce({ message_id: "answer-1", answer: "Try a soft rattle.",
+      status: "answered", citations: [], processing_seconds: 1 });
+  getConversation.mockRejectedValueOnce(Object.assign(new Error("Not found"), { status: 404 }));
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  const input = screen.getByLabelText("Question");
+  fireEvent.change(input, { target: { value: "Playing ideas" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await screen.findByText("Please wait before trying again.");
+  expect(screen.queryByRole("button", { name: "New conversation" })).toBeNull();
+  const first = requestCoaching.mock.calls[0][0];
+  fireEvent.change(input, { target: { value: "Another play question" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await screen.findByText("Try a soft rattle.");
+  expect(requestCoaching.mock.calls[1][0]).toMatchObject({ conversation_id: first.conversation_id, start_conversation: true });
+  expect(createConversation).not.toHaveBeenCalled();
 });
 
 it("preserves the open conversation and draft when leaving and returning to chat", async () => {

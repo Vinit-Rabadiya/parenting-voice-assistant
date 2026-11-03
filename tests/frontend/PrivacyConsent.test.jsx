@@ -14,6 +14,16 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
+it("uses a fresh authenticated startup notice and reloads it when consent is invalidated", async () => {
+  render(<PrivacyConsent initialNotice={{ ...notice, accepted: true }}>{workspace}</PrivacyConsent>);
+  expect(screen.getByText("Coaching workspace")).toBeTruthy();
+  expect(getPrivacyConsent).not.toHaveBeenCalled();
+  fireEvent(window, new Event("privacy-consent-required"));
+  await screen.findByText("Information about processing.");
+  expect(screen.queryByText("Coaching workspace")).toBeNull();
+  expect(getPrivacyConsent).toHaveBeenCalledTimes(1);
+});
+
 it("requires both unchecked confirmations before recording consent", async () => {
   acceptPrivacyConsent.mockResolvedValue({ ...notice, accepted: true });
   render(<PrivacyConsent>{workspace}</PrivacyConsent>);

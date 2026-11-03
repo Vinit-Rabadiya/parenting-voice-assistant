@@ -106,15 +106,13 @@ it("detaches playback callbacks when stopped or removed", () => {
   expect(second.onerror).toBeNull();
 });
 
-it("reveals a complete new reply before speaking it, once across rerenders", async () => {
+it("shows the complete reply immediately and speaks once across rerenders", async () => {
   vi.useFakeTimers();
   const view = render(<StrictMode><GuidanceAnswer message={message} fresh /></StrictMode>);
   const text = view.container.querySelector(".guidance-text");
-  expect(text.getAttribute("aria-busy")).toBe("true");
+  expect(text.getAttribute("aria-busy")).toBe("false");
+  expect(text.textContent).toBe(message.text);
   expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
-  await act(async () => { await vi.advanceTimersByTimeAsync(90); });
-  expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
-  await act(async () => { await vi.advanceTimersByTimeAsync(1600); });
   await act(async () => { await vi.advanceTimersByTimeAsync(1); });
   expect(text.getAttribute("aria-busy")).toBe("false");
   expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
@@ -138,19 +136,16 @@ it("allows stopping during preparation and does not automatically restart", asyn
   expect(screen.queryByText("Loading audio…")).toBeNull();
 });
 
-it("finishes revealing a long reply promptly and clears resources if removed mid-animation", async () => {
+it("shows long replies immediately and clears playback resources when removed", async () => {
   vi.useFakeTimers();
   const text = Array.from({ length: 40 }, () => "Talk gently and watch your baby's cues.").join("\n\n");
   const view = render(<GuidanceAnswer message={{ ...message, text }} fresh />);
-  await act(async () => { await vi.advanceTimersByTimeAsync(100); });
-  expect(view.container.querySelector(".guidance-word--pending")).toBeTruthy();
-  await act(async () => { await vi.advanceTimersByTimeAsync(1400); });
+  expect(view.container.querySelector(".guidance-text").textContent).toBe(text.replaceAll("\n", ""));
   await act(async () => { await vi.advanceTimersByTimeAsync(1); });
   expect(view.container.querySelector(".guidance-word--pending")).toBeNull();
   expect(window.speechSynthesis.speak.mock.calls[0][0].text).toBe(text);
   view.unmount();
   const second = render(<GuidanceAnswer message={{ ...message, id: "another-answer", text }} fresh />);
-  await act(async () => { await vi.advanceTimersByTimeAsync(100); });
   second.unmount();
   await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
   expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);

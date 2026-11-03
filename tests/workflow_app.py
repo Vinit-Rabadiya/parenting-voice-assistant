@@ -42,10 +42,13 @@ class MemoryData:
     def list_conversations(self, uid, child_id, limit=30, before=None):
         return [{k: v for k, v in c.items() if k != "messages"} for c in self.chats.values() if c["child_id"] == child_id]
 
-    def create_conversation(self, uid, child_id):
+    def create_conversation(self, uid, child_id, *, conversation_id=None):
         if not self.get_child(uid, child_id):
             return None
-        cid = f"chat-{len(self.chats) + 1}"
+        cid = conversation_id or f"chat-{len(self.chats) + 1}"
+        if cid in self.chats:
+            from google.api_core.exceptions import AlreadyExists
+            raise AlreadyExists("Conversation already exists")
         now = datetime.now(timezone.utc)
         self.chats[cid] = {"id": cid, "child_id": child_id, "title": "New conversation",
                            "created_at": now, "updated_at": now, "messages": []}
