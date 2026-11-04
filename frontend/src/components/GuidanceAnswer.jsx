@@ -3,7 +3,8 @@ import { sendFeedback } from "../services/caregiving";
 import useGuidanceAudio from "../hooks/useGuidanceAudio";
 import GuidanceText from "./GuidanceText";
 
-function GuidanceAnswer({ message, childName, conversationId, allowFeedback = true, fresh = false, automaticPlayback = true, active = true }) {
+function GuidanceAnswer({ message, childName, conversationId, allowFeedback = true, fresh = false, automaticPlayback = true,
+  active = true, pending = false }) {
   const headingId = useId();
   const commentId = useId();
   const ratingId = useId();
@@ -15,13 +16,13 @@ function GuidanceAnswer({ message, childName, conversationId, allowFeedback = tr
   const contacts = (result.support_resources || []).filter((resource) => resource.category !== "hospital");
   const hospitals = (result.support_resources || []).filter((resource) => resource.category === "hospital");
   const messageId = message.message_id === null ? null : message.message_id || message.id;
-  const targetId = allowFeedback && (message.interaction_id || (conversationId && messageId));
+  const targetId = allowFeedback && !pending && (message.interaction_id || (conversationId && messageId));
   const [feedbackStatus, setFeedbackStatus] = useState(message.feedback ? "Feedback saved." : "");
   const [feedbackComment, setFeedbackComment] = useState(message.feedback?.comment || "");
   const [saving, setSaving] = useState(false);
   const [rating, setRating] = useState(message.feedback?.rating || "");
   const [reasons, setReasons] = useState(message.feedback?.reasons || []);
-  const audio = useGuidanceAudio(result.answer, { automatic: fresh && automaticPlayback, active });
+  const audio = useGuidanceAudio(result.answer, { automatic: fresh && automaticPlayback && !pending, active: active && !pending });
   const audioBusy = ["preparing", "playing"].includes(audio.state);
   const reasonOptions = [
     ["unclear", "Unclear"], ["repeated_advice", "Repeated advice"],
@@ -60,8 +61,8 @@ function GuidanceAnswer({ message, childName, conversationId, allowFeedback = tr
         : result.response_kind === "insufficient_references" ? "More information needed"
         : result.status === "no_evidence" ? "No suitable guidance found" : `Guidance for ${childName}`}</h2>
       <GuidanceText text={result.answer} />
-      <p className="guidance-meta">Response time: {result.processing_seconds.toFixed(2)} seconds.</p>
-      <div className="answer-actions"><button type="button" disabled={!active} aria-label={audioBusy ? "Stop audio" : "Listen"}
+      {!pending && <p className="guidance-meta">Response time: {result.processing_seconds.toFixed(2)} seconds.</p>}
+      <div className="answer-actions"><button type="button" disabled={!active || pending} aria-label={audioBusy ? "Stop audio" : "Listen"}
         onClick={() => { if (audioBusy) audio.stop(); else audio.play(); }}>
         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           {audioBusy ? <rect x="6" y="6" width="12" height="12" rx="1" /> : <path d="M7 4v16l14-8z" />}

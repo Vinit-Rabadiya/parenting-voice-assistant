@@ -23,6 +23,7 @@ vi.mock("../../frontend/src/components/ChildProfiles", () => ({
 vi.mock("../../frontend/src/components/PrivacyConsent", () => ({ default: ({ children }) => children(consentState.allowed) }));
 
 beforeEach(() => {
+  window.history.replaceState(null, "", "/");
   vi.resetAllMocks();
   consentState.allowed = true;
   listConversations.mockResolvedValue([]);
@@ -36,6 +37,29 @@ async function selectProfile() {
   fireEvent.click(screen.getByRole("button", { name: "Select test profile" }));
   await screen.findByRole("button", { name: "New chat" });
 }
+
+it("replaces a limited provider preview without mixing it into the backup answer", async () => {
+  let emit, finish, identifier;
+  requestCoaching.mockImplementation((payload, { onEvent }) => new Promise(resolve => {
+    emit = onEvent; finish = resolve; identifier = payload.conversation_id;
+  }));
+  render(<GuidanceWorkspace />);
+  await selectProfile();
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Babbling ideas?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await waitFor(() => expect(typeof emit).toBe("function"));
+  act(() => emit({ type: "delta", text: "Old provider preview." }));
+  await screen.findByText("Old provider preview.");
+  act(() => emit({ type: "reset" }));
+  expect(screen.queryByText("Old provider preview.")).toBeNull();
+  act(() => emit({ type: "delta", text: "Backup answer." }));
+  await screen.findByText("Backup answer.");
+  await act(async () => finish({ conversation_id: identifier, message_id: "backup-answer",
+    answer: "Backup answer.", status: "answered" }));
+  expect(screen.queryByText("Old provider preview.")).toBeNull();
+  expect(screen.getAllByText("Backup answer.")).toHaveLength(1);
+  expect(requestCoaching).toHaveBeenCalledTimes(1);
+});
 
 it("sends a first turn in one request while history is still loading", async () => {
   let finishHistory;
@@ -522,8 +546,10 @@ it("returns to a new chat when the open conversation is deleted", async () => {
   await selectProfile();
   fireEvent.click(screen.getByRole("button", { name: "Feeding advice" }));
   await screen.findByText("Talk softly.");
+  expect(window.location.pathname).toBe("/chat/chat-1");
   fireEvent.click(screen.getByRole("button", { name: "More options for Feeding advice" }));
   fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
   await waitFor(() => expect(screen.queryByText("Talk softly.")).toBeNull());
+  expect(window.location.pathname).toBe("/");
   expect(screen.getByRole("heading", { name: "What are you doing with your baby today?" })).toBeTruthy();
 });

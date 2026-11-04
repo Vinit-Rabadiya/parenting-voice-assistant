@@ -85,14 +85,20 @@ History loads in the sidebar without blocking the composer. Up to three recently
 used child workspaces retain drafts and loaded history in memory, scoped to the
 signed-in account; deletion, consent changes and logout discard the affected state.
 Account settings reuse a display-only security summary for at most 60 seconds.
-Explicit verification refresh and MFA changes invalidate it; backend authorization,
-revocation and MFA enforcement remain live for protected requests. Opening settings
-does not force a Firebase token refresh.
+Explicit verification refresh and MFA changes invalidate it. The backend always
+validates JWTs and enforces MFA, with short reuse of remote caregiver security
+checks as described below. Opening settings does not force a Firebase token refresh.
 The browser reuses that response in memory while opening chat instead of fetching
 consent and profiles again. Administrators receive neither. Data deletion refreshes
 startup; a changed notice invalidates the consent view. Profile creation, edits and
 deletion update the workspace's profile list, including when its controls remount.
 Conversation history remains a separate authenticated request.
+
+Each saved conversation has an address such as `/chat/<conversation-id>`.
+Refreshing or opening that address selects its child profile after checking access.
+Browser Back and Forward restore chats; switching within the app does not reload
+the page or request another generated answer. These addresses require sign-in
+and do not grant other accounts access to conversations.
 
 For questions covered by the selected local basic-care references, coaching uses
 those references directly rather than making a vector search whose results would
@@ -249,7 +255,7 @@ For verification, `npm.cmd run lint` runs only Python/frontend lint and
 `npm.cmd test` runs only Python/frontend tests. `npm.cmd run check` retains the
 full lint, test, and frontend-build sequence used by the pre-push hook.
 
-Gemini Flash Lite is the default coaching model. If it returns a quota error (429),
+Gemini Flash Lite is the default coaching model in single-provider mode. If it returns a quota error (429),
 the backend tries the fallback once with identical context and references.
 Leave `GEMINI_FALLBACK_MODEL` empty to disable fallback. Each model receives one
 SDK attempt; other errors do not trigger fallback. Fallback availability depends
@@ -259,11 +265,38 @@ changing these settings. The selected model is recorded in technical logs.
 For Groq, set `COACHING_PROVIDER=groq`, `GROQ_API_KEY` and
 `GROQ_MODEL=qwen/qwen3.8-27b` in the private root `.env`. Groq uses pooled HTTPS
 requests with reasoning disabled for this model. `GROQ_FALLBACK_MODEL` defaults to
-empty; there is no automatic switch to Gemini. No billing is enabled by these settings.
+empty. Cross-provider switching is enabled separately as described below. No billing is enabled by these settings.
 Groq has its own request/token limits; a faster model does not guarantee a five-second
 complete browser request. Switching providers changes the privacy-notice version
 and requires acceptance before further processing. Groq data-term and non-personal
 testing confirmations are separate from the Gemini flags; see `.env.example`.
+
+Set `COACHING_PROVIDER_FAILOVER=true` to use both services. `COACHING_PROVIDER`
+sets the preferred provider; the other becomes its backup. Both API keys and
+models must be configured, and production requires processing confirmations for
+both. The local configuration uses Groq/Qwen first and Gemini Flash Lite second.
+The updated notice names both services, so an existing single-provider acceptance
+must be renewed once. Switching between the two after that does not require
+another acceptance. Health-note availability requires both providers' independent
+processing confirmations; each provider rechecks its own gate before prompting.
+
+On HTTP 429, the backend immediately tries the other eligible provider within the
+same request, with the same permitted context and references. Each provider is
+attempted at most once per request; the same-provider fallback-model settings are
+ignored while cross-provider mode is enabled. No retry sleep is added. A limited
+provider is skipped on following requests until its retry metadata permits a
+retry, or for `COACHING_PROVIDER_COOLDOWN_SECONDS=60` when no valid delay is given.
+Cooldowns are bounded to one day and stored per server process for these two
+providers only; they are not user quotas or Firestore usage counters.
+
+If streaming has started, a `reset` event removes the old preview before the
+backup begins. Both prefixes are checked independently, and only the final
+reviewed answer is persisted. A safety refusal, invalid request, authentication
+failure or non-quota error does not trigger switching. If neither provider is
+eligible or both reach their limits, the app reports generic temporary
+unavailability without exposing provider quota descriptions. Automatic switching
+cannot guarantee an answer when both services are unavailable, and the backup's
+network and generation time still apply. Restart after changing these settings.
 
 Place the Admin JSON key at the configured path. The service account must belong
 to the configured Firebase project and have the required Firestore permissions.
@@ -329,6 +362,41 @@ Disabling MFA removes enrolled factors and invalidates existing sessions. Fireba
 remains responsible for validating credentials; the backend verifies token validity,
 revocation, current factor enrollment and applicable policy. Keep the deployed site
 on HTTPS and restrict Firebase authorized domains to the deployed application.
+
+`AUTH_SESSION_CACHE_TTL_SECONDS=60` reuses a successful remote revocation and
+MFA/role check for the same caregiver ID token on ordinary chat, transcription,
+feedback and selected read endpoints. Every request still verifies its JWT
+signature, issuer, audience and expiry through Firebase Admin; the SDK caches
+public signing certificates, whose refresh can still require a network call.
+Reuse expires at the earlier of the token expiry or the configured interval from
+the start of the fresh check. Cache hits do not extend this interval. A new token
+requires a fresh check. Set an integer from `0` to `18000` and restart the backend;
+`0` restores fresh remote checks on every request.
+
+The local development configuration selects `AUTH_SESSION_CACHE_TTL_SECONDS=18000`
+(five hours); the default and example remain 60 seconds. The effective lifetime
+is still capped by the current ID token's expiry. Firebase ID tokens normally
+last one hour, and a refreshed token triggers fresh checks in this application.
+This setting therefore does not create a five-hour token or skip checks across
+token refreshes. Longer reuse also delays detection of external account/policy
+changes until token expiry, cache invalidation or the configured interval.
+
+External revocation, account disabling, email-verification changes and MFA/role
+changes can take up to this interval to affect ordinary caregiver requests.
+Administrator sessions, administrator endpoints, account-security reads/changes,
+deletions, profile mutations and routes outside the explicit allowlist always
+use fresh remote checks. A fresh account-security lookup invalidates the user's
+cached checks; MFA changes and account/data deletion also invalidate on completion
+or failure. An in-flight request may already have passed authorization. These
+caches are independent per server process, so external changes in another process
+are bounded by the same interval. Global mandatory MFA remains enforced on every
+request. Consent, ownership checks and usage transactions are never cached here.
+
+The process-owned cache holds at most 256 entries, with keyed token digests,
+account IDs, token expiry and MFA/role booleans only. It retains no raw tokens,
+messages, profiles or audio, and clears at shutdown. Failed verification or MFA
+checks do not create reusable sessions. This is an explicit freshness/latency
+tradeoff, not immediate revocation for every ordinary chat request.
 
 For a lost authenticator, choose the backup in the sign-in challenge. If all factors
 are lost, an administrator must independently verify account ownership before using
@@ -401,15 +469,16 @@ proxy is not included in the static build.
 
 #### Backend service lifecycle
 
-Both development and production require the selected provider's API key and
-model before startup. An empty provider fallback setting disables the
-fallback. Missing generation settings stop startup before Firebase initialization
+Both development and production require each enabled provider's API key and
+model before startup. With cross-provider failover disabled, an empty provider
+fallback-model setting disables that provider's fallback. Missing generation settings stop startup before Firebase initialization
 or speech-model loading; error messages name the setting without revealing its
 value. Production also applies the host and provider-term requirements described
 below. These checks validate local configuration, not key validity, quotas or
 remote model availability.
 
 Startup creates one coaching and one retrieval service per backend process.
+Cross-provider mode owns two lazy coaching clients inside the routing service.
 Their synchronous SDK clients open only on first use, with a lock preventing
 concurrent first requests from creating duplicate clients. Failed client
 construction is not cached, so a later request can retry initialization.
@@ -522,8 +591,11 @@ live response evaluation; automated prompt tests do not establish semantic novel
 
 ## Data handling
 
-Firebase manages sign-in credentials. FastAPI verifies token validity and revocation,
-email verification, current MFA enrollment and security policy before serving protected requests.
+Firebase manages sign-in credentials. FastAPI validates tokens on every protected
+request and enforces verified email, ownership, MFA and security policy. Remote
+caregiver account/revocation checks can be reused for the bounded interval
+documented in the authentication section above; sensitive and administrator
+operations always refresh them.
 
 Profiles are stored under `users/{uid}/children/{id}`. New conversation messages,
 references, timestamps, and feedback are stored under
@@ -668,7 +740,7 @@ are separate from the existing automated coverage.
 | Child profiles fail to load | Firestore API activation, default database creation, service-account permissions, and backend logs |
 | Guidance generation fails | Qdrant and selected provider configuration, model access, quotas, and backend diagnostic messages |
 | Coaching service temporarily busy (503) | The selected provider reported service unavailability. Retry later; the application does not add automatic retries. |
-| Coaching service request limit reached (429) | Check the selected provider's quota and usage. Wait for the limit to reset before retrying. |
+| Coaching service request limit reached (429), single-provider mode | Check the selected provider's quota and usage. Cross-provider mode automatically tries the other eligible service instead. |
 | Guidance could not be provided (`safety_blocked`) | The model service blocked a response or an answer matched an output guardrail. Only a clear replacement message is returned and stored, without supporting source cards. |
 | Frontend reports connection refused | Backend is ready on port 8000 and both development servers are running |
 | Microphone is unavailable | Site permission, supported browser, and localhost or HTTPS |
@@ -747,41 +819,60 @@ and response validation, privacy controls, conversation history, speech evaluati
 and production deployment. See [milestones](https://github.com/Vinit-Rabadiya/parenting-voice-assistant/milestones)
 for planned work and [RELEASE.md](RELEASE.md) for the current release scope.
 
-## API usage controls
+## Coaching requests and streaming
 
-My Account includes a read-only Usage section with counts, remaining allowances,
-and reset times displayed in the browser's local time. Refresh usage retrieves
-updated figures without consuming allowance. The authenticated `GET /me/usage`
-endpoint reads only the current account's counters and disables response caching.
+Application hourly/daily quotas and the My Account Usage panel have been removed.
+Coaching and child-profile creation no longer read, reserve or update usage
+counters. `/me/usage` is no longer an API route, and the old `COACH_*_LIMIT`,
+`CHILD_CREATE_*_LIMIT` and `USAGE_LIMIT_BACKEND` settings are no longer used.
+External providers can still return their own HTTP 429 responses; the app reports
+these without automatically resending requests.
 
-Authenticated accounts have configurable limits on coaching requests and new child profiles:
+The chat requests `POST /coach` with `Accept: text/event-stream`. JSON callers
+continue receiving the existing complete `CoachingResponse`. Both variants
+require the same authenticated caregiver, current consent and ownership checks.
+Current consent, the owned profile and optional conversation header are loaded in
+one account-scoped Firestore BatchGet; only that request reuses the snapshots.
+Ordinary follow-ups then query the latest bounded message page without reading
+the parent again. Saving still rechecks current ownership and deletion flags.
+Batching reduces network calls, not the number of billable documents read.
 
-| Action | Per hour | Per day |
-| --- | ---: | ---: |
-| Coaching | 30 | 100 |
-| Child profile creation | 5 | 20 |
+Streaming uses real Groq/Qwen or Gemini provider deltas. The backend releases
+complete sentence prefixes after the existing output checks. Care-specific
+validation that depends on a whole answer holds that answer until its complete
+review. These pattern checks remain limited safeguards, not clinical validation.
+A later provider refusal or full-answer replacement can replace an earlier
+checked prefix. The browser renders arriving text directly, without a simulated
+word-reveal timer. Authentication, data reads and provider first-token latency
+still happen before answer text is available.
 
-Configure `COACH_HOURLY_LIMIT`, `COACH_DAILY_LIMIT`,
-`CHILD_CREATE_HOURLY_LIMIT`, and `CHILD_CREATE_DAILY_LIMIT` as positive integers
-and restart the backend after changing them. Hourly limits use fixed clock-hour
-windows; daily limits reset at midnight in Africa/Nairobi (UTC+3).
+SSE events are `status` (`preparing`, `writing`, `saving`), `delta` (append checked
+text), `ready` (replace the preview with the fully reviewed answer), `done`
+(final response with stored IDs and timing metadata), and `error`. An answer can
+be visible while its durable save is in progress. Feedback and audio stay
+disabled until `done`; an interrupted stream never confirms a partial answer as
+saved. A failed or cancelled stream removes its preview. A save that already
+started can still finish after the browser stops waiting, so reopen the
+conversation before resending an uncertain request.
 
-Counters are reserved atomically in Firestore under
-`users/{uid}/usage/{action}`, so server processes share the same limits.
-Accepted attempts count even when no evidence is found or later processing fails.
-Recognized safety concerns receive the fixed safety response without consuming
-coaching quota. Reading, updating, and deleting existing profiles or history are
-not subject to these new limits.
+Streams have a bounded 16-event queue with backpressure, a 16,000-character
+output bound, terminal provider-finish checks and a 45-second deadline checked
+between provider chunks, with network timeouts bounding stalled reads.
+Cancellation is checked on provider deltas and closes the upstream iterator;
+a blocked network read can still take its configured timeout to return.
+Single-provider model fallback is permitted only before any output delta.
+Cross-provider failover can restart a stream using `reset`, which clears the old
+preview and sentence guard before any backup text. SSE responses are private/no-store and request proxy buffering be
+disabled. No raw token, question or answer is included in timing captures.
 
-An exhausted limit returns HTTP 429 with a numeric `Retry-After` header.
-The interface displays the waiting interval and does not automatically resend.
-If counters cannot be checked, protected requests return HTTP 503 rather than
-bypassing the limit. Limit events exclude account identifiers and message text.
-
-These controls are not external-provider quota tracking or a billing guarantee.
-Fixed windows allow bursts around reset boundaries. Deleting account data also
-deletes its counters; these limits do not prevent account recreation or replace
-broader abuse protection.
+`Server-Timing` is sent with response headers, so it measures header availability
+for a stream. The final `done.timings_ms` and the optional development capture
+include later stages: `generation_first_token` measures time from the provider
+stream request to its first delta; `first_answer` measures time from the incoming
+request to the first checked text being queued; `total_ms` in a completed capture
+measures through stream completion and saving. These are server measurements,
+not browser paint timings. Capture records mark the stream outcome separately
+from its already-sent HTTP status.
 
 ## Aggregate feedback administration
 

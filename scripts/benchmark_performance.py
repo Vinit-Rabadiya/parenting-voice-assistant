@@ -29,7 +29,6 @@ from google.auth.transport.requests import AuthorizedSession
 
 from backend.api.dependencies import (
     get_caregiver_data_service, get_coaching_service, get_retrieval_service,
-    get_usage_control_service,
 )
 from backend.api.v1.router import api_router
 from backend.core.http_security import configure_http_security
@@ -39,7 +38,6 @@ from backend.core.security import get_account_security_service
 from backend.services.coaching import CoachingResult
 from backend.services.account_security import AccountSecurityService
 from backend.services.feedback_summary import FeedbackSummaryService
-from backend.services.usage import UsageDecision
 
 
 class BenchmarkData:
@@ -54,6 +52,9 @@ class BenchmarkData:
 
     def list_children(self, uid):
         self.io("profiles")
+        return self._profiles()
+
+    def _profiles(self):
         return [{"id": "benchmark-child", "name": "Example", "date_of_birth": "2026-05-03",
                  "age_months": 6, "completed_months": 6, "age_days": 184,
                  "age_label": "6 months", "in_scope": True, "baseline_milestones": []}]
@@ -65,6 +66,17 @@ class BenchmarkData:
         self.io("consent")
         return {"consent_version": CONSENT_VERSION, "consent_at": datetime.now(timezone.utc),
                 "caregiver_authority": True}
+
+    def get_coaching_documents(self, uid, child_id, conversation_id):
+        self.io("coaching_documents")
+        return {"consent": {"consent_version": CONSENT_VERSION, "consent_at": datetime.now(timezone.utc),
+                            "caregiver_authority": True},
+                "child_snapshot": SimpleNamespace(exists=True, profile=self._profiles()[0]),
+                "conversation_snapshot": self.conversations.get(conversation_id)}
+
+    @staticmethod
+    def _child_response(snapshot):
+        return snapshot.profile
 
     def create_conversation(self, uid, child_id, *, conversation_id=None):
         self.get_child(uid, child_id)
@@ -78,7 +90,8 @@ class BenchmarkData:
 
     def get_conversation(self, uid, conversation_id, *args, **kwargs):
         # Firestore reads the parent, then the bounded messages query.
-        self.io("conversation_parent")
+        if kwargs.get("prefetched_snapshot") is None:
+            self.io("conversation_parent")
         self.io("conversation_messages")
         return self.conversations.get(conversation_id)
 
@@ -245,10 +258,6 @@ def run(samples, delay):
         data.io("account_security")
         return {"mfa_enabled": False, "mfa_required": False}
 
-    def consume(*args):
-        data.io("quota")
-        return UsageDecision(True)
-
     def generate(*args, **kwargs):
         data.io("generation")
         return CoachingResult("Talk gently to your baby.", [], answer_basis="general_information")
@@ -256,7 +265,6 @@ def run(samples, delay):
     app.dependency_overrides.update({
         get_caregiver_data_service: lambda: data,
         get_account_security_service: lambda: SimpleNamespace(read=security),
-        get_usage_control_service: lambda: SimpleNamespace(consume=consume),
         get_coaching_service: lambda: SimpleNamespace(generate=generate),
         get_retrieval_service: lambda: SimpleNamespace(retrieve=lambda *a, **kw: []),
     })

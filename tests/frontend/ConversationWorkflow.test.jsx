@@ -36,6 +36,7 @@ beforeAll(async () => {
 afterAll(() => server?.kill());
 
 beforeEach(async () => {
+  window.history.replaceState(null, "", "/");
   await nativeFetch(`${base}/__workflow/reset`, { method: "POST" });
   requests = [];
   localStorage.clear();
@@ -85,6 +86,33 @@ async function openWorkspace() {
   render(<GuidanceWorkspace userId="workflow-account" />);
   return screen.findByRole("textbox", { name: "Question" });
 }
+
+it("renders a real checked stream before generation finishes and enables feedback after saving", async () => {
+  const input = await openWorkspace();
+  fireEvent.change(input, { target: { value: "How can I encourage babbling?" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByText("Talk gently.");
+  expect(screen.getByRole("button", { name: "Stop waiting" }).disabled).toBe(false);
+  expect(screen.getByRole("button", { name: "Listen" }).disabled).toBe(true);
+  expect(screen.queryByRole("combobox", { name: "Helpfulness rating" })).toBeNull();
+  await nativeFetch(`${base}/__workflow/continue`, { method: "POST" });
+  await screen.findByText("Talk gently. Pause and listen.");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Listen" }).disabled).toBe(false));
+  expect(screen.getByRole("combobox", { name: "Helpfulness rating" })).toBeTruthy();
+  expect(requests.filter(request => request.path === "/api/coach")).toHaveLength(1);
+});
+
+it("removes a partial reply when streaming is cancelled", async () => {
+  const input = await openWorkspace();
+  fireEvent.change(input, { target: { value: "How can I encourage babbling?" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByText("Talk gently.");
+  fireEvent.click(screen.getByRole("button", { name: "Stop waiting" }));
+  await screen.findByText("Request cancelled.");
+  expect(screen.queryByText("Talk gently.")).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Helpfulness rating" })).toBeNull();
+  await nativeFetch(`${base}/__workflow/continue`, { method: "POST" });
+});
 
 it("opens chat from one verified startup request without reloading consent or profiles", async () => {
   function StartupWorkspace() {
@@ -150,7 +178,9 @@ it("records, edits, sends, plays, saves feedback, restores history and deletes t
   await screen.findByText("Talk gently while dressing.");
   expect(screen.getByLabelText("Helpfulness rating").value).toBe("5");
   expect(screen.getByLabelText("Optional comment").value).toBe("Clear steps.");
-  fireEvent.click(screen.getByRole("button", { name: `More options for ${edited}` }));
+  const options = screen.getByRole("button", { name: `More options for ${edited}` });
+  await waitFor(() => expect(options.disabled).toBe(false));
+  fireEvent.click(options);
   fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: edited })).toBeNull());
   const response = await nativeFetch(`${base}/conversations?child_id=workflow-child`);

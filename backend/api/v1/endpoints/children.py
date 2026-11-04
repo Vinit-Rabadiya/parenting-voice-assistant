@@ -2,12 +2,11 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from backend.api.dependencies import enforce_usage_limit, get_caregiver_data_service, get_usage_control_service
+from backend.api.dependencies import get_caregiver_data_service
 from backend.core.security import require_authenticated_user, require_caregiver_user
 from backend.api.consent import require_processing_consent
 from backend.schemas.children import ChildCreateRequest, ChildProfileResponse, ChildUpdateRequest
 from backend.services.caregiver_data import CaregiverDataService
-from backend.services.usage import UsageControlService
 
 
 router = APIRouter(prefix="/children", dependencies=[Depends(require_caregiver_user)])
@@ -29,8 +28,7 @@ def list_children(user: dict = Depends(require_authenticated_user), service: Car
 
 
 @router.post("", response_model=ChildProfileResponse, status_code=201, dependencies=[Depends(require_processing_consent)])
-def create_child(payload: ChildCreateRequest, user: dict = Depends(require_authenticated_user), service: CaregiverDataService = Depends(get_caregiver_data_service), usage: UsageControlService = Depends(get_usage_control_service)):
-    enforce_usage_limit(usage, user["uid"], "child_creation")
+def create_child(payload: ChildCreateRequest, user: dict = Depends(require_authenticated_user), service: CaregiverDataService = Depends(get_caregiver_data_service)):
     try:
         return service.create_child(user["uid"], payload.name, payload.date_of_birth, payload.milestone_focus, payload.milestones,
                                     health_details=payload.health_details.model_dump(), use_health_details=payload.use_health_details)

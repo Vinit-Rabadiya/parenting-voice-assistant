@@ -47,15 +47,13 @@ class Settings:
     RETRIEVAL_MIN_SCORE: float = float(os.getenv("RETRIEVAL_MIN_SCORE", "0.50"))
     KENYA_VACCINATION_SCHEDULE_ENABLED: bool = boolean_setting("KENYA_VACCINATION_SCHEDULE_ENABLED", "true")
 
-    COACH_HOURLY_LIMIT: int = int(os.getenv("COACH_HOURLY_LIMIT", "30"))
-    COACH_DAILY_LIMIT: int = int(os.getenv("COACH_DAILY_LIMIT", "100"))
-    CHILD_CREATE_HOURLY_LIMIT: int = int(os.getenv("CHILD_CREATE_HOURLY_LIMIT", "5"))
-    CHILD_CREATE_DAILY_LIMIT: int = int(os.getenv("CHILD_CREATE_DAILY_LIMIT", "20"))
 
     GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     GEMINI_FALLBACK_MODEL: str = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.8-flash")
     COACHING_PROVIDER: str = os.getenv("COACHING_PROVIDER", "gemini").strip().lower()
+    COACHING_PROVIDER_FAILOVER: bool = boolean_setting("COACHING_PROVIDER_FAILOVER")
+    COACHING_PROVIDER_COOLDOWN_SECONDS: int = int(os.getenv("COACHING_PROVIDER_COOLDOWN_SECONDS", "60"))
     GROQ_API_KEY: str | None = os.getenv("GROQ_API_KEY")
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
     GROQ_FALLBACK_MODEL: str = os.getenv("GROQ_FALLBACK_MODEL", "")
@@ -76,7 +74,13 @@ class Settings:
 
     @property
     def provider_data_allowed(self):
-        return self.data_allowed_for(self.COACHING_PROVIDER)
+        return all(self.data_allowed_for(provider) for provider in self.coaching_providers)
+
+    @property
+    def coaching_providers(self):
+        if not self.COACHING_PROVIDER_FAILOVER:
+            return (self.COACHING_PROVIDER,)
+        return (self.COACHING_PROVIDER, "gemini" if self.COACHING_PROVIDER == "groq" else "groq")
 
     def data_allowed_for(self, provider: str) -> bool:
         if provider == "groq":
@@ -87,8 +91,11 @@ class Settings:
 
     FIREBASE_PROJECT_ID: str | None = os.getenv("FIREBASE_PROJECT_ID")
     AUTH_REQUIRE_MFA: bool = boolean_setting("AUTH_REQUIRE_MFA")
+    AUTH_SESSION_CACHE_TTL_SECONDS: int = int(os.getenv("AUTH_SESSION_CACHE_TTL_SECONDS", "60"))
 
     def validate_deployment(self) -> None:
+        if type(self.AUTH_SESSION_CACHE_TTL_SECONDS) is not int or not 0 <= self.AUTH_SESSION_CACHE_TTL_SECONDS <= 18000:
+            raise ValueError("AUTH_SESSION_CACHE_TTL_SECONDS must be an integer between 0 and 18000.")
         if self.APP_ENV not in {"development", "production"}:
             raise ValueError("APP_ENV must be development or production.")
         if self.APP_ENV != "production":
@@ -98,24 +105,31 @@ class Settings:
             for host in self.ALLOWED_HOSTS
         ):
             raise ValueError("Production requires explicit host names in ALLOWED_HOSTS, without schemes, ports or wildcards.")
-        if not self.provider_data_allowed:
+        if not self.data_allowed_for(self.COACHING_PROVIDER):
             raise ValueError("Production requires confirmed data terms for the selected provider or confirmed non-personal testing.")
+        if not self.provider_data_allowed:
+            raise ValueError("Production requires confirmed data terms for every failover provider or confirmed non-personal testing.")
 
     def validate_coaching(self) -> None:
         """Check local generation settings without contacting the provider."""
         if self.COACHING_PROVIDER not in {"gemini", "groq"}:
             raise ValueError("COACHING_PROVIDER must be gemini or groq.")
-        prefix = self.COACHING_PROVIDER.upper()
-        for name in (f"{prefix}_API_KEY", f"{prefix}_MODEL"):
-            value = getattr(self, name)
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"{name} must be configured before starting the backend.")
-        if not isinstance(self.coaching_fallback_model, str):
-            raise ValueError(f"{prefix}_FALLBACK_MODEL must be a model name or an empty string.")
-        if self.COACHING_PROVIDER == "groq":
-            from backend.services.groq_client import GROQ_MODELS
-            if self.GROQ_MODEL not in GROQ_MODELS or (self.GROQ_FALLBACK_MODEL and self.GROQ_FALLBACK_MODEL not in GROQ_MODELS):
-                raise ValueError("Choose a supported Groq model.")
+        if (type(self.COACHING_PROVIDER_COOLDOWN_SECONDS) is not int
+                or not 1 <= self.COACHING_PROVIDER_COOLDOWN_SECONDS <= 86400):
+            raise ValueError("COACHING_PROVIDER_COOLDOWN_SECONDS must be an integer from 1 to 86400.")
+        for provider in self.coaching_providers:
+            prefix = provider.upper()
+            for name in (f"{prefix}_API_KEY", f"{prefix}_MODEL"):
+                value = getattr(self, name)
+                if not isinstance(value, str) or not value.strip():
+                    raise ValueError(f"{name} must be configured before starting the backend.")
+            fallback = getattr(self, f"{prefix}_FALLBACK_MODEL")
+            if not isinstance(fallback, str):
+                raise ValueError(f"{prefix}_FALLBACK_MODEL must be a model name or an empty string.")
+            if provider == "groq":
+                from backend.services.groq_client import GROQ_MODELS
+                if self.GROQ_MODEL not in GROQ_MODELS or (fallback and fallback not in GROQ_MODELS):
+                    raise ValueError("Choose a supported Groq model.")
 
     @property
     def firebase_admin_key_path(self) -> str | None:

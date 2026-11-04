@@ -1,0 +1,102 @@
+{
+  "source": "User-provided application transcript; localhost confirmed by user",
+  "observations": [
+    {
+      "topic": "feeding precautions",
+      "status": "false emergency escalation",
+      "seconds": 4.57
+    },
+    {
+      "topic": "sleep and caregiver coordination",
+      "status": "generated",
+      "seconds": 7.21
+    },
+    {
+      "topic": "bilingual play",
+      "status": "generated",
+      "seconds": 8.6
+    },
+    {
+      "topic": "transitions and frustration",
+      "status": "generated",
+      "seconds": 7.24
+    },
+    {
+      "topic": "everyday developmental activities",
+      "status": "generated",
+      "seconds": 7.87
+    }
+  ],
+  "generated_summary": {
+    "samples": 4,
+    "mean_seconds": 7.73,
+    "median_seconds": 7.555,
+    "min_seconds": 7.21,
+    "max_seconds": 8.6
+  },
+  "exact_prompt_regression": {
+    "matches_transcript": true,
+    "characters": 910,
+    "before_reasons": [
+      "choking"
+    ],
+    "after_reasons": []
+  },
+  "existing_safety_development_set": {
+    "cases": 60,
+    "counts": {
+      "true_positive": 30,
+      "false_negative": 0,
+      "false_positive": 0,
+      "true_negative": 30
+    }
+  },
+  "verification": {
+    "focused_tests_passed": 250,
+    "backend_tests_passed": 1354,
+    "ui_tests_passed": 263,
+    "audio_tests_passed": 7,
+    "lint": "passed",
+    "production_build": "passed",
+    "local_invalid_token_status": 401,
+    "local_stage_metrics_active": true
+  },
+  "limitations": "Three individual signed-in observations with variable authentication/database waits; no production percentile estimates, migration, or overall latency improvement claim.",
+  "resumed_verification": {
+    "date": "2026-11-04",
+    "timezone": "Africa/Nairobi",
+    "command": "npm.cmd run check",
+    "backend_tests_passed": 1365,
+    "ui_tests_passed": 263,
+    "audio_tests_passed": 7,
+    "python_lint": "passed",
+    "frontend_lint": "passed",
+    "frontend_build": "passed",
+    "focused_backend_cases_passed": 199,
+    "workflow_tests_passed": 6,
+    "capture_isolated_by_server_port": 8000,
+    "real_capture_probe_status": 401,
+    "frontend_url": "http://localhost:5173",
+    "signed_in_timing_capture": "captured"
+  },
+  "live_signed_in_capture_before_batch": "artifacts/performance/live-coach-before-batch.json",
+  "firestore_location": "nam5",
+  "live_read_comparison": "artifacts/performance/live-firestore-read-comparison.json",
+  "batch_change_validation": {
+    "backend_tests_passed": 1369,
+    "ui_api_workflow_tests_passed": 6,
+    "ruff": "passed",
+    "full_reply_after_batch": "Two signed-in replies captured; no overall latency improvement established"
+  },
+  "live_captures": [
+    "artifacts/performance/live-coach-before-batch.json",
+    "artifacts/performance/live-coach-after-batch-first.json",
+    "artifacts/performance/live-coach-after-batch-warm.json"
+  ],
+  "latest_live_stage_ms": {
+    "database_related": 8230.9,
+    "authentication": 2581.0,
+    "generation": 1108.4,
+    "other": 102.0
+  }
+}

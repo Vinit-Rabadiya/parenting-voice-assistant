@@ -29,6 +29,22 @@ def test_serves_index_and_built_assets(hosted_client):
     assert hosted_client.get("/assets/app.js").status_code == 200
 
 
+@pytest.mark.parametrize("path", ["/chat/abc123", "/chat/00000000-0000-4000-8000-000000000001", "/chat/chat-1/"])
+def test_conversation_bookmark_serves_only_public_shell_with_firebase_origin_referrer(hosted_client, path):
+    response = hosted_client.get(path)
+    assert response.status_code == 200
+    assert response.text == "<h1>Application</h1>"
+    assert response.headers["Cache-Control"] == "no-store"
+    assert response.headers["Referrer-Policy"] == "strict-origin"
+    assert hosted_client.get("/api/conversations/abc123").status_code == 401
+
+
+@pytest.mark.parametrize("path", ["/chat/", "/chat/a/b", "/chat/.env", "/chat/" + "a" * 129,
+                                 "/api/chat/abc123", "/assets/chat/abc123"])
+def test_invalid_chat_paths_and_api_paths_do_not_receive_the_app_shell(hosted_client, path):
+    assert hosted_client.get(path).status_code == 404
+
+
 @pytest.mark.parametrize("path", ["/", "/index.html"])
 def test_public_document_allows_origin_referrers_for_firebase_key_restrictions(hosted_client, path):
     response = hosted_client.get(path)

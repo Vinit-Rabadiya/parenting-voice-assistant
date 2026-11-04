@@ -1,0 +1,156 @@
+{
+  "environment": {
+    "python": "3.13.7",
+    "platform": "Windows",
+    "injected_io_delay_ms": 5.0,
+    "network": "in-process TestClient; no live services",
+    "percentiles": "P50 median; P95/P99 lower empirical order statistic"
+  },
+  "scenarios": {
+    "startup_legacy": {
+      "samples": 20,
+      "mean_ms": 53.138,
+      "p50_ms": 53.003,
+      "p95_ms": 54.748,
+      "p99_ms": 54.748,
+      "cpu_ms_per_sample": 12.5,
+      "calls_per_sample": {
+        "account_security": 3.0,
+        "consent": 1.0,
+        "http_requests": 3.0,
+        "profiles": 1.0,
+        "token_revocation": 3.0
+      },
+      "python_peak_allocated_bytes_one_sample": 81103
+    },
+    "startup_combined": {
+      "samples": 20,
+      "mean_ms": 19.336,
+      "p50_ms": 19.331,
+      "p95_ms": 20.031,
+      "p99_ms": 20.031,
+      "cpu_ms_per_sample": 3.125,
+      "calls_per_sample": {
+        "account_security": 1.0,
+        "consent": 1.0,
+        "http_requests": 1.0,
+        "profiles": 1.0,
+        "token_revocation": 1.0
+      },
+      "python_peak_allocated_bytes_one_sample": 51380
+    },
+    "first_turn_legacy": {
+      "samples": 20,
+      "mean_ms": 79.548,
+      "p50_ms": 79.391,
+      "p95_ms": 81.027,
+      "p99_ms": 81.027,
+      "cpu_ms_per_sample": 14.844,
+      "calls_per_sample": {
+        "account_security": 2.0,
+        "coaching_documents": 1.0,
+        "consent": 1.0,
+        "conversation_create": 1.0,
+        "conversation_messages": 1.0,
+        "generation": 1.0,
+        "http_requests": 2.0,
+        "profiles": 1.0,
+        "quota": 1.0,
+        "token_revocation": 2.0,
+        "transaction_save": 1.0
+      },
+      "python_peak_allocated_bytes_one_sample": 112999
+    },
+    "first_turn_combined": {
+      "samples": 20,
+      "mean_ms": 53.53,
+      "p50_ms": 52.732,
+      "p95_ms": 57.342,
+      "p99_ms": 57.342,
+      "cpu_ms_per_sample": 14.062,
+      "calls_per_sample": {
+        "account_security": 1.0,
+        "coaching_documents": 1.0,
+        "conversation_create": 1.0,
+        "generation": 1.0,
+        "http_requests": 1.0,
+        "profiles": 1.0,
+        "quota": 1.0,
+        "token_revocation": 1.0,
+        "transaction_save": 1.0
+      },
+      "python_peak_allocated_bytes_one_sample": 101807
+    }
+  },
+  "built_assets": [
+    {
+      "name": "browser-CEdBuXYX.js",
+      "bytes": 23456,
+      "gzip_bytes": 8731
+    },
+    {
+      "name": "index-aJrX6cdQ.css",
+      "bytes": 37633,
+      "gzip_bytes": 7319
+    },
+    {
+      "name": "index-D5PPsIYe.js",
+      "bytes": 446347,
+      "gzip_bytes": 132010
+    }
+  ],
+  "security_transport": {
+    "environment": "loopback HTTP; no TLS, live identity or provider",
+    "scenarios": {
+      "legacy_per_call_session": {
+        "samples": 20,
+        "mean_ms": 6.149,
+        "p50_ms": 2.025,
+        "p95_ms": 16.2,
+        "p99_ms": 16.2,
+        "tcp_connections": 20,
+        "provider_lookups": 20
+      },
+      "pooled_session": {
+        "samples": 20,
+        "mean_ms": 2.024,
+        "p50_ms": 0.795,
+        "p95_ms": 1.225,
+        "p99_ms": 1.225,
+        "tcp_connections": 1,
+        "provider_lookups": 20
+      }
+    }
+  },
+  "static_host": {
+    "available": true,
+    "assets": [
+      {
+        "path": "/assets/browser-CEdBuXYX.js",
+        "initial": false,
+        "identity_bytes": 23456,
+        "gzip_wire_bytes": 8739,
+        "cache_control": "public, max-age=31536000, immutable",
+        "content_encoding": "gzip"
+      },
+      {
+        "path": "/assets/index-aJrX6cdQ.css",
+        "initial": true,
+        "identity_bytes": 37633,
+        "gzip_wire_bytes": 7390,
+        "cache_control": "public, max-age=31536000, immutable",
+        "content_encoding": "gzip"
+      },
+      {
+        "path": "/assets/index-D5PPsIYe.js",
+        "initial": true,
+        "identity_bytes": 446347,
+        "gzip_wire_bytes": 132418,
+        "cache_control": "public, max-age=31536000, immutable",
+        "content_encoding": "gzip"
+      }
+    ],
+    "html_cache_control": "no-store",
+    "worklet_cache_control": "no-store"
+  }
+}

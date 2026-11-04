@@ -9,13 +9,11 @@ from firebase_admin import auth
 from backend.api.dependencies import get_caregiver_data_service
 from backend.services.caregiver_data import CaregiverDataService
 from backend.core.security import (require_authenticated_user,
-                                   get_account_security_state, get_account_security_service, require_caregiver_user)
+                                   get_account_security_state, get_account_security_service,
+                                   invalidate_user_session)
 from backend.schemas.auth import UserResponse, AccountSecurityResponse, StartupResponse
 from backend.api.v1.endpoints.privacy import consent_response
 from backend.services.account_security import AccountSecurityService
-from backend.api.dependencies import get_usage_control_service, usage_limits
-from backend.schemas.usage import UsageResponse
-from backend.services.usage import UsageControlService
 
 router = APIRouter()
 
@@ -62,16 +60,8 @@ def disable_mfa(request: Request, user: dict = Depends(require_authenticated_use
         raise HTTPException(status_code=403, detail="MFA is required by security policy and cannot be disabled.") from None
     except Exception:
         raise HTTPException(status_code=503, detail="MFA settings could not be updated. Refresh account security before retrying.") from None
-
-
-@router.get("/me/usage", response_model=UsageResponse)
-def account_usage(response: Response, user: dict = Depends(require_caregiver_user),
-                  service: UsageControlService = Depends(get_usage_control_service)):
-    response.headers["Cache-Control"] = "no-store"
-    try:
-        return service.read(user["uid"], usage_limits())
-    except Exception:
-        raise HTTPException(status_code=503, detail="Usage could not be loaded. Please try again.") from None
+    finally:
+        invalidate_user_session(request, user["uid"])
 
 
 def require_recent_sign_in(request: Request, action: str) -> None:
@@ -89,6 +79,8 @@ def delete_application_data(request: Request, user: dict = Depends(require_authe
         service.delete_account_data(user["uid"])
     except Exception:
         raise HTTPException(status_code=503, detail="Data deletion could not finish. Please retry. Some records may already have been removed.") from None
+    finally:
+        invalidate_user_session(request, user["uid"])
 
 
 @router.delete("/me", status_code=204)
@@ -102,6 +94,8 @@ def delete_account(request: Request, user: dict = Depends(require_authenticated_
         pass
     except Exception:
         raise HTTPException(status_code=503, detail="Account deletion could not finish. Please retry. Some records may already have been removed.") from None
+    finally:
+        invalidate_user_session(request, user["uid"])
 
 
 @router.get(

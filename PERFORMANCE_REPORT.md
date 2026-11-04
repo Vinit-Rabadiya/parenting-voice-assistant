@@ -264,3 +264,626 @@ current feedback implementation measures the new batched implementation.
 6. If true streaming is needed, design incremental safety and consistent storage
    first. Keep the existing full-response checks until an equivalent design is
    validated.
+
+## Follow-up: reported localhost question timings
+
+The user supplied five response-time observations and confirmed they came from
+the local application. These are application observations rather than the
+synthetic benchmark above. Individual stage durations and the running backend's
+revision were not captured with the original transcript.
+
+| Test topic | Application result | Reported seconds |
+| --- | --- | ---: |
+| Complementary feeding and choking precautions | False emergency escalation; no model generation | 4.57 |
+| Sleep and caregiver coordination | Generated guidance | 7.21 |
+| Bilingual play and development | Generated guidance | 8.60 |
+| Transitions and frustration | Generated guidance | 7.24 |
+| Flexible everyday developmental activities | Generated guidance | 7.87 |
+
+The **four generated replies** average **7.73 seconds**, with a median of
+**7.555 seconds** and range **7.21–8.60 seconds**. There are too few uncontrolled
+observations to estimate P95/P99. The earlier synthetic millisecond results must
+not be substituted for these application observations.
+
+### Reproduced routing bug and correction
+
+`backend/services/input_safety.py` treated every occurrence of `choking` as an
+incident unless a narrow negation/prevention prefix immediately preceded it.
+The exact feeding prompt matched the `choking` rule solely through the phrase
+`choking precautions`. This also made the first observation unsuitable as a
+generation-latency test.
+
+The correction recognizes specific prevention noun phrases such as `choking
+precautions`, `choking prevention`, `choking hazards` and `choking risks`, at the
+individual match. Actual/ambiguous active-report wording stays conservative;
+another danger sign anywhere in the message still takes priority. No model call
+is used to make this routing decision. The exact 910-character prompt now passes
+both the initial youngest-age screen and the resolved-age screen without an
+emergency flag.
+
+New unit cases include prevention topics, mixed prevention/active reports and
+malformed active wording. API regressions verify that preventive feeding reaches
+generation/storage, while an active choking report bypasses generation. All 60
+existing fixed danger-sign evaluation cases still pass with 30 true positives,
+30 true negatives and zero false positives/negatives on that development set.
+That fixed set is not independent clinical validation.
+
+### Diagnosing the remaining seconds
+
+The 4.57-second fixed response demonstrates that this particular run incurred
+delay without retrieval or generation. It does not identify that delay as
+Firestore, authentication, startup, networking or persistence. Subtracting it
+from a different generated request would not measure model time: the paths,
+cache/connection state and operations differ.
+
+The backend now exports bounded, fixed-name stage durations in the existing
+`Server-Timing` response header, alongside the total `app` duration and existing
+random `X-Request-ID`. These cover token verification, current account security,
+consent, profile/history reads, usage-limit enforcement, retrieval, generation,
+response review and saving. Only measured stages appear. Parallel stages can
+overlap, so their durations should not simply be summed. Durations are in
+**milliseconds**. Headers contain no question text, tokens or account/child IDs.
+The JSON response contract and user-facing response-time display are unchanged.
+
+With the updated backend running, open browser Developer Tools → Network, send
+one question and inspect the `POST /api/coach` response headers. Compare
+`generation` with the authentication, database and save stages over repeated
+fresh-chat and follow-up tests. Restart the local backend if it is not watching
+source changes. No live latency improvement or deployment is claimed from this
+correction.
+
+Follow-up verification: the full `npm.cmd run check` passed **1,354 backend tests,
+263 UI tests and seven audio tests**, both linters and the production build.
+The 250 focused safety/conversation/header tests also passed. A local HTTP probe
+confirmed the running backend exposes the new stage metrics and rejects an
+invalid bearer token with HTTP 401; it did not use a real account or invoke a
+model. A new signed-in request's stage timings are still needed to attribute the
+reported 7–9 seconds. The `.env` file and production deployment were not changed.
+
+### Local capture without Developer Tools (4 November 2026)
+
+Development mode supports a single local timing capture. Arm it for the running
+backend's port by creating `tmp/capture-next-coach-timing` containing
+`{"server_port":8000}`. After a coaching response completes on that port, the
+backend consumes the marker and atomically replaces
+`tmp/local-coach-timing.json`. Requests on other ports cannot consume the marker,
+so synthetic workflow servers and ordinary TestClient requests cannot overwrite
+the requested live observation. The capture is disabled in production.
+
+The file contains only the random request ID, fixed route, HTTP status, total
+server duration and fixed-name stage durations. It contains no question, answer,
+authentication token or account/child identifier. File writing runs in a worker
+thread after the response has been sent. No further requests are recorded unless
+capture is armed again. A new real observation has not yet been captured.
+
+The resumed verification also corrected Windows path matching for the existing
+`/chat/{id}` bookmark shell and made the conversation workflow test wait for an
+in-flight reopen before clicking its disabled menu button. The 199 focused
+backend cases and all six UI/API workflow tests passed after these corrections.
+
+The final resumed `npm.cmd run check` passed **1,365 backend tests, 263 UI tests
+and seven audio tests**, both linters and the production build. The local backend
+and Vite frontend were then started and their health/proxy routes verified. An
+unauthenticated HTTP 401 probe verified that capture works on the real local
+backend; its record is explicitly marked as a connectivity check, not a live
+guidance latency measurement. Capture was rearmed for the next signed-in request.
+
+## First captured signed-in request (4 November 2026)
+
+The automatic local capture recorded HTTP 200 with **11,191.6 ms** of total
+server time. This is a real signed-in application observation, not a synthetic
+delay experiment. The capture stores no prompt, answer or account/profile ID.
+
+| Stage | Milliseconds |
+| --- | ---: |
+| Token verification | 399.2 |
+| Current account security | 406.4 |
+| Consent read | 397.3 |
+| Profile lookup | 1,075.6 |
+| Conversation context | 1,917.3 |
+| Usage-limit transaction | 2,647.8 |
+| Reference retrieval/local selection stage | 0.2 |
+| Generation | 2,312.8 |
+| Response safety review | 7.7 |
+| Interaction-save transaction | 2,970.7 |
+
+Profile and history reads overlap. Counting the longer history branch once,
+database-related stages occupy approximately **7,933.1 ms (70.9%)** of this
+request's critical path. Generation occupies **2,312.8 ms (20.7%)** and the two
+authentication stages **805.6 ms (7.2%)**. Remaining time includes other checks,
+scheduling, middleware and serialization. These are application-stage durations,
+including network/SDK/worker waits; they are not database-engine execution plans.
+One observation after a local restart does not establish warm-load percentiles.
+
+A read-only Firestore Admin metadata request confirmed that the default database
+is in **`nam5`**, the US Central multi-region described in the
+[official location reference](https://firebase.google.com/docs/firestore/locations).
+The app was running locally for this measurement. Database round trips are now a
+demonstrated latency contributor; geography is a plausible contributor rather
+than a measured attribution for every millisecond. Google's
+[best-practice guidance](https://firebase.google.com/docs/firestore/best-practices)
+recommends locating compute close to the database. No database or hosting location
+was changed. A provisioned Firestore database's location cannot be changed in place.
+
+### Targeted transaction improvement
+
+`CaregiverDataService.save_conversation_turn` previously read the conversation
+and child through two sequential document RPCs inside the same transaction.
+They now use one projected BatchGet RPC within that transaction. Feedback saving
+uses the same approach for its conversation and assistant-message checks. Replies
+are matched by exact document path because batch ordering is unspecified.
+Incomplete, duplicate or foreign replies fail before any write.
+
+The transaction's begin/commit behavior, ownership/deletion checks, message
+ordering and atomic writes remain. Tests cover missing/deleting/wrong-child
+records and partial batch failures. The read boundary changes from **two RPCs to
+one per successful turn save**, while reading the same two documents. This does
+not eliminate all transaction round trips or reduce document-read billing.
+
+The distributed usage reservation remains transactional and runs before
+generation. Removing it, caching permissions or sending a normal answer before
+its durable save would change correctness/security semantics and was not used
+as an optimization.
+
+Raw evidence: [signed-in capture before batching](artifacts/performance/live-coach-before-batch.json)
+and [read-only database location](artifacts/performance/firestore-location.json).
+An after-change signed-in observation is still needed to compare live latency;
+the RPC reduction alone is not claimed as a measured wall-time improvement.
+
+### Live read-boundary comparison
+
+A separate read-only experiment compared two sequential document reads with one
+batch read of those same two references against the actual configured Firestore
+database. The references were random, nonexistent synthetic documents; no
+personal records were queried and nothing was written. Five paired samples used
+alternating order after an excluded warm-up batch, with retries disabled and the
+same five-second deadline on both patterns.
+
+| Read pattern | Mean ms | Median ms | Minimum ms | Maximum ms |
+| --- | ---: | ---: | ---: | ---: |
+| Two sequential RPCs | 1,418.989 | 1,406.310 | 1,396.851 | 1,457.593 |
+| One batch RPC | 641.130 | 392.600 | 301.541 | 1,108.955 |
+
+This demonstrates a faster read boundary on this local-to-Firestore connection.
+It excludes transaction begin/commit, write processing and model generation, so
+it is not a measured improvement in total reply latency. Five samples are not a
+tail-latency guarantee. Raw paired results are saved in
+[the live read comparison](artifacts/performance/live-firestore-read-comparison.json).
+
+After the batching change, all **1,369 backend tests**, all **six UI/API workflow
+tests**, Ruff and the diff whitespace check passed. The complete frontend suite
+(263 tests), seven audio tests, lint and build passed immediately before this
+backend-only change. Overall signed-in reply latency after batching remains
+pending capture.
+
+### First complete reply after batching
+
+The next signed-in request completed with HTTP 200 and a successful save, but
+its **16,247.6 ms** total was slower than the earlier **11,191.6 ms** request.
+The observations must not be presented as an overall latency improvement.
+
+| Stage | Before ms | First after-change ms |
+| --- | ---: | ---: |
+| Token verification | 399.2 | 4,338.2 |
+| Current account security | 406.4 | 1,340.1 |
+| Consent | 397.3 | 2,054.7 |
+| Profile lookup, overlapping history | 1,075.6 | 469.4 |
+| Conversation context | 1,917.3 | 2,006.2 |
+| Usage-limit transaction | 2,647.8 | 1,979.6 |
+| Generation | 2,312.8 | 2,267.5 |
+| Interaction-save transaction | 2,970.7 | 1,932.5 |
+
+The observed save stage decreased by **1,038.2 ms**, while authentication increased
+by **4,872.7 ms** (805.6 → 5,678.3 ms). Database-related critical-path time stayed
+approximately level (7,933.1 → 7,973.0 ms) because consent became slower as other
+database stages became faster. Generation remained about 2.3 seconds.
+
+Process metadata confirmed the backend worker restarted after the Python change.
+Whether the request was its first authenticated call is not established, so cold
+initialization and network variation are hypotheses rather than a proven cause.
+A further warm observation is being requested without another code reload.
+The raw record is saved in
+[the first after-change capture](artifacts/performance/live-coach-after-batch-first.json).
+
+### Repeat without a further code change
+
+The requested repeat completed with HTTP 200 in **12,022.3 ms**. No Python code
+was changed by this agent between these two after-change observations.
+
+| Stage | Original ms | First after-change ms | Repeat ms |
+| --- | ---: | ---: | ---: |
+| Total server response | 11,191.6 | 16,247.6 | 12,022.3 |
+| Authentication, combined | 805.6 | 5,678.3 | 2,581.0 |
+| Consent | 397.3 | 2,054.7 | 1,755.4 |
+| History, overlapping profile | 1,917.3 | 2,006.2 | 2,043.0 |
+| Usage transaction | 2,647.8 | 1,979.6 | 2,483.0 |
+| Generation | 2,312.8 | 2,267.5 | 1,108.4 |
+| Save transaction | 2,970.7 | 1,932.5 | 1,949.5 |
+
+The repeat still spent approximately **8,230.9 ms (68.5%)** in database-related
+stages, **2,581.0 ms (21.5%)** in authentication, and **1,108.4 ms (9.2%)** in
+generation. The faster generation did not make the whole request faster than
+the original. An overall improvement is **not established** by these samples.
+
+Save durations remained around 1.94 seconds after batching versus the original
+2.97 seconds. The controlled read-only comparison and reduced RPC count support
+the read-boundary change, but larger network/service variability remains. Warm
+authentication improved from the first after-change sample but stayed above the
+original, so a one-off cold initialization cannot explain all remaining delay.
+
+The next architectural comparison should place compute and database close
+together, including a benchmark from the intended hosted backend before choosing
+a database migration. A nearby PostgreSQL deployment is one option; using the
+current Firestore from closer compute is another. Changing the model alone would
+leave most of this measured request's waiting time. No database migration,
+hosting change, permission caching or removal of quota checks was performed.
+
+Raw repeat evidence:
+[after-change repeat](artifacts/performance/live-coach-after-batch-warm.json).
+The one-request capture marker has been consumed; further capture is off until
+explicitly armed again.
+
+## Caregiver session reuse and usage-limit provenance - 4 November 2026
+
+The project proposal (`docs/VinitRabadiya_149227.docx`, including inspection for
+comments) contains no explicit usage/rate-limit or quota requirement. Available
+Markdown project notes also provide no supervisor attribution for this feature.
+This does not establish what was discussed verbally. Git commit `6913475`
+(`feat(api): add per-account usage limits`, 22 October 2026) introduced the
+hourly/daily Firestore counters as a separate implementation feature, before this
+performance work. Limits are a configurable product/cost safeguard, not a login
+requirement or an external provider's quota tracker.
+
+Ordinary accepted coaching attempts still perform one Firestore transaction to
+check and reserve hourly/daily usage; rejected or missing-profile requests may
+exit before that point. Recognized urgent safety responses bypass this quota.
+Child creation has its own quota. Reading account usage does not consume it.
+No quota policy, counter storage, `.env` setting or cloud service was changed
+in this follow-up.
+
+The earlier samples showed two expensive remote authentication/account checks
+for each ordinary request: Firebase token revocation checking and a separate live
+MFA/role lookup. Firebase documents that revocation checking requires an extra
+network round trip:
+[Manage User Sessions](https://firebase.google.com/docs/auth/admin/manage-sessions).
+
+The backend now owns a bounded, thread-safe `AuthSessionCache` per process:
+
+- First access for an ID token retains full Firebase revocation checking and the
+  live account-security lookup, with email/tenant/MFA checks before reuse is allowed.
+- Ordinary caregiver chat, transcription, feedback and selected reads reuse the
+  successful remote checks for at most 60 seconds by default, capped by token
+  expiry. Repeated hits do not extend the interval, which starts before the fresh
+  verification. Every request still validates the JWT with Firebase Admin;
+  certificate refresh can occasionally contact Firebase.
+- Administrators, administrator endpoints, security reads/changes, deletions,
+  profile mutations and unlisted routes always refresh remote checks. Fresh
+  account-security lookups invalidate that user's existing entries. MFA and
+  account/data mutations invalidate again after success or failure, and cache
+  revisions prevent older concurrent lookups from restoring invalidated entries.
+- Entries contain keyed token digests, UID, expiry and MFA/role booleans only,
+  with no raw token or family content. Maximum 256 entries; cleared on shutdown.
+  Failed verification and incomplete MFA do not populate the cache. Signature
+  validation and a second freshness check prevent a slow certificate refresh from
+  using an already expired entry.
+- `AUTH_SESSION_CACHE_TTL_SECONDS` accepts integer `0..300`, default `60`.
+  Restart after changing it; `0` restores fresh remote checks on every request.
+  An application without the cache also falls back to fresh checks.
+
+**Changed security freshness:** external revocation, account disabling, email
+verification and MFA/role changes can take up to the configured interval to affect
+ordinary caregiver requests in each process. Sensitive/administrator requests
+remain fresh, global mandatory MFA is applied on each request, and consent,
+ownership and usage checks remain independent and uncached. An in-flight request
+may already have passed authorization. This bounded tradeoff is intentional in
+response to the user's request to reuse an already signed-in session.
+
+Validation: the full backend suite passed **1,422 tests**, with Ruff passing.
+The added integration tests exercise both `/coach` aliases with the real auth
+and consent dependencies: startup followed by repeated coach calls uses
+`check_revoked=True` once, then `False`, and performs one live account lookup.
+Each coach call still checks consent and the usage service; withdrawing consent
+blocks subsequent processing. Further cases cover expired/revoked/invalid tokens,
+TTL boundaries, token/account isolation, MFA/admin enforcement, sensitive endpoint
+refresh, invalidation during mutations, cache bounds/concurrency and shutdown.
+
+These are controlled dependency-boundary tests, not a signed-in cloud latency
+benchmark. The previously measured 2,581 ms authentication stage identifies the
+opportunity; it does not establish the new response time or a fixed saving.
+The other measured database stages, including the usage transaction, remain.
+Evidence: [backend verification](artifacts/performance/session-auth-backend-check.txt).
+
+## Five-second localhost target - 4 November 2026
+
+The user requested a response around five seconds. Work targeted the same local
+development application used for the earlier captures; no hosted deployment,
+database migration, model change or external account change was made.
+
+### Changes
+
+1. The coaching dependency loads current consent, the child profile and an
+   existing conversation's parent header in one validated, account-scoped
+   Firestore `BatchGet`. It checks current consent before interpreting the
+   profile or querying messages. The endpoint reuses these snapshots only within
+   that request, eliminating duplicate consent/profile/header reads. Follow-ups
+   use one subsequent bounded messages query. New conversations omit the parent
+   from the initial batch. Save transactions still recheck current ownership,
+   existence and deletion flags at commit time. No cross-request profile, consent
+   or conversation cache was added.
+2. Added explicit `USAGE_LIMIT_BACKEND=memory` for a single development worker,
+   and selected it in the local `.env`. This preserves hourly/daily counting and
+   atomic enforcement with a process-owned lock, removing the per-message quota
+   database transaction. Local counters start empty, reset on backend restart,
+   are independent of existing Firestore counters, and are not shared across
+   workers. Successful account-data deletion clears the matching local counters.
+   Storage is bounded to 1,024 active account/action entries; live counters are
+   never evicted to admit additional usage. Capacity exhaustion fails closed.
+   `firestore` remains the default and production startup rejects memory mode.
+3. The preceding 60-second authentication reuse remains active. Global MFA,
+   current consent, ownership and sensitive/admin checks remain enforced as
+   documented above. The local timing stage `coaching_documents` now measures
+   the combined read; separate consent/profile stages therefore approach zero.
+
+Firebase recommends reducing unnecessary serial reads and placing compute close
+to the database, because distant network hops increase latency:
+[Firestore best practices](https://firebase.google.com/docs/firestore/best-practices).
+The read batching applies in both environments; local memory quotas specifically
+do not establish the latency of production Firestore quota enforcement.
+
+### Two real replies after the changes
+
+The user resent the feeding question twice consecutively through localhost.
+Both completed with HTTP 200; the metadata capture contains no prompt, answer,
+account ID or token. No application source was changed between the captures.
+
+| Stage | First request ms | Warm request ms |
+| --- | ---: | ---: |
+| Total server response | 8,485.6 | **4,218.4** |
+| Token verification | 2,247.4 | 1.5 |
+| Live account-security lookup | 758.5 | reused, no lookup |
+| Combined consent/profile/header read | 1,820.9 | 980.6 |
+| Bounded history query | 491.3 | 509.7 |
+| Local usage reservation | 0.5 | 0.4 |
+| Model generation | 1,348.7 | 940.0 |
+| Durable save transaction | 1,771.6 | 1,772.8 |
+
+The warm request meets the five-second **server-response** target in this
+observation. It is **64.9% shorter** than the previous 12,022.3 ms repeat, while
+the first request after these changes still takes 8.49 seconds. Its fresh
+authentication stages total 3,005.9 ms. This pair does not establish a percentile,
+average, browser end-to-end time, or a five-second guarantee after token refresh,
+cache expiry, worker restart, network variation or new-conversation creation.
+Remote database and model variability also contributed; the entire difference
+cannot be attributed to any single change.
+
+The next improvement for consistent fresh-request latency is reducing remote
+authentication overhead and benchmarking compute near the current `nam5`
+database. The current change reaches the warm local target without moving
+durable saving into the background or returning before persistence completes.
+
+Raw captures:
+[first](artifacts/performance/five-second-live-first.json),
+[warm](artifacts/performance/five-second-live-warm.json).
+Capture finished and its one-request markers were consumed; further capture is
+off. Verification passed **1,447 backend tests**, **six real UI/API workflow
+tests**, and Ruff. Focused tests use the real batching/consent/auth/storage
+boundaries with SDK IO replaced, including unordered/incomplete/duplicate/foreign
+batch replies, withdrawn consent, changed profile ages, mismatched/deleting
+parents, urgent-response history/quota bypass, concurrent quota enforcement,
+counter capacity/reset/deletion and service cleanup. The UI workflow fixture now
+exercises the new coaching dependency as well.
+
+Verification logs:
+[backend](artifacts/performance/five-second-backend-check.txt),
+[UI/API workflow](artifacts/performance/five-second-workflow-check.txt).
+
+The existing offline request-path benchmark also completed with 20 samples and
+5 ms injected per I/O boundary after updating its fixture for the new batched
+dependency. This is a compatibility/structural smoke check: it deliberately uses
+fake authentication and quota delay, not the local memory quota/session reuse
+configuration, and its timings do not predict live response times.
+[Offline benchmark](artifacts/performance/five-second-offline-path.json).
+The observed local configuration, target result and limits are recorded in
+[the result summary](artifacts/performance/five-second-result.json).
+
+## Usage removal and streamed coaching - 4 November 2026
+
+The user explicitly requested removal of application usage limits and real
+incremental replies. This supersedes the earlier Firestore/memory quota modes.
+Hourly/daily quota enforcement, counter services, usage dependencies, configuration
+settings, `/me/usage` and the My Account Usage panel have been removed. Coaching
+and child creation perform no usage check, reservation or counter transaction.
+Obsolete usage tests were replaced with a test that sends 35 coaching requests
+without a quota or counter-store dependency. External model providers can still
+enforce their own quotas; provider HTTP 429 handling remains.
+
+### Streaming behavior
+
+The same authenticated `POST /coach` negotiates SSE with
+`Accept: text/event-stream`, while JSON clients retain the complete response
+contract. The Groq transport requests `stream=true`, parses real content deltas
+and requires a valid terminal finish plus `[DONE]`. Gemini uses
+`generate_content_stream` with a per-stream request timeout. Private reasoning
+fields are not forwarded. A fallback model can only start before any output
+delta, preventing two model answers from being concatenated.
+
+The endpoint retains input triage, consent, ownership, age handling, references,
+profile rules and final output checks. It releases complete sentence prefixes
+after the existing checks; care-specific rules that need a complete answer hold
+that answer for full review. A final safety replacement or provider refusal can
+replace an earlier checked prefix. These remain limited pattern safeguards, not
+clinical or comprehensive semantic validation. No raw unchecked token stream is
+presented as validated childcare advice.
+
+The browser displays incoming text directly, with no artificial word-reveal
+timer. `ready` replaces any preview with the fully reviewed answer before the
+save finishes. `done` confirms final stored IDs and timing metadata only after
+the persistence operation. Feedback and audio remain disabled while pending.
+Errors, account changes, timeout and cancellation remove the pending preview;
+an interrupted stream cannot confirm a partial answer as saved. A persistence
+operation that already started may still finish after browser cancellation, so
+the existing instruction to reopen an uncertain conversation remains applicable.
+Urgent fixed referrals can also be displayed before their save completes.
+
+The transport uses a bounded 16-event queue with backpressure, a 16,000-character
+output bound, finish/truncation checks and cancellation checks on every provider
+delta. Iterators and upstream responses close when the worker exits; a stalled
+network read remains bounded by its transport timeout. A 45-second deadline is
+checked between provider chunks. No background task confirms a save early.
+
+### Verification and live provider probe
+
+`npm run check` passed both linters, **1,436 backend tests**, **280 UI tests**,
+**seven audio tests**, and the production build. After correcting stream timing
+capture, the complete backend suite passed **1,437 tests**. Tests cover real SSE
+provider parsing, Gemini streaming, split unsafe patterns, provider refusals,
+truncation, fallback boundaries, checked-prefix replacement, failed saves,
+bounded-queue cancellation, split UTF-8, malformed frames, account changes and
+quota removal. The UI/API workflow uses an explicit server-side gate: the test
+sees a checked sentence while generation is still blocked, then releases it and
+verifies that feedback/audio enable only after saving. A second workflow case
+cancels after that first sentence and verifies that the preview disappears.
+
+One live Groq/Qwen call used a synthetic non-personal babbling question, with no
+database/account data and no answer text stored in the probe artifact:
+
+| Generation-only measurement | Observed |
+| --- | ---: |
+| First provider content delta, including local client setup | 1,244.6 ms |
+| First checked sentence | 1,330.7 ms |
+| Complete generation | 1,543.5 ms |
+| Provider content chunks | 126 |
+
+This proves the configured provider streams successfully. It does not measure
+application authentication, data reads, browser painting or durable saving, and
+is not an overall latency guarantee. Streaming reduces time to visible text; it
+does not remove initial authentication/database/provider delays.
+
+The first two signed-in SSE captures incorrectly sampled the header boundary
+(341.2 and 541.1 ms), omitting later generation and save stages. They are labeled
+**header-only** and must not be presented as first-answer or complete-response
+latencies. The capture now finalizes after the response body finishes, records
+the bounded stream outcome separately from HTTP status, and includes
+`generation_first_token`, `first_answer` and save stages. A regression test
+verifies that stages absent from early headers appear in the final capture.
+`first_answer` measures server-side queuing of checked text, not browser paint.
+
+References:
+[Groq streaming](https://console.groq.com/docs/text-chat),
+[Gemini Python streaming](https://googleapis.github.io/python-genai/).
+Evidence:
+[full checks](artifacts/performance/streaming-check.txt),
+[final backend checks](artifacts/performance/streaming-final-backend-check.txt),
+[live provider probe](artifacts/performance/live-provider-streaming-probe.json),
+[first header-only observation](artifacts/performance/streaming-header-only-first.json),
+[second header-only observation](artifacts/performance/streaming-header-only-warm.json).
+
+A corrected signed-in first-answer/completion sample has not yet been captured;
+no full-application first-text figure is claimed here. The subsequent capture
+window closed and capture is off. The generation-only probe and deterministic
+UI/API streaming tests above are the available evidence for incremental output.
+
+## Five-hour authentication reuse maximum - 4 November 2026
+
+At the user's explicit request, the local `.env` now selects
+`AUTH_SESSION_CACHE_TTL_SECONDS=18000` (five hours). Configuration and cache
+validation permit `0..18000`; the fallback default and example remain 60 seconds.
+No hosted deployment was performed, and no ID-token expiry or sensitive-route
+authorization rule was changed.
+
+This is a maximum reuse interval for the exact verified token. Its expiry still
+ends reuse, a refreshed token gets fresh remote checks, cache hits never extend
+the interval, and administrator/security/destructive operations remain fresh.
+Firebase ID tokens normally last one hour, so normal SDK token refresh prevents
+five uninterrupted hours of reuse with the existing token-keyed cache:
+[Firebase session management](https://firebase.google.com/docs/auth/admin/manage-sessions).
+Expired tokens are never accepted to fill the configured interval. External
+revocation, disabling, email/MFA/role policy changes can remain unobserved on
+ordinary cached requests until token expiry, local invalidation or the configured
+maximum, whichever comes first. This larger freshness tradeoff was disclosed.
+
+Verification passed **132 focused authentication, session, deployment and
+lifecycle tests** plus Ruff. Added cases prove reuse beyond the old one-minute
+window, rejection at token expiry even with a five-hour setting, a fixed five-hour
+cutoff for a synthetic longer-lived token, accepted bounds and rejection above
+the maximum. Local configuration loads 18,000 seconds and backend health returns
+HTTP 200. No new latency improvement is claimed without measurement.
+[Verification log](artifacts/performance/five-hour-auth-check.txt).
+
+## Groq/Gemini quota failover - 4 November 2026
+
+The user requested both providers with automatic switching when one exhausts its
+quota. The local `.env` now enables `COACHING_PROVIDER_FAILOVER=true`, with the
+configured Groq/Qwen model preferred and Gemini Flash Lite as backup. Both API
+keys and independent processing confirmations were already configured; no keys,
+billing settings or processing-confirmation values were changed. There was no
+hosted deployment.
+
+The process owns one routing service and two lazy reusable provider clients.
+On HTTP 429 it immediately tries the other eligible provider, without a retry
+sleep, once per provider per request. Same-provider fallback-model retries are
+disabled in this mode. Successful requests use only one provider. Each failure
+sets a provider-only cooldown: valid `Retry-After` or Gemini `RetryInfo` delays
+are honored, bounded from one second to one day; otherwise the configured
+60-second cooldown applies. Following requests skip cooling providers. Eligible
+providers are re-evaluated after a failure, allowing return to a primary whose
+cooldown expired while the backup was responding. This state is a bounded
+two-provider in-memory availability cache, not an account usage counter or a
+Firestore operation.
+
+Streaming failover sends `reset`, clears the old preview and sentence-guard state,
+then checks the backup's output independently. The frontend never concatenates
+two models' answers. The existing final output checks and atomic durable save
+still run once for the resulting answer, and feedback/audio wait for completion.
+Cancellation at the switching boundary prevents the backup call. The first-token
+metric retains its first observation rather than summing two attempts.
+
+Safety refusals and non-quota errors do not trigger switching. If both services
+are cooling or both hit quotas, the operation ends with generic HTTP 503 / SSE
+availability failure, without raw quota/exhaustion descriptions. It cannot
+promise an answer while both services are unavailable. Switching has no deliberate
+wait, but detecting the first failure and generating the backup answer still take
+network/model time.
+
+The versioned notice now names both services and explains that the same message
+and permitted context may be sent to both when switching. Existing single-provider
+consent does not authorize fallback; users must accept `2026-11-04.dual.1` once.
+Subsequent switches do not change that notice. Prior feedback-sharing permission
+remains valid because those terms are unchanged. Both providers' processing
+confirmations gate health-note availability, and production validates both
+providers' keys/models and confirmations before startup.
+
+### Validation
+
+`npm run check` passed **1,473 backend tests**, **282 UI tests**, **seven audio
+tests**, both linters and the production build. A subsequent focused run passed
+**21 HTTP-security tests**, including the added regression that first-token
+measurements are not added together after a provider switch. Tests exercise both
+directions, successful-primary short circuit, cooldown expiry, concurrent requests,
+retry metadata, both-limited failure, stream reset, cancellation, refusals,
+configuration/consent gates, client ownership/cleanup, final answer replacement
+and a single durable save. The UI verifies removal of the previous provider's
+preview while retaining the same question and request.
+
+Two additional probes simulated the primary's HTTP 429 and called the actual
+configured backup with a synthetic non-personal babbling question. No real quota
+was intentionally exhausted, no account/database/profile data was used, and no
+answer text or credentials were stored in the probe artifact.
+
+| Simulated limited primary | Real backup | First backup delta | Complete generation |
+| --- | --- | ---: | ---: |
+| Groq | Gemini | 3,432.3 ms | 3,829.7 ms |
+| Gemini | Groq | 1,602.7 ms | 1,843.1 ms |
+
+Both returned successfully, with no provider refusal or output-guard block. These
+are generation-only observations, excluding application authentication, data
+reads and saving; they establish usable backup keys/models and streaming, not
+instant or guaranteed full-application latency. Local startup configuration
+validates and the app's proxied backend health returns HTTP 200.
+
+Evidence:
+[full verification](artifacts/performance/provider-failover-check.txt),
+[live backup probes](artifacts/performance/provider-failover-live-probe.json).
+Primary provider references:
+[Groq rate limits and Retry-After](https://console.groq.com/docs/rate-limits),
+[Gemini rate limits](https://ai.google.dev/gemini-api/docs/rate-limits).

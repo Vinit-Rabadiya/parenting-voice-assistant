@@ -1,21 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteConversation, getConversation, listConversations, requestCoaching } from "../services/caregiving";
 import { stopGuidanceAudio } from "./useGuidanceAudio";
 
-export default function useConversations(childId, onBusyChange) {
+export default function useConversations(childId, onBusyChange, onNavigate, initialConversation) {
   const [conversations, setConversations] = useState([]);
-  const [conversationId, setConversationId] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [conversationId, setConversationId] = useState(initialConversation?.id || null);
+  const [messages, setMessages] = useState(initialConversation?.messages || []);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [historyError, setHistoryError] = useState("");
   const [moreConversations, setMoreConversations] = useState(false);
-  const [moreMessages, setMoreMessages] = useState(false);
+  const [moreMessages, setMoreMessages] = useState(initialConversation?.messages?.length === 50);
   const mounted = useRef(false);
   const locked = useRef(false);
   const coachingRequest = useRef(null);
+  const openingRequest = useRef(null);
   const [generating, setGenerating] = useState(false);
+  const [streamPhase, setStreamPhase] = useState("preparing");
   const [newAnswerId, setNewAnswerId] = useState(null);
   const removedIds = useRef(new Set());
   const unconfirmedConversation = useRef(null);
@@ -34,7 +36,8 @@ export default function useConversations(childId, onBusyChange) {
       setMoreConversations(items.length === 30);
     }).catch((cause) => active && setHistoryError(controller.signal.aborted ? "History took too long to load. Please retry." : cause.message))
       .finally(() => { clearTimeout(timer); if (active) setLoading(false); });
-    return () => { active = false; clearTimeout(timer); controller.abort(); mounted.current = false; coachingRequest.current?.abort(); stopGuidanceAudio(); };
+    return () => { active = false; clearTimeout(timer); controller.abort(); mounted.current = false;
+      coachingRequest.current?.abort(); openingRequest.current?.abort(); stopGuidanceAudio(); };
   }, [childId]);
 
   async function perform(action) {
@@ -49,20 +52,34 @@ export default function useConversations(childId, onBusyChange) {
     }
   }
 
-  function newChat() {
-    if (locked.current) return;
+  function newChat({ navigate = true, force = false } = {}) {
+    if (locked.current && !force) return;
+    if (force) { coachingRequest.current?.abort(); openingRequest.current?.abort(); }
     stopGuidanceAudio(); setNewAnswerId(null);
     unconfirmedConversation.current = null;
     setConversationId(null); setMessages([]); setMoreMessages(false); setError("");
+    if (navigate) onNavigate?.(childId, null);
   }
+
+  const restore = useCallback((item) => {
+    coachingRequest.current?.abort(); openingRequest.current?.abort(); stopGuidanceAudio();
+    setNewAnswerId(null); unconfirmedConversation.current = null;
+    setConversationId(item.id); setMessages(item.messages);
+    setMoreMessages(item.messages.length === 50); setError("");
+  }, []);
 
   function open(id) {
     stopGuidanceAudio(); setNewAnswerId(null);
     return perform(async () => {
-      const item = await getConversation(id);
-      if (!mounted.current) return;
-      unconfirmedConversation.current = null;
-      setConversationId(id); setMessages(item.messages); setMoreMessages(item.messages.length === 50);
+      const controller = new AbortController();
+      openingRequest.current = controller;
+      try {
+        const item = await getConversation(id, null, controller.signal);
+        if (!mounted.current || controller.signal.aborted) return;
+        if (item.child_id && item.child_id !== childId) throw new Error("Conversation could not be opened.");
+        restore({ ...item, id });
+        onNavigate?.(childId, id);
+      } finally { if (openingRequest.current === controller) openingRequest.current = null; }
     });
   }
 
@@ -73,8 +90,10 @@ export default function useConversations(childId, onBusyChange) {
       coachingRequest.current = controller;
       setNewAnswerId(null);
       setGenerating(true);
+      setStreamPhase("preparing");
       const localId = crypto.randomUUID();
       const questionId = `question-${localId}`;
+      const draftId = `answer-${localId}`;
       setMessages((items) => [...items, { id: questionId, role: "user", text: question, delivery: "pending" }]);
       try {
         let firstMessage = !conversationId;
@@ -97,12 +116,33 @@ export default function useConversations(childId, onBusyChange) {
         controller.signal.throwIfAborted();
         const response = await requestCoaching({ child_id: childId, conversation_id: id,
           question, routine: routine || null, support_country: supportCountry || null,
-          ...(firstMessage ? { start_conversation: true } : {}) }, { signal: controller.signal });
+          ...(firstMessage ? { start_conversation: true } : {}) }, { signal: controller.signal,
+          onEvent: (event) => {
+            if (!mounted.current || controller.signal.aborted) return;
+            if (event.type === "status") { setStreamPhase(event.phase); return; }
+            if (event.type === "reset") {
+              setMessages(items => items.filter(item => item.id !== draftId));
+              setStreamPhase("writing");
+              return;
+            }
+            if (!["delta", "ready"].includes(event.type)) return;
+            setMessages((items) => {
+              const previous = items.find(item => item.id === draftId);
+              const draft = event.type === "ready" ? { ...event.response, text: event.response.answer }
+                : { ...previous, text: (previous?.text || "") + event.text };
+              const message = { ...draft, id: draftId, role: "assistant", pending: true,
+                message_id: null, interaction_id: null };
+              return previous ? items.map(item => item.id === draftId ? message : item) : [...items, message];
+            });
+          },
+        });
         controller.signal.throwIfAborted();
         if (!mounted.current) return;
         unconfirmedConversation.current = null;
+        onNavigate?.(childId, id);
         setNewAnswerId(response.message_id || localId);
-        setMessages((items) => [...items.map((item) => item.id === questionId ? { ...item, delivery: "sent" } : item),
+        setMessages((items) => [...items.filter(item => item.id !== draftId)
+          .map((item) => item.id === questionId ? { ...item, delivery: "sent" } : item),
           { ...response, id: response.message_id || localId, message_id: response.message_id ?? null,
             role: "assistant", text: response.answer },
         ]);
@@ -112,7 +152,7 @@ export default function useConversations(childId, onBusyChange) {
             ...items.filter((item) => item.id !== id)];
         });
       } catch (cause) {
-        if (mounted.current) setMessages((items) => items.map((item) => item.id === questionId
+        if (mounted.current) setMessages((items) => items.filter(item => item.id !== draftId).map((item) => item.id === questionId
           ? { ...item, delivery: controller.signal.aborted ? "cancelled" : cause.status === 429 ? "limited" : "unconfirmed" } : item));
         if (controller.signal.aborted) throw new Error("Request cancelled. Reopen this conversation to check for a reply before sending again.", { cause });
         throw cause;
@@ -133,6 +173,7 @@ export default function useConversations(childId, onBusyChange) {
       setConversations((items) => items.filter((item) => item.id !== id));
       if (id === conversationId) {
         setConversationId(null); setMessages([]); setMoreMessages(false);
+        onNavigate?.(childId, null, { replace: true });
       }
     });
   }
@@ -165,7 +206,12 @@ export default function useConversations(childId, onBusyChange) {
     coachingRequest.current.abort();
   }
 
-  return { conversations, conversationId, messages, busy, generating, newAnswerId,
-    cancelGeneration, loading, error, historyError,
+  function cancelNavigation() {
+    openingRequest.current?.abort();
+    cancelGeneration();
+  }
+
+  return { conversations, conversationId, messages, busy, generating, streamPhase, newAnswerId,
+    cancelGeneration, cancelNavigation, restore, loading, error, historyError,
     moreConversations, moreMessages, newChat, open, submit, remove, loadOlderMessages, loadOlderConversations };
 }

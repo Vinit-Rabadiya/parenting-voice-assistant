@@ -12,15 +12,16 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service
-from backend.api.dependencies import enforce_usage_limit, get_usage_control_service
 from backend.core.security import require_authenticated_user, require_caregiver_user
 from backend.api.consent import require_processing_consent
+from backend.api.coaching_context import prepare_coaching_documents
+from backend.api.coaching_stream import CoachingStream, StreamCancelled
+from backend.services.answer_stream import AnswerStreamGuard
 from backend.schemas.coaching import CoachingRequest, CoachingResponse, CitationSchema, FeedbackRequest, FeedbackResponse
 from backend.services.caregiver_data import CaregiverDataService
 from backend.services.age import message_age_months
 from backend.services.coaching import CoachingResult, CoachingService, generation_request_id, PROVIDER_BLOCK_MESSAGE
 from backend.services.groq_client import GenerationProviderError
-from backend.services.usage import UsageControlService
 from backend.services.profile_context import child_reply_context
 from backend.services.retrieval import RetrievalService
 from backend.services.evidence import select_evidence
@@ -36,6 +37,7 @@ from backend.services.conversation_context import (
     caregiver_request, needs_topic_clarification, select_conversation_context,
 )
 from backend.core.config import settings
+from backend.core.http_security import record_request_stage
 
 
 router = APIRouter(prefix="/coach", dependencies=[Depends(require_caregiver_user)])
@@ -107,27 +109,38 @@ def timed_stage(request_id: str, stage: str):
         yield
         outcome = "completed"
     finally:
+        seconds = time.perf_counter() - started
+        record_request_stage(stage, seconds)
         generation_request_id.reset(token)
         timing_logger.info(
             "coach_timing request=%s stage=%s event=%s seconds=%.3f",
-            request_id, stage, outcome, time.perf_counter() - started,
+            request_id, stage, outcome, seconds,
         )
 
 
 async def read_coaching_data(data_service, uid: str, payload: CoachingRequest,
-                             request_id: str, *, parallel: bool):
+                             request_id: str, *, parallel: bool, documents=None):
     async def read(stage, method, *args, **kwargs):
         with timed_stage(request_id, stage):
             return await run_in_threadpool(method, *args, **kwargs)
 
-    profile = read("profile_lookup", data_service.get_child, uid, payload.child_id)
+    if documents is None:
+        profile = read("profile_lookup", data_service.get_child, uid, payload.child_id)
+        history_options = {}
+    else:
+        snapshot = documents["child_snapshot"]
+        async def profile_from_snapshot():
+            with timed_stage(request_id, "profile_lookup"):
+                return data_service._child_response(snapshot) if snapshot.exists else None
+        profile = profile_from_snapshot()
+        history_options = {"prefetched_snapshot": documents["conversation_snapshot"]}
     if parallel:
         # Both reads remain account-scoped. Defer a history error until after
         # profile validation and age-specific safety checks below.
         child, conversation = await gather(
             profile,
             read("conversation_context", data_service.get_conversation, uid,
-                 payload.conversation_id, MAX_CONTEXT_MESSAGES, expected_child_id=payload.child_id),
+                 payload.conversation_id, MAX_CONTEXT_MESSAGES, expected_child_id=payload.child_id, **history_options),
             return_exceptions=True,
         )
     else:
@@ -139,7 +152,7 @@ async def read_coaching_data(data_service, uid: str, payload: CoachingRequest,
 
 async def respond_to_safety(data_service: CaregiverDataService, uid: str,
                             payload: CoachingRequest, age_months: float,
-                            triage, crisis, request_id: str, started: float) -> CoachingResponse:
+                            triage, crisis, request_id: str, started: float, stream=None) -> CoachingResponse:
     """Deliver the same urgent response before or after resolving a subject age."""
     citations = list(triage.citations)
     # A child danger sign takes priority; caregiver resources are still retained.
@@ -159,6 +172,9 @@ async def respond_to_safety(data_service: CaregiverDataService, uid: str,
         status=status, safety="not_flagged" if status == "caregiver_support" else "escalate",
         support_resources=list(resources.values()),
     )
+    if stream is not None:
+        await stream.send("ready", {"response": response.model_dump(mode="json")})
+        await stream.send("status", {"phase": "saving"})
     try:
         with timed_stage(request_id, "interaction_save"):
             await save_coaching_response(data_service, uid, payload, response)
@@ -170,7 +186,8 @@ async def respond_to_safety(data_service: CaregiverDataService, uid: str,
     return response
 
 
-@router.post("", response_model=CoachingResponse, dependencies=[Depends(require_processing_consent)])
+@router.post("", response_model=CoachingResponse,
+             dependencies=[Depends(prepare_coaching_documents), Depends(require_processing_consent)])
 async def coach(
     payload: CoachingRequest,
     request: Request,
@@ -178,8 +195,16 @@ async def coach(
     data_service: CaregiverDataService = Depends(get_caregiver_data_service),
     retrieval_service: RetrievalService = Depends(get_retrieval_service),
     coaching_service: CoachingService = Depends(get_coaching_service),
-    usage: UsageControlService = Depends(get_usage_control_service),
 ) -> CoachingResponse:
+    if "text/event-stream" in request.headers.get("accept", "").lower():
+        stream = CoachingStream(request)
+        return stream.response(lambda output: run_coaching(
+            payload, request, user, data_service, retrieval_service, coaching_service, stream=output,
+        ))
+    return await run_coaching(payload, request, user, data_service, retrieval_service, coaching_service)
+
+
+async def run_coaching(payload, request, user, data_service, retrieval_service, coaching_service, *, stream=None):
     # Random diagnostic correlation only; never log account or child identifiers.
     request_id = getattr(request.state, "performance_request_id", None) or uuid4().hex[:12]
     started = getattr(request.state, "performance_started", time.perf_counter())
@@ -193,6 +218,7 @@ async def coach(
     ).escalate
     child, conversation = await read_coaching_data(
         data_service, user["uid"], payload, request_id, parallel=parallel,
+        documents=getattr(request.state, "coaching_documents", None),
     )
     if child is None:
         raise HTTPException(status_code=404, detail="Select a child profile before asking for guidance.")
@@ -218,6 +244,7 @@ async def coach(
     if triage.escalate or crisis.kind:
         return await respond_to_safety(
             data_service, user["uid"], payload, age_months, triage, crisis, request_id, triage_started,
+            stream=stream,
         )
     context = []
     if has_history:
@@ -227,6 +254,8 @@ async def coach(
                     conversation = await run_in_threadpool(
                         data_service.get_conversation, user["uid"], payload.conversation_id,
                         MAX_CONTEXT_MESSAGES, expected_child_id=payload.child_id,
+                        **({"prefetched_snapshot": request.state.coaching_documents["conversation_snapshot"]}
+                           if hasattr(request.state, "coaching_documents") else {}),
                     )
             except Exception:
                 raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
@@ -237,7 +266,6 @@ async def coach(
         revision = (child.get("health_context_revision")
                     if explicit_age is None and child.get("use_health_details") is True else None)
         context = select_conversation_context(conversation["messages"], health_context_revision=revision)
-    await run_in_threadpool(enforce_usage_limit, usage, user["uid"], "coaching")
     with timed_stage(request_id, "conversation_start"):
         payload = await start_conversation(data_service, user["uid"], payload)
     retrieval_query = contextual_retrieval_query(payload.question, context)
@@ -257,6 +285,7 @@ async def coach(
             if triage.escalate:
                 return await respond_to_safety(
                     data_service, user["uid"], payload, age_months, triage, crisis, request_id, triage_started,
+                    stream=stream,
                 )
     vaccination = inspect_vaccination(payload.question, age_months, topic=retrieval_query)
     unresolved_follow_up = needs_topic_clarification(payload.question, context)
@@ -321,6 +350,21 @@ async def coach(
                     if profile_context:
                         context_options["profile_context"] = profile_context
                         health_context_used = bool(profile_context.get("health_details"))
+                if stream is not None:
+                    await stream.send("status", {"phase": "writing"})
+                    guard = AnswerStreamGuard(payload.question, age_months, evidence, context, stream.send_from_worker)
+
+                    def forward_delta(text):
+                        if stream.cancelled.is_set():
+                            raise StreamCancelled()
+                        guard.append(text)
+
+                    context_options["on_delta"] = forward_delta
+                    if getattr(coaching_service, "supports_failover", False) is True:
+                        def reset_preview():
+                            stream.send_from_worker("reset", {})
+                            guard.reset()
+                        context_options["on_reset"] = reset_preview
                 result = await run_in_threadpool(
                     coaching_service.generate, payload.question, age_months,
                     payload.routine, evidence, **context_options,
@@ -337,6 +381,8 @@ async def coach(
                     # Replace before storage and delivery; never save the blocked text.
                     status = "safety_blocked"
                     result = CoachingResult(answer=PROVIDER_BLOCK_MESSAGE if result.blocked else SAFE_RESPONSE, passages=[])
+    except StreamCancelled:
+        raise
     except ValueError:
         raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None
     except Exception as exc:
@@ -387,6 +433,9 @@ async def coach(
         processing_seconds=round(time.perf_counter() - started, 3), status=status,
         vaccination_country=payload.vaccination_country if vaccination is not None else None,
     )
+    if stream is not None:
+        await stream.send("ready", {"response": response.model_dump(mode="json")})
+        await stream.send("status", {"phase": "saving"})
     try:
         with timed_stage(request_id, "interaction_save"):
             await save_coaching_response(data_service, user["uid"], payload, response)

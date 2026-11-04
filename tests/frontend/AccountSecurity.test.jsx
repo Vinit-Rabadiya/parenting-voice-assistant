@@ -15,7 +15,6 @@ vi.mock("../../frontend/src/services/auth", () => ({
 }));
 vi.mock("qrcode", () => ({ default: { toDataURL: vi.fn() } }));
 vi.mock("../../frontend/src/services/caregiving", () => ({ deleteMyData: vi.fn(), deleteAccount: vi.fn() }));
-vi.mock("../../frontend/src/components/AccountUsage", () => ({ default: () => <p>Caregiver usage</p> }));
 vi.mock("../../frontend/src/components/AccountConsent", () => ({ default: () => <p>Caregiver consent</p> }));
 
 beforeEach(() => {

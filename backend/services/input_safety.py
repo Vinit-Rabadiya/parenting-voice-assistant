@@ -121,6 +121,13 @@ RULES = (
     ("injury", r"\b(?:(?:fell|fallen) (?:off|from|down)|(?:hit|hurt|injured) (?:his|her|their|the) head|head injury)\b", INJURY),
 )
 CHILD_CONTEXT = re.compile(r"\b(?:baby|child|infant|newborn|daughter|son|he|she)\b")
+CHOKING_PREVENTION_TOPIC = re.compile(
+    r"\s+(?:precautions?|prevention|hazards?|risks?|safety(?:\s+(?:tips|advice|guidance))?)\b"
+)
+ACTIVE_INCIDENT_PREFIX = re.compile(
+    r"\b(?:is|are|was|were|started|began|keeps|keep|seems|appears)"
+    r"(?:\s+(?:still|now|actually|really|currently|repeatedly|to be)){0,2}\s*$"
+)
 
 
 @dataclass(frozen=True)
@@ -167,6 +174,14 @@ def inspect_input(question: str, completed_months: int, *, child_age_days: int |
                 r"(?:\s+(?:from|getting|being)){0,2})?\s*$", prefix,
             )
             if negated or prevention:
+                continue
+            # "Choking precautions" names a prevention topic, not an incident.
+            # Restrict this exception to the noun phrase at this exact match;
+            # another reported danger elsewhere in the message still escalates.
+            # Keep malformed/ambiguous active reports conservative as well.
+            if (code == "choking" and match.group() == "choking"
+                    and CHOKING_PREVENTION_TOPIC.match(text, match.end())
+                    and not ACTIVE_INCIDENT_PREFIX.search(prefix)):
                 continue
             reasons.append(code)
             citations[source["passage_id"]] = source.copy()

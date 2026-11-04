@@ -357,7 +357,6 @@ def test_administrator_role_cannot_open_private_conversations(client, admin_stor
     ("post", "/coach", {"child_id": "example", "question": "Play ideas?"}),
     ("get", "/conversations?child_id=example", None),
     ("post", "/speech/transcribe", None),
-    ("get", "/me/usage", None),
 ])
 def test_administrator_accounts_cannot_use_caregiver_features(client, admin_storage, method, path, payload):
     with patch("backend.core.security.auth.verify_id_token", return_value=claims(True)):

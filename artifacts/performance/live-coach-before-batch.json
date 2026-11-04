@@ -1,0 +1,33 @@
+{
+  "source": "First captured signed-in localhost request, before batched turn reads",
+  "observed_on": "2026-11-04",
+  "record": {
+    "request_id": "7fefafa9c6f4",
+    "route": "/coach",
+    "status": 200,
+    "total_ms": 11191.6,
+    "stages_ms": {
+      "token_verification": 399.2,
+      "account_security": 406.4,
+      "consent": 397.3,
+      "caregiver_safety": 4.3,
+      "profile_lookup": 1075.6,
+      "conversation_context": 1917.3,
+      "input_safety": 1.9,
+      "usage_limit": 2647.8,
+      "conversation_start": 0.5,
+      "retrieval": 0.2,
+      "evidence_selection": 0.1,
+      "generation": 2312.8,
+      "response_safety": 7.7,
+      "interaction_save": 2970.7
+    }
+  },
+  "critical_path_estimates_ms": {
+    "database_related": 7933.1,
+    "generation": 2312.8,
+    "authentication": 805.6
+  },
+  "database_related_share_percent": 70.9,
+  "limitations": "One request; profile and history overlap. Stage time includes network, worker scheduling and SDK processing, not only database engine time."
+}

@@ -15,8 +15,10 @@ from backend.core.http_security import configure_http_security
 from backend.api.v1.router import api_router
 from backend.services.speech import SpeechService
 from backend.services.coaching import CoachingService
+from backend.services.provider_failover import ProviderFailoverService
 from backend.services.retrieval import RetrievalService
 from backend.services.account_security import AccountSecurityService
+from backend.services.auth_sessions import AuthSessionCache
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -28,9 +30,10 @@ async def lifespan(app: FastAPI):
     # connect to firebase when the server starts.
     app.state.firebase = initialize_firebase()
     try:
+        app.state.auth_session_cache = AuthSessionCache(settings.AUTH_SESSION_CACHE_TTL_SECONDS)
         app.state.account_security_service = AccountSecurityService(app.state.firebase, max_idle_sessions=8)
         # Own one wrapper per process; remote clients remain lazy until first use.
-        app.state.coaching_service = CoachingService()
+        app.state.coaching_service = ProviderFailoverService() if settings.COACHING_PROVIDER_FAILOVER else CoachingService()
         app.state.retrieval_service = RetrievalService()
         # store one model per server process for api/dependencies.py to provide to requests.
         app.state.speech_service = await run_in_threadpool(SpeechService, settings.STT_MODEL)
@@ -41,7 +44,7 @@ async def lifespan(app: FastAPI):
     finally:
         # Finish releasing local resources even if the lifespan was cancelled.
         with CancelScope(shield=True):
-            for name in ("retrieval_service", "coaching_service", "account_security_service"):
+            for name in ("auth_session_cache", "retrieval_service", "coaching_service", "account_security_service"):
                 service = getattr(app.state, name, None)
                 if service is not None:
                     delattr(app.state, name)
@@ -70,7 +73,8 @@ app = FastAPI(
     version=settings.VERSION,
     lifespan=lifespan,
 )
-configure_http_security(app, production=settings.APP_ENV == "production", allowed_hosts=settings.ALLOWED_HOSTS)
+configure_http_security(app, production=settings.APP_ENV == "production", allowed_hosts=settings.ALLOWED_HOSTS,
+                        development_timing_directory=PROJECT_ROOT / "tmp" if settings.APP_ENV == "development" else None)
 
 # connect the api routes to the main app.
 app.include_router(api_router)

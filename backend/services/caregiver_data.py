@@ -87,6 +87,34 @@ class CaregiverDataService:
     def _conversations(self, uid: str):
         return self.client.collection("users").document(uid).collection("conversations")
 
+    def _transaction_documents(self, transaction, references: list, fields: tuple[str, ...]):
+        """Read related owned documents in one RPC, within the same transaction."""
+        return self._documents(references, fields=fields, transaction=transaction)
+
+    def _documents(self, references: list, *, fields=None, transaction=None):
+        expected = {reference.path for reference in references}
+        snapshots = {}
+        # BatchGet replies are unordered. Missing documents have exists=False;
+        # an incomplete/foreign/duplicate reply is an availability failure.
+        for snapshot in self.client.get_all(references, field_paths=fields, transaction=transaction):
+            path = snapshot.reference.path
+            if path not in expected or path in snapshots:
+                raise RuntimeError("Invalid transaction document response.")
+            snapshots[path] = snapshot
+        if set(snapshots) != expected:
+            raise RuntimeError("Incomplete transaction document response.")
+        return tuple(snapshots[reference.path] for reference in references)
+
+    def get_coaching_documents(self, uid: str, child_id: str, conversation_id: str | None) -> dict:
+        """One fresh account-scoped read for consent, profile and optional parent."""
+        references = [self.client.collection("users").document(uid), self._children(uid).document(child_id)]
+        if conversation_id is not None:
+            references.append(self._conversations(uid).document(conversation_id))
+        documents = self._documents(references)
+        return {"consent": (documents[0].to_dict() or {}) if documents[0].exists else {},
+                "child_snapshot": documents[1],
+                "conversation_snapshot": documents[2] if conversation_id is not None else None}
+
     @staticmethod
     def _conversation_response(document) -> dict:
         data = document.to_dict()
@@ -119,9 +147,12 @@ class CaregiverDataService:
         return [self._conversation_response(document) for document in query.stream()]
 
     def get_conversation(self, uid: str, conversation_id: str, limit: int = 50,
-                         before: str | None = None, *, expected_child_id: str | None = None) -> dict | None:
+                         before: str | None = None, *, expected_child_id: str | None = None,
+                         prefetched_snapshot=None) -> dict | None:
         document = self._conversations(uid).document(conversation_id)
-        snapshot = document.get()
+        snapshot = prefetched_snapshot if prefetched_snapshot is not None else document.get()
+        if prefetched_snapshot is not None and snapshot.reference.path != document.path:
+            raise ValueError("Invalid conversation snapshot.")
         if not snapshot.exists:
             return None
         data = snapshot.to_dict()
@@ -147,8 +178,10 @@ class CaregiverDataService:
 
         @firestore.transactional
         def save(transaction):
-            snapshot = conversation.get(transaction=transaction)
-            child = self._children(uid).document(child_id).get(transaction=transaction)
+            snapshot, child = self._transaction_documents(
+                transaction, [conversation, self._children(uid).document(child_id)],
+                ("child_id", "message_count", "deleting"),
+            )
             if not snapshot.exists or not child.exists or snapshot.to_dict().get("child_id") != child_id:
                 raise ValueError("Conversation not found for the selected child.")
             data = snapshot.to_dict()
@@ -178,8 +211,9 @@ class CaregiverDataService:
 
         @firestore.transactional
         def save(transaction):
-            parent = conversation.get(transaction=transaction)
-            snapshot = message.get(transaction=transaction)
+            parent, snapshot = self._transaction_documents(
+                transaction, [conversation, message], ("role", "deleting"),
+            )
             if not parent.exists or not snapshot.exists or snapshot.to_dict().get("role") != "assistant":
                 return None
             if parent.to_dict().get("deleting", False):

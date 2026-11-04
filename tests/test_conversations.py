@@ -223,6 +223,36 @@ def coaching_dependencies(history_service):
     app.dependency_overrides.pop(get_coaching_service, None)
 
 
+def test_preventive_feeding_question_reaches_generation_and_transactional_save(client, coaching_dependencies):
+    data, _, coaching = coaching_dependencies
+    response = client.post("/coach", json=coaching_payload(
+        "My baby is 6 months old. Explain food preparation and choking precautions "
+        "before introducing complementary foods. Do not assume readiness."
+    ))
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    coaching.generate.assert_called_once()
+    data.save_conversation_turn.assert_called_once()
+    timings = response.headers["Server-Timing"]
+    assert all(stage + ";dur=" in timings for stage in (
+        "profile_lookup", "conversation_context", "retrieval",
+        "generation", "response_safety", "interaction_save",
+    ))
+
+
+def test_active_choking_report_still_bypasses_generation_with_prevention_topic(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    response = client.post("/coach", json=coaching_payload(
+        "Explain choking precautions, but my baby is choking on food right now."
+    ))
+    assert response.status_code == 200
+    assert response.json()["status"] == "escalated"
+    coaching.generate.assert_not_called()
+    retrieval.retrieve.assert_not_called()
+    data.save_conversation_turn.assert_called_once()
+    assert "generation;dur=" not in response.headers["Server-Timing"]
+
+
 def test_profile_and_owned_history_reads_overlap_before_generation(client, coaching_dependencies):
     data, _, coaching = coaching_dependencies
     both_reading = Barrier(2)
@@ -757,6 +787,16 @@ def transactional_storage(monkeypatch):
     account.collection.side_effect = {"children": children, "conversations": conversations}.__getitem__
     reference = conversations.document.return_value
     reference.get.return_value.to_dict.return_value = {"child_id": "child-1", "message_count": 0}
+    reference.path = "users/account-a/conversations/chat-1"
+    children.document.return_value.path = "users/account-a/children/child-1"
+    reference.collection.return_value.document.return_value.path = "users/account-a/conversations/chat-1/messages/answer-1"
+
+    def batch_get(references, **kwargs):
+        for document in reversed(references):
+            snapshot = document.get.return_value
+            snapshot.reference = document
+            yield snapshot
+    database.get_all.side_effect = batch_get
     return service, database.transaction.return_value, reference, children
 
 
@@ -781,6 +821,12 @@ def test_turn_saves_two_ordered_messages_in_one_transaction(transactional_storag
     update = transaction.update.call_args.args[1]
     assert update["message_count"] == 2
     assert update["title"] == "Play ideas"
+    service.client.get_all.assert_called_once_with(
+        [reference, service._children("account-a").document("child-1")],
+        field_paths=("child_id", "message_count", "deleting"), transaction=transaction,
+    )
+    reference.get.assert_not_called()
+    service._children("account-a").document("child-1").get.assert_not_called()
 
 
 def test_follow_up_turn_preserves_title_and_increments_sequence(transactional_storage):
@@ -819,6 +865,11 @@ def test_storage_feedback_only_updates_assistant_messages(transactional_storage,
     message = reference.collection.return_value.document.return_value
     message.get.return_value.to_dict.return_value = {"role": role}
     recorded_at = service.save_message_feedback("account-a", "chat-1", "answer-1", True, " Clear ")
+    service.client.get_all.assert_called_once_with(
+        [reference, message], field_paths=("role", "deleting"), transaction=transaction,
+    )
+    reference.get.assert_not_called()
+    message.get.assert_not_called()
     if role == "assistant":
         assert recorded_at is not None
         feedback = transaction.update.call_args.args[1]["feedback"]
@@ -843,3 +894,26 @@ def test_numeric_feedback_edit_replaces_previous_values_without_private_review_s
     assert feedback["comment"] is None
     assert feedback["recorded_at"] == saved
     assert "review_status" not in feedback
+
+
+@pytest.mark.parametrize("failure", ["missing_reply", "duplicate_reply", "foreign_reply", "transport_error"])
+def test_invalid_transaction_batch_never_writes_partial_turns(transactional_storage, failure):
+    from types import SimpleNamespace
+
+    service, transaction, reference, children = transactional_storage
+    def broken(references, **kwargs):
+        snapshot = reference.get.return_value
+        snapshot.reference = reference
+        yield snapshot
+        if failure == "duplicate_reply":
+            yield snapshot
+        elif failure == "foreign_reply":
+            yield SimpleNamespace(reference=SimpleNamespace(path="users/another-account/children/child-1"))
+        elif failure == "transport_error":
+            raise RuntimeError("Batch read failed.")
+    service.client.get_all.side_effect = broken
+    with pytest.raises(RuntimeError):
+        service.save_conversation_turn("account-a", "chat-1", "child-1", "Play ideas", None,
+                                       {"text": "Talk softly."})
+    transaction.set.assert_not_called()
+    transaction.update.assert_not_called()

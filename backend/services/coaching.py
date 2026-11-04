@@ -20,7 +20,8 @@ from backend.services.conversation_context import caregiver_request
 from backend.services.care_guidance import get_care_guidance
 from backend.services.retrieval import RetrievedPassage
 from backend.services.profile_context import validate_reply_context
-from backend.services.groq_client import GroqClient, GenerationProviderError
+from backend.services.groq_client import GroqClient, GenerationProviderError, GenerationReply
+from backend.core.http_security import record_request_stage
 
 
 generation_request_id = ContextVar("generation_request_id", default=None)
@@ -100,9 +101,53 @@ class CoachingService:
                     )
             return self._client
 
-    def _generate(self, client, **kwargs):
+    def _generate(self, client, *, on_delta=None, **kwargs):
         # The same prompt and output checks apply to both transports.
-        return client.generate(**kwargs) if self.provider == "groq" else client.models.generate_content(**kwargs)
+        if on_delta is None:
+            return client.generate(**kwargs) if self.provider == "groq" else client.models.generate_content(**kwargs)
+        if self.provider == "gemini":
+            kwargs["config"] = kwargs["config"].model_copy(update={"http_options": types.HttpOptions(timeout=45000)})
+        stream = (client.generate_stream(**kwargs) if self.provider == "groq"
+                  else client.models.generate_content_stream(**kwargs))
+        parts, blocked, finished, usage, characters = [], False, False, None, 0
+        started, first = time.monotonic(), True
+        try:
+            for chunk in stream:
+                if time.monotonic() - started > 45:
+                    raise GenerationProviderError(kind="timeout")
+                feedback = getattr(chunk, "prompt_feedback", None)
+                blocked = blocked or getattr(chunk, "blocked", False) is True or (
+                    getattr(feedback, "block_reason", None) not in (None, "BLOCKED_REASON_UNSPECIFIED")
+                )
+                for candidate in getattr(chunk, "candidates", None) or []:
+                    reason = getattr(candidate, "finish_reason", None)
+                    if reason in {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}:
+                        blocked = True
+                    elif reason == "STOP":
+                        finished = True
+                    elif reason not in (None, "FINISH_REASON_UNSPECIFIED"):
+                        raise GenerationProviderError(kind="incomplete")
+                finished = finished or getattr(chunk, "done", False) is True
+                usage = getattr(chunk, "usage_metadata", None) or usage
+                text = None if blocked else getattr(chunk, "text", None)
+                if text and not blocked:
+                    if not isinstance(text, str):
+                        raise GenerationProviderError(kind="malformed")
+                    parts.append(text)
+                    characters += len(text)
+                    if characters > 16000:
+                        raise GenerationProviderError(kind="incomplete")
+                    if first:
+                        record_request_stage("generation_first_token", time.monotonic() - started, first=True)
+                        first = False
+                    on_delta(text)
+            if not finished and not blocked:
+                raise GenerationProviderError(kind="incomplete")
+            return GenerationReply("".join(parts), blocked=blocked, usage_metadata=usage)
+        finally:
+            close = getattr(stream, "close", None)
+            if close is not None:
+                close()
 
     def close(self) -> None:
         """Close only an internally created client, without creating an unused one."""
@@ -115,7 +160,8 @@ class CoachingService:
             client.close()
 
     def generate(self, question: str, child_age_months: float, routine: str | None, passages: list[RetrievedPassage],
-                 *, conversation_context: list[dict] | None = None, profile_context: dict | None = None) -> CoachingResult:
+                 *, conversation_context: list[dict] | None = None, profile_context: dict | None = None,
+                 on_delta=None) -> CoachingResult:
         if not isinstance(question, str) or not 2 <= len(question.strip()) <= 1200:
             raise ValueError("Enter a question between 2 and 1200 characters.")
         question = question.strip()
@@ -259,14 +305,23 @@ class CoachingService:
         with generation_phase(request_id, "client_initialization", self.provider):
             client = self.client
         selected_model = self.model
+        emitted = False
+
+        def forward(text):
+            nonlocal emitted
+            emitted = True
+            on_delta(text)
+
+        stream_options = {"on_delta": forward} if on_delta is not None else {}
         try:
             with generation_phase(request_id, "sdk_request", self.provider):
                 response = self._generate(client,
                     model=selected_model, contents=prompt,
                     config=generation_config,
+                    **stream_options,
                 )
         except (errors.ClientError, GenerationProviderError) as exc:
-            if exc.code != 429 or not self.fallback_model or self.fallback_model == self.model:
+            if emitted or exc.code != 429 or not self.fallback_model or self.fallback_model == self.model:
                 raise
             selected_model = self.fallback_model
             timing_logger.info(
@@ -277,6 +332,7 @@ class CoachingService:
                 response = self._generate(client,
                     model=selected_model, contents=prompt,
                     config=generation_config,
+                    **stream_options,
                 )
         timing_logger.info("generation_selected request=%s provider=%s model=%s", request_id, self.provider, selected_model)
         with generation_phase(request_id, "response_handling", self.provider):

@@ -1,0 +1,34 @@
+{
+  "source": "Captured signed-in repeat without an intervening code edit by this agent",
+  "observed_on": "2026-11-04",
+  "record": {
+    "request_id": "f74d65f1e373",
+    "route": "/coach",
+    "status": 200,
+    "total_ms": 12022.3,
+    "stages_ms": {
+      "token_verification": 1395.5,
+      "account_security": 1185.5,
+      "consent": 1755.4,
+      "caregiver_safety": 2.0,
+      "profile_lookup": 295.7,
+      "conversation_context": 2043.0,
+      "input_safety": 2.5,
+      "usage_limit": 2483.0,
+      "conversation_start": 0.3,
+      "retrieval": 0.2,
+      "evidence_selection": 0.2,
+      "generation": 1108.4,
+      "response_safety": 4.8,
+      "interaction_save": 1949.5
+    }
+  },
+  "critical_path_estimates_ms": {
+    "database_related": 8230.9,
+    "authentication": 2581.0,
+    "generation": 1108.4,
+    "other": 102.0
+  },
+  "database_related_share_percent": 68.5,
+  "limitations": "One repeat; no claim of production percentiles or overall before/after improvement. Stage durations include network/SDK/worker waits."
+}

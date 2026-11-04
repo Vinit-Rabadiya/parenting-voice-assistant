@@ -13,7 +13,6 @@ import {
   totpSignInFactors,
   turnOffMfa,
 } from "../services/auth";
-import AccountUsage from "../components/AccountUsage";
 import AccountConsent from "../components/AccountConsent";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
 import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
@@ -494,7 +493,6 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
         </label>
         {playbackMessage && <p role="status">{playbackMessage}</p>}
       </section>}
-      {accountAccess?.verified && !administrator && <AccountUsage revision={dataDeleted} />}
       {accountAccess?.verified && !administrator && <AccountConsent key={String(dataDeleted)} />}
       {accountAccess?.verified && <section className="account-card account-data" aria-labelledby="account-data-title">
         <div className="account-card-heading"><h2 id="account-data-title">Data and account</h2>

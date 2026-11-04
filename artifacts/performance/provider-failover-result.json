@@ -1,0 +1,19 @@
+{
+  "enabled_locally": true,
+  "preferred_provider": "groq",
+  "backup_provider": "gemini",
+  "quota_response_triggers_switch": 429,
+  "max_provider_attempts_per_request": 2,
+  "default_provider_cooldown_seconds": 60,
+  "provider_retry_metadata_honored": true,
+  "stream_preview_reset_supported": true,
+  "new_consent_version": "2026-11-04.dual.1",
+  "both_live_backup_probes_succeeded": true,
+  "full_backend_tests_passed": 1473,
+  "ui_tests_passed": 282,
+  "audio_tests_passed": 7,
+  "subsequent_http_security_tests_passed": 21,
+  "linters_and_build": "passed",
+  "both_unavailable_behavior": "Generic temporary availability failure, no raw quota descriptions",
+  "hosted_deployment_performed": false
+}

@@ -6,6 +6,7 @@ import socket
 import sys
 import time
 from types import SimpleNamespace
+from threading import Event
 import wave
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -14,13 +15,12 @@ import anyio
 import uvicorn
 from fastapi import Request
 
-from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service, get_speech_service, get_usage_control_service
+from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service, get_speech_service
 from backend.core.privacy import CONSENT_VERSION
 from backend.core.security import require_authenticated_user
 from backend.main import app
 from backend.services.coaching import CoachingResult
 from backend.services.retrieval import RetrievedPassage
-from backend.services.usage import UsageDecision
 
 
 class MemoryData:
@@ -40,6 +40,16 @@ class MemoryData:
     def get_child(self, uid, child_id):
         return next((c for c in self.list_children(uid) if c["id"] == child_id), None)
 
+    def get_coaching_documents(self, uid, child_id, conversation_id):
+        child = self.get_child(uid, child_id)
+        return {"consent": self.get_consent(uid),
+                "child_snapshot": SimpleNamespace(exists=child is not None, profile=child),
+                "conversation_snapshot": self.chats.get(conversation_id)}
+
+    @staticmethod
+    def _child_response(snapshot):
+        return snapshot.profile
+
     def list_conversations(self, uid, child_id, limit=30, before=None):
         return [{k: v for k, v in c.items() if k != "messages"} for c in self.chats.values() if c["child_id"] == child_id]
 
@@ -55,7 +65,8 @@ class MemoryData:
                            "created_at": now, "updated_at": now, "messages": []}
         return self.chats[cid]
 
-    def get_conversation(self, uid, conversation_id, limit=50, before=None, *, expected_child_id=None):
+    def get_conversation(self, uid, conversation_id, limit=50, before=None, *, expected_child_id=None,
+                         prefetched_snapshot=None):
         c = self.chats.get(conversation_id)
         if not c or expected_child_id and c["child_id"] != expected_child_id:
             return None
@@ -90,9 +101,16 @@ class MemoryData:
 
 reference = RetrievedPassage("workflow-reference", "Talk gently while dressing.", "Dressing together",
                              "Workflow reference", None, "https://www.unicef.org/parenting/", 0.9, "0-24 months", [])
+stream_gate = Event()
 
 
 def generate(question, age, routine, evidence, **kwargs):
+    if "babbling" in question.lower() and kwargs.get("on_delta"):
+        kwargs["on_delta"]("Talk gently. ")
+        if not stream_gate.wait(10):
+            raise RuntimeError("Fixture stream not released")
+        kwargs["on_delta"]("Pause and listen.")
+        return CoachingResult("Talk gently. Pause and listen.", [reference])
     if "outage" in question.lower():
         raise RuntimeError("Fixture generation outage")
     if "slow" in question.lower():
@@ -119,7 +137,6 @@ if __name__ == "__main__":
         get_coaching_service: lambda: SimpleNamespace(generate=generate),
         get_retrieval_service: lambda: SimpleNamespace(retrieve=lambda *a, **kw: [reference]),
         get_speech_service: lambda: SimpleNamespace(transcribe=transcribe),
-        get_usage_control_service: lambda: SimpleNamespace(consume=lambda *a, **kw: UsageDecision(True)),
     })
     app.state.speech_limiter = anyio.CapacityLimiter(1)
 
@@ -130,7 +147,13 @@ if __name__ == "__main__":
     @app.post("/__workflow/reset")
     def reset():
         data.chats.clear()
+        stream_gate.clear()
         return {"reset": True}
+
+    @app.post("/__workflow/continue")
+    def continue_stream():
+        stream_gate.set()
+        return {"continued": True}
 
     listener = socket.socket()
     listener.bind(("127.0.0.1", 0))

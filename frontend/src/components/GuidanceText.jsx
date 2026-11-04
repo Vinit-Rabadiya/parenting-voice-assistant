@@ -7,7 +7,7 @@ export default function GuidanceText({ text }) {
   return <div className="guidance-text" aria-live="polite" aria-busy={false}>{renderContent(text)}</div>;
 }
 
-// Render the complete checked answer immediately. React text nodes never execute supplied HTML.
+// Render checked text as it arrives. React text nodes never execute supplied HTML.
 function renderContent(text) {
   function inline(value) {
     return value.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g).map((part, index) => {

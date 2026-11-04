@@ -1,8 +1,9 @@
 import { auth } from "./firebase";
+import { readCoachingStream } from "./coachingStream";
 
 const REQUEST_ERROR = "Something went wrong. Please try again.";
 
-async function request(path, options = {}) {
+async function request(path, options = {}, onStreamEvent) {
   options.signal?.throwIfAborted();
   const user = auth.currentUser;
   if (!user) throw new Error("Log in to continue.");
@@ -23,6 +24,18 @@ async function request(path, options = {}) {
   }
   options.signal?.throwIfAborted();
   if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+  if (response.ok && response.headers?.get("Content-Type")?.toLowerCase().startsWith("text/event-stream")) {
+    return readCoachingStream(response, {
+      check: () => {
+        options.signal?.throwIfAborted();
+        if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+      },
+      onEvent: (event) => {
+        if (event.type === "ready") validateCoachingResponse(event.response);
+        onStreamEvent?.(event);
+      },
+    });
+  }
   const body = await response.json().catch(() => ({}));
   options.signal?.throwIfAborted();
   if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
@@ -50,7 +63,6 @@ async function request(path, options = {}) {
 }
 
 export const listChildren = (signal) => request("/children", { signal });
-export const getAccountUsage = (signal) => request("/me/usage", { signal });
 export const getAccountSecurity = () => request("/me/security");
 export const disableAccountMfa = () => request("/me/security/mfa/disable", { method: "POST" });
 export const getFeedbackSummary = (signal) => request("/admin/feedback/summary", { signal });
@@ -98,7 +110,7 @@ function validateCoachingResponse(value) {
   return value;
 }
 
-export async function requestCoaching(payload, { signal, timeoutMs = 60000 } = {}) {
+export async function requestCoaching(payload, { signal, timeoutMs = 60000, onEvent } = {}) {
   const controller = new AbortController();
   let timedOut = false;
   const cancel = () => controller.abort();
@@ -106,7 +118,8 @@ export async function requestCoaching(payload, { signal, timeoutMs = 60000 } = {
   signal?.addEventListener("abort", cancel, { once: true });
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   try {
-    const response = await request("/coach", { method: "POST", body: JSON.stringify(payload), signal: controller.signal });
+    const response = await request("/coach", { method: "POST", body: JSON.stringify(payload), signal: controller.signal,
+      headers: { Accept: "text/event-stream" } }, onEvent);
     return validateCoachingResponse(response);
   } catch (error) {
     if (controller.signal.aborted) {
