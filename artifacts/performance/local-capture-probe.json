@@ -1,0 +1,12 @@
+{
+  "source": "Unauthenticated local capture connectivity check; not a signed-in latency benchmark",
+  "record": {
+    "request_id": "c1c7287e056d",
+    "route": "/coach",
+    "status": 401,
+    "total_ms": 58.2,
+    "stages_ms": {
+      "token_verification": 0.9
+    }
+  }
+}

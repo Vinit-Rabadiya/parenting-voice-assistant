@@ -1,0 +1,12 @@
+{
+  "source": "One live provider call with a synthetic non-personal babbling question; no database or account data",
+  "provider": "groq",
+  "model": "qwen/qwen3.8-27b",
+  "provider_deltas": 126,
+  "first_provider_delta_ms": 1244.6,
+  "first_checked_sentence_ms": 1330.7,
+  "completed": true,
+  "provider_blocked": false,
+  "total_generation_ms": 1543.5,
+  "answer_characters": 597
+}

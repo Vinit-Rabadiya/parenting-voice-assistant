@@ -4,10 +4,34 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth, exceptions
 from requests.exceptions import RequestException
+import re
 from backend.services.account_security import AccountSecurityService
+from backend.core.http_security import timed_request_stage
+from backend.core.config import settings
 
 # read the login token from the request header.
 bearer = HTTPBearer(auto_error=False)
+
+
+def can_reuse_session(request: Request) -> bool:
+    # Explicit allowlist: new routes, all destructive operations, security and
+    # administrator requests default to fresh provider checks.
+    path = request.url.path
+    if path.startswith("/api/v1/"):
+        path = path[len("/api/v1"):]
+    if request.method == "GET":
+        return path in {"/me", "/me/startup", "/children", "/conversations", "/privacy/consent"} or bool(
+            re.fullmatch(r"/conversations/[^/]+", path)
+        )
+    return request.method == "POST" and (path in {"/coach", "/speech/transcribe"} or bool(
+        re.fullmatch(r"/coach/[A-Za-z0-9_-]+/feedback", path)
+    ))
+
+
+def invalidate_user_session(request: Request, uid: str) -> None:
+    cache = getattr(request.app.state, "auth_session_cache", None)
+    if cache is not None:
+        cache.invalidate_user(uid)
 
 
 # check that the user is logged in before running an endpoint.
@@ -22,14 +46,33 @@ def require_verified_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # check that firebase issued this token and it is still valid.
+    cache = getattr(request.app.state, "auth_session_cache", None)
+    reusable = can_reuse_session(request)
+    key = cache.token_key(credential.credentials) if cache is not None else None
+    cached = cache.get(key) if cache is not None and reusable else None
+    request.state.auth_cache_key = key
+    request.state.auth_cache_reusable = reusable
+    request.state.auth_cache_started = cache.clock() if cache is not None else 0
+
+    # Always verify the JWT signature, issuer/audience and expiry. The Firebase
+    # SDK caches public signing certificates. Reuse only a recent successful
+    # revocation + account-policy check for this exact token.
     try:
-        claims = auth.verify_id_token(
-            credential.credentials,
-            app=request.app.state.firebase,
-            check_revoked=True,
-        )
+        with timed_request_stage(request, "token_verification"):
+            claims = auth.verify_id_token(
+                credential.credentials,
+                app=request.app.state.firebase,
+                check_revoked=cached is None,
+            )
+            # A certificate refresh can take long enough for the cached check
+            # to expire, or another request can invalidate it while we verify.
+            if cached is not None:
+                cached = cache.get(key)
+                if cached is None:
+                    claims = auth.verify_id_token(credential.credentials, app=request.app.state.firebase, check_revoked=True)
     except auth.CertificateFetchError:
+        if cache is not None:
+            cache.discard(key)
         # stop if firebase server keys cannot be reached right now.
         raise HTTPException(
             status_code=503,
@@ -42,17 +85,27 @@ def require_verified_user(
         auth.UserNotFoundError,
         ValueError,
     ):
+        if cache is not None:
+            cache.discard(key)
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired login. Log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from None
     except (exceptions.FirebaseError, RequestException):
+        if cache is not None:
+            cache.discard(key)
         # stop if the login check cannot finish.
         raise HTTPException(
             status_code=503,
             detail="Authentication temporarily unavailable.",
         ) from None
+
+    if cached is not None and cached.uid != claims.get("uid"):
+        cache.discard(key)
+        raise HTTPException(status_code=401, detail="Invalid or expired login. Log in again.",
+                            headers={"WWW-Authenticate": "Bearer"})
+    request.state.auth_cached_security = cached
 
     # check that the user confirmed their email.
     if claims.get("email_verified") is not True:
@@ -80,24 +133,35 @@ def require_verified_user(
 
 
 def get_account_security_service(request: Request) -> AccountSecurityService:
-    return AccountSecurityService(request.app.state.firebase)
+    service = getattr(request.app.state, "account_security_service", None)
+    if service is None:
+        raise HTTPException(status_code=503, detail="Account security is temporarily unavailable.")
+    return service
 
 
 def get_account_security_state(request: Request, user: dict = Depends(require_verified_user),
                                service: AccountSecurityService = Depends(get_account_security_service)) -> dict:
-    try:
-        state = dict(service.read(user["uid"]))
-    except PermissionError:
-        raise HTTPException(status_code=403, detail="Account verification required.") from None
-    except Exception:
-        raise HTTPException(status_code=503, detail="Account security is temporarily unavailable.") from None
+    cached = getattr(request.state, "auth_cached_security", None)
+    if cached is not None:
+        state = dict(cached.security)
+    else:
+        cache = getattr(request.app.state, "auth_session_cache", None)
+        if cache is not None:
+            request.state.auth_cache_revision = cache.invalidate_user(user["uid"])
+        try:
+            with timed_request_stage(request, "account_security"):
+                state = dict(service.read(user["uid"]))
+        except PermissionError:
+            raise HTTPException(status_code=403, detail="Account verification required.") from None
+        except Exception:
+            raise HTTPException(status_code=503, detail="Account security is temporarily unavailable.") from None
     claims = request.state.auth_claims
     request.state.account_role = "administrator" if state.get("feedback_summary_admin") is True else "caregiver"
-    # A previously issued role claim cannot outlive the current account permission.
+    # Privileged requests always refresh this permission from the provider.
     request.state.feedback_summary_admin = (
         request.state.feedback_summary_admin and state.get("feedback_summary_admin") is True
     )
-    state["mfa_required"] = (state["mfa_required"] or claims.get("mfa_required") is True
+    state["mfa_required"] = (state["mfa_required"] or settings.AUTH_REQUIRE_MFA or claims.get("mfa_required") is True
                              or claims.get("feedback_summary_admin") is True)
     return state
 
@@ -113,6 +177,14 @@ def require_authenticated_user(request: Request, user: dict = Depends(require_ve
             detail = ("MFA is required by security policy. Set up or complete authenticator sign-in."
                       if security["mfa_required"] else "Complete authenticator login first.")
             raise HTTPException(status_code=403, detail=detail)
+    cache = getattr(request.app.state, "auth_session_cache", None)
+    if (cache is not None and getattr(request.state, "auth_cache_reusable", False)
+            and getattr(request.state, "auth_cached_security", None) is None
+            and hasattr(request.state, "auth_cache_revision")):
+        # Only a fully authorized session can be reused; denied first-factor
+        # logins, administrators and security-setting reads never populate it.
+        cache.remember(request.state.auth_cache_key, request.state.auth_claims, security,
+                       started=request.state.auth_cache_started, revision=request.state.auth_cache_revision)
     return user
 
 

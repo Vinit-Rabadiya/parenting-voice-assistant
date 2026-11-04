@@ -1,0 +1,35 @@
+{
+  "source": "First captured signed-in request after batching change",
+  "observed_on": "2026-11-04",
+  "record": {
+    "request_id": "3bcfae8f4ec0",
+    "route": "/coach",
+    "status": 200,
+    "total_ms": 16247.6,
+    "stages_ms": {
+      "token_verification": 4338.2,
+      "account_security": 1340.1,
+      "consent": 2054.7,
+      "caregiver_safety": 1.6,
+      "profile_lookup": 469.4,
+      "conversation_context": 2006.2,
+      "input_safety": 1.2,
+      "usage_limit": 1979.6,
+      "conversation_start": 0.3,
+      "retrieval": 0.4,
+      "evidence_selection": 0.2,
+      "generation": 2267.5,
+      "response_safety": 6.2,
+      "interaction_save": 1932.5
+    }
+  },
+  "comparison_ms": {
+    "total_before": 11191.6,
+    "total_after": 16247.6,
+    "save_before": 2970.7,
+    "save_after": 1932.5,
+    "authentication_before": 805.6,
+    "authentication_after": 5678.3
+  },
+  "limitations": "Two individual requests, not a controlled total-latency benchmark. Backend worker restarted after the code change; first-authentication cold state versus network variability is unconfirmed."
+}

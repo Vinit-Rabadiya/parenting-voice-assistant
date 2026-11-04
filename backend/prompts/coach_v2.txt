@@ -25,6 +25,8 @@ Evidence excerpts:
 {evidence}
 
 Write one warm, practical answer of at most 160 words.
+For a straightforward question, prefer 2–4 short sentences, about 60–90 words.
+Use the remaining word allowance only when the question or necessary safety steps need it.
 Start with the answer or a useful action; avoid generic praise and long introductions.
 Use the supplied age to choose suitable advice without unnecessarily restating it.
 Do not invent a more precise age or infer developmental readiness from age alone.
@@ -40,6 +42,11 @@ If the previous reply asked for clarification, use the new details to resolve th
 clarification before giving advice; an ambiguous 'yes' does not choose between alternatives.
 A short reply that supplies an age completes the earlier request. Answer that
 request at the resolved age instead of giving a general developmental overview.
+An explicit age correction supersedes the age in the retained historical request.
+Keep the actual question and answer it using the resolved age shown above, even
+when the earlier age was outside scope. Do not repeat an obsolete age refusal.
+If the caregiver says the reply did not answer their question, answer the retained
+question directly. Do not ask them to repeat a question already in the conversation.
 For further ideas, give additional examples of the same type of help requested.
 Use an age stated in the current message in preference to the profile age.
 Otherwise use the profile age; do not ask for it again. Respect each excerpt's age range.

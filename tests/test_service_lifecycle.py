@@ -113,7 +113,7 @@ def application(monkeypatch):
 
 def assert_services_released(app):
     for name in ("coaching_service", "retrieval_service", "speech_service", "speech_limiter",
-                 "caregiver_data_service", "firebase"):
+                 "caregiver_data_service", "account_security_service", "auth_session_cache", "firebase"):
         assert not hasattr(app.state, name), name
 
 
@@ -188,13 +188,17 @@ async def test_cleanup_failure_is_redacted_and_does_not_skip_other_services(appl
 async def test_restarting_lifespan_creates_fresh_service_wrappers(application):
     async with lifespan(application.app):
         previous = application.app.state.coaching_service
+        previous_sessions = application.app.state.auth_session_cache
     async with lifespan(application.app):
         assert application.app.state.coaching_service is not previous
+        assert application.app.state.auth_session_cache is not previous_sessions
+        assert previous_sessions._closed
         with pytest.raises(RuntimeError, match="service is closed"):
             previous.client
     assert application.delete.call_count == 2
     application.gemini.assert_not_called()
     application.qdrant.assert_not_called()
+
 
 
 @pytest.mark.asyncio

@@ -2,6 +2,7 @@
 
 import json
 import time
+from threading import Lock
 
 from google.auth.transport.requests import AuthorizedSession
 
@@ -9,22 +10,56 @@ from backend.core.config import settings
 
 
 class AccountSecurityService:
-    def __init__(self, app):
+    def __init__(self, app, *, max_idle_sessions: int = 0):
         self.app = app
+        self._max_idle_sessions = max_idle_sessions
+        self._sessions = []
+        self._lock = Lock()
+        self._closed = False
+
+    def close(self) -> None:
+        with self._lock:
+            self._closed = True
+            sessions, self._sessions = self._sessions, []
+        for session in sessions:
+            session.close()
+
+    def _borrow_session(self):
+        # Each session is exclusively borrowed. requests.Session is never shared
+        # between simultaneous worker threads; account results are never cached.
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("Account security service is closed.")
+            if self._sessions:
+                return self._sessions.pop()
+            return AuthorizedSession(self.app.credential.get_credential())
+
+    def _return_session(self, session, reusable):
+        with self._lock:
+            if reusable and not self._closed and len(self._sessions) < self._max_idle_sessions:
+                self._sessions.append(session)
+                return
+        session.close()
 
     def _post(self, action: str, payload: dict) -> dict:
         # The Python Admin SDK does not expose TOTP enrollment management.
         # Use Google's authenticated administration API, never browser-supplied policy.
-        session = AuthorizedSession(self.app.credential.get_credential())
+        session = self._borrow_session()
+        reusable = False
+        response = None
         try:
             response = session.post(
                 f"https://identitytoolkit.googleapis.com/v1/projects/{self.app.project_id}/accounts:{action}",
                 json=payload, timeout=10,
             )
             response.raise_for_status()
-            return response.json()
+            value = response.json()
+            reusable = True
+            return value
         finally:
-            session.close()
+            if response is not None:
+                response.close()
+            self._return_session(session, reusable)
 
     def read(self, uid: str) -> dict:
         records = self._post("lookup", {"localId": [uid]}).get("users", [])

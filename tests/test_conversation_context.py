@@ -43,16 +43,19 @@ def test_keeps_recent_complete_pairs_in_chronological_order():
     messages = sum((pair(f"Question {index}") for index in range(5)), [])
     selected = select_conversation_context(messages)
     assert len(selected) == MAX_CONTEXT_MESSAGES
-    assert selected[0]["text"] == "Question 2"
+    assert selected[0]["text"] == "Question 1"
+    assert all(message["text"] != "Question 0" for message in selected)
     assert selected[-2]["text"] == "Question 4"
 
 
 def test_limits_text_without_cutting_a_message_in_half():
-    selected = select_conversation_context(pair("A" * 1600, "B" * 1500))
+    selected = select_conversation_context(pair("A" * 1000, "B" * (MAX_CONTEXT_CHARACTERS - 999)))
     assert selected == []
     selected = select_conversation_context(pair("A" * 1000, "B" * 1000) + pair("C" * 1000, "D" * 1000))
-    assert len(selected) == 2
+    assert len(selected) == 4
     assert sum(len(message["text"]) for message in selected) <= MAX_CONTEXT_CHARACTERS
+    older = pair("An older request", "An older answer")
+    assert select_conversation_context(older + pair("A" * 1000, "B" * 1000) + pair("C" * 1000, "D" * 1000)) == selected
 
 
 @pytest.mark.parametrize("status", ["no_evidence", "safety_blocked", "escalated", "crisis_support", "caregiver_support"])
@@ -101,6 +104,34 @@ def test_new_topic_is_not_expanded_and_follow_ups_can_find_an_earlier_topic():
 
 def test_follow_up_without_an_anchor_remains_unchanged():
     assert contextual_retrieval_query("What else can I try?", []) == "What else can I try?"
+
+
+@pytest.mark.parametrize("reply", ["sorry I meant she is 23 months", "23 months", "Actually, she is 23 months old"])
+def test_age_correction_resumes_the_question_after_an_age_scope_refusal(reply):
+    topic = "At what time should I feed a 3 year old some chillies?"
+    refused = pair(topic, "This service covers birth through 24 months.", status="no_evidence")
+    refused[-1].update(response_kind="age_out_of_scope", subject_age_override=36)
+    context = select_conversation_context(pair("How often should I change a diaper?") + refused)
+    assert len(context) == 2
+    assert caregiver_request(reply, context) == topic
+    assert contextual_age_months(reply, context) == 23
+    assert contextual_retrieval_query(reply, context) == f"{topic}\nFollow-up: {reply}"
+
+
+@pytest.mark.parametrize("complaint", ["you did not respond to the question", "You didn't answer my question.", "That is not what I asked", "You misunderstood me"])
+def test_repair_request_keeps_the_food_question_and_corrected_age(complaint):
+    topic = "At what time should I feed a 3 year old some chillies?"
+    messages = pair(topic, "This service covers birth through 24 months.", status="no_evidence")
+    messages[-1].update(response_kind="age_out_of_scope", subject_age_override=36)
+    messages += pair("sorry I meant she is 23 months", "Unrelated play advice.")
+    # Older stored turns may have incorrectly kept the short reply as their topic.
+    messages[-1].update(caregiver_request="sorry I meant she is 23 months", subject_age_override=23)
+    context = select_conversation_context(messages)
+    assert is_follow_up(complaint)
+    assert caregiver_request(complaint, context) == topic
+    assert contextual_age_months(complaint, context) == 23
+    assert "Unrelated play advice" not in contextual_retrieval_query(complaint, context)
+    assert caregiver_request("I am bathing my baby.", context) == "I am bathing my baby."
 
 
 @pytest.mark.parametrize("question", [

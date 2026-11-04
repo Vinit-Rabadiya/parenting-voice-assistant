@@ -47,6 +47,7 @@ const originalDialogMethods = Object.fromEntries(["showModal", "close"].map((nam
   [name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name)]));
 
 beforeEach(() => {
+  window.history.replaceState(null, "", "/");
   state.user = null;
   state.checkingAuth = false;
   state.signupResult = null;
@@ -54,6 +55,22 @@ beforeEach(() => {
   state.mfaHints = [];
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function () { this.open = true; } });
   Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function () { this.open = false; } });
+});
+
+it("preserves a bookmarked chat through sign-in and clears it on account changes", () => {
+  window.history.replaceState(null, "", "/chat/bookmarked");
+  const view = render(<App />);
+  expect(window.location.pathname).toBe("/chat/bookmarked");
+  state.user = { uid: "first", emailVerified: true };
+  view.rerender(<App />);
+  expect(window.location.pathname).toBe("/chat/bookmarked");
+  state.user = { uid: "second", emailVerified: true };
+  view.rerender(<App />);
+  expect(window.location.pathname).toBe("/");
+  window.history.replaceState(null, "", "/chat/second-chat");
+  state.user = null;
+  view.rerender(<App />);
+  expect(window.location.pathname).toBe("/");
 });
 afterEach(() => {
   cleanup();

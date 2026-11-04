@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import PrivacyConsent from "../../frontend/src/components/PrivacyConsent";
 import { acceptPrivacyConsent, getPrivacyConsent } from "../../frontend/src/services/caregiving";
@@ -13,6 +13,23 @@ beforeEach(() => {
   getPrivacyConsent.mockResolvedValue(notice);
 });
 afterEach(() => cleanup());
+
+it("uses the verified bootstrap notice once and invalidates it after a server challenge", async () => {
+  const renderWorkspace = vi.fn(workspace);
+  render(<PrivacyConsent initialNotice={{ ...notice, accepted: true }}>{renderWorkspace}</PrivacyConsent>);
+  expect(screen.getByText("Coaching workspace")).toBeTruthy();
+  expect(getPrivacyConsent).not.toHaveBeenCalled();
+  expect(renderWorkspace).toHaveBeenLastCalledWith(true, true);
+  act(() => window.dispatchEvent(new Event("privacy-consent-required")));
+  await screen.findByText("Information about processing.");
+  expect(screen.queryByText("Coaching workspace")).toBeNull();
+  expect(getPrivacyConsent).toHaveBeenCalledTimes(1);
+  acceptPrivacyConsent.mockResolvedValue({ ...notice, accepted: true });
+  screen.getAllByRole("checkbox").forEach(input => fireEvent.click(input));
+  fireEvent.click(screen.getByRole("button", { name: "Accept and continue" }));
+  await screen.findByText("Coaching workspace");
+  expect(renderWorkspace).toHaveBeenLastCalledWith(true, false);
+});
 
 it("requires both unchecked confirmations before recording consent", async () => {
   acceptPrivacyConsent.mockResolvedValue({ ...notice, accepted: true });

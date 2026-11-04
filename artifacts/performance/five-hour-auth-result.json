@@ -1,0 +1,12 @@
+{
+  "configured_local_reuse_seconds": 18000,
+  "default_reuse_seconds": 60,
+  "maximum_allowed_seconds": 18000,
+  "token_expiry_cap_preserved": true,
+  "new_token_requires_fresh_checks": true,
+  "sensitive_and_administrator_checks_remain_fresh": true,
+  "focused_tests_passed": 132,
+  "python_lint": "passed",
+  "new_latency_measurement": null,
+  "hosted_deployment_performed": false
+}

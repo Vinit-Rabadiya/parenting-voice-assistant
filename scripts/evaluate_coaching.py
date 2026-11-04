@@ -228,8 +228,12 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         search_text = keyword_search_text(query) if keyword_search else query
         record["search_query"] = search_text
         reference_status = "no_match"
+        # Retrieval experiments retain their vector query; ordinary answer capture
+        # follows the API's local-reference path without an unused cloud search.
+        local_references = (select_care_references(case["question"], profile["age_months"], context, [])
+                            if not retrieval_only and not keyword_search else [])
         try:
-            passages = retrieval.retrieve(
+            passages = [] if local_references else retrieval.retrieve(
                 search_text, profile["completed_months"], case["routine"], 3,
                 child_age_days=profile["age_days"],
             )
@@ -244,7 +248,7 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
         record["vector_evidence"] = [asdict(p) for p in evidence]
         if not retrieval_only:
-            evidence = select_care_references(case["question"], profile["age_months"], context, evidence)
+            evidence = local_references or select_care_references(case["question"], profile["age_months"], context, evidence)
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
         record["supplied_evidence"] = [asdict(p) for p in evidence]
         record["reference_status"] = "matched" if evidence and reference_status != "unavailable" else reference_status
@@ -355,7 +359,8 @@ def main():
         "question_set_sha256": digest, "code_revision": git_output("rev-parse", "HEAD"),
         "working_tree_status": git_output("status", "--porcelain", "--untracked-files=no"),
         "corpus_revision_asserted": args.corpus_revision, "collection": args.collection,
-        "primary_model": settings.GEMINI_MODEL, "fallback_model": settings.GEMINI_FALLBACK_MODEL,
+        "provider": settings.COACHING_PROVIDER,
+        "primary_model": settings.coaching_model, "fallback_model": settings.coaching_fallback_model,
         "retrieval_min_score": settings.RETRIEVAL_MIN_SCORE, "cases": [case["id"] for case, _ in selected],
         "retrieval_limit": 3,
         "follow_up_messages": args.follow_up,
@@ -366,7 +371,8 @@ def main():
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
     (output / "manifest.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    retrieval = RetrievalService(collection_name=args.collection, allow_candidate_content=args.allow_candidate_content)
+    retrieval = RetrievalService(collection_name=args.collection, allow_candidate_content=args.allow_candidate_content,
+                                 cache_ttl_seconds=0)
     coaching = CoachingService()
     last_started = None
     for case, profile in selected:

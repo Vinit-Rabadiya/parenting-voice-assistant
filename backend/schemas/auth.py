@@ -2,6 +2,8 @@
 # it is imported in backend/api/v1/endpoints/ for automatic response formatting and checks.
 from pydantic import BaseModel, Field
 from typing import Literal
+from backend.schemas.children import ChildProfileResponse
+from backend.schemas.privacy import ConsentResponse
 
 
 class HealthResponse(BaseModel):
@@ -16,3 +18,8 @@ class UserResponse(BaseModel):
 class AccountSecurityResponse(BaseModel):
     mfa_enabled: bool
     mfa_required: bool
+
+
+class StartupResponse(UserResponse):
+    consent: ConsentResponse | None = None
+    children: list[ChildProfileResponse] | None = None

@@ -1,7 +1,7 @@
 // choose the caregiver, administrator, authentication, or account screen.
 // it is imported in main.jsx and rendered into the root element of index.html.
 import "./App.css";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AuthProvider } from "./context/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
 import AccountPage from "./pages/AccountPage";
@@ -13,6 +13,7 @@ import useAccountAccess from "./hooks/useAccountAccess";
 import { stopGuidanceAudio } from "./hooks/useGuidanceAudio";
 import { saveChildSelection } from "./services/childSelection";
 import EmergencyContacts from "./components/EmergencyContacts";
+import { setConversationLocation } from "./services/conversationLocation";
 
 function MainContent() {
   const { user, checkingAuth, signupResult, setSignupResult } = useAuth();
@@ -22,6 +23,20 @@ function MainContent() {
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const accountAccess = useAccountAccess(user);
   const administrator = accountAccess.verified && accountAccess.role === "administrator";
+  const routeAccount = useRef(null);
+  useEffect(() => {
+    if (checkingAuth) return;
+    const next = user?.uid ?? null;
+    if ((routeAccount.current && routeAccount.current !== next) || administrator) {
+      setConversationLocation(null, { replace: true });
+    }
+    routeAccount.current = next;
+  }, [checkingAuth, user?.uid, administrator]);
+  useEffect(() => {
+    const returnToChat = () => { stopGuidanceAudio(); setScreen("home"); };
+    window.addEventListener("popstate", returnToChat);
+    return () => window.removeEventListener("popstate", returnToChat);
+  }, []);
 
   // wait for firebase to finish checking who is signed in.
   if (checkingAuth) {
@@ -98,7 +113,7 @@ function MainContent() {
           key={`account-${user.uid}`}
           email={user.email}
           accountAccess={accountAccess}
-          onDataDeleted={() => { saveChildSelection(user.uid, null); setDataRevision((value) => value + 1); }}
+          onDataDeleted={() => { setConversationLocation(null, { replace: true }); saveChildSelection(user.uid, null); setDataRevision((value) => value + 1); accountAccess.retry?.(); }}
           // pass email status only if it belongs to this user.
           verificationEmailRequested={
             signupResult?.user.uid === user.uid

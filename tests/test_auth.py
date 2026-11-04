@@ -9,7 +9,7 @@ from backend.services.account_security import AccountSecurityService
 from scripts.reset_account_mfa import main as reset_mfa
 
 
-@pytest.mark.parametrize("path", ["/me", "/api/v1/me"])
+@pytest.mark.parametrize("path", ["/me", "/api/v1/me", "/me/startup", "/api/v1/me/startup"])
 def test_me_without_token_returns_401(client, path):
     response = client.get(path)
     assert response.status_code == 401
@@ -19,6 +19,74 @@ def test_me_without_token_returns_401(client, path):
 def verified_claims(**extra):
     return {"uid": "caregiver", "email_verified": True, "auth_time": time.time(),
             "firebase": {"sign_in_provider": "google.com"}, **extra}
+
+
+@pytest.fixture
+def startup_data(client, monkeypatch):
+    from datetime import datetime, timezone
+    from backend.api.dependencies import get_caregiver_data_service
+    from backend.core.privacy import CONSENT_VERSION
+
+    data = Mock()
+    data.get_consent.return_value = {"consent_version": CONSENT_VERSION,
+        "consent_at": datetime.now(timezone.utc), "caregiver_authority": True}
+    data.list_children.return_value = []
+    monkeypatch.setitem(client.app.dependency_overrides, get_caregiver_data_service, lambda: data)
+    return data
+
+
+def test_startup_returns_owned_consent_and_profiles_after_one_revocation_check(client, startup_data):
+    with patch("backend.core.security.auth.verify_id_token", return_value=verified_claims()) as verify:
+        response = client.get("/me/startup", headers={"Authorization": "Bearer token"})
+    assert response.status_code == 200
+    assert response.json()["uid"] == "caregiver"
+    assert response.json()["consent"]["accepted"] is True
+    assert response.json()["children"] == []
+    assert response.headers["cache-control"] == "no-store"
+    startup_data.get_consent.assert_called_once_with("caregiver")
+    startup_data.list_children.assert_called_once_with("caregiver")
+    assert verify.call_count == 1 and verify.call_args.kwargs["check_revoked"] is True
+
+
+def test_startup_does_not_return_profiles_without_current_consent(client, startup_data):
+    startup_data.get_consent.return_value = {"consent_version": "old"}
+    startup_data.list_children.return_value = [{"name": "PRIVATE_CHILD"}]
+    with patch("backend.core.security.auth.verify_id_token", return_value=verified_claims()):
+        response = client.get("/me/startup", headers={"Authorization": "Bearer token"})
+    assert response.status_code == 200
+    assert response.json()["consent"]["accepted"] is False
+    assert "children" not in response.json()
+    assert "PRIVATE_CHILD" not in response.text
+
+
+def test_startup_keeps_mfa_enforcement_before_any_profile_read(client, startup_data):
+    security = client.app.dependency_overrides[get_account_security_service]()
+    security.read.return_value = {"mfa_enabled": True, "mfa_required": False}
+    with patch("backend.core.security.auth.verify_id_token", return_value=verified_claims()):
+        response = client.get("/me/startup", headers={"Authorization": "Bearer token"})
+    assert response.status_code == 403
+    startup_data.get_consent.assert_not_called()
+    startup_data.list_children.assert_not_called()
+
+
+def test_administrator_startup_never_reads_caregiver_data(client, startup_data):
+    security = client.app.dependency_overrides[get_account_security_service]()
+    security.read.return_value = {"mfa_enabled": True, "mfa_required": True, "feedback_summary_admin": True}
+    claims = verified_claims(feedback_summary_admin=True, firebase={"sign_in_second_factor": "totp"})
+    with patch("backend.core.security.auth.verify_id_token", return_value=claims):
+        response = client.get("/me/startup", headers={"Authorization": "Bearer token"})
+    assert response.status_code == 200
+    assert response.json() == {"uid": "caregiver", "role": "administrator"}
+    startup_data.get_consent.assert_not_called()
+    startup_data.list_children.assert_not_called()
+
+
+def test_startup_storage_error_does_not_return_partial_private_data(client, startup_data):
+    startup_data.get_consent.side_effect = RuntimeError("PRIVATE_STORAGE_DETAILS")
+    with patch("backend.core.security.auth.verify_id_token", return_value=verified_claims()):
+        response = client.get("/me/startup", headers={"Authorization": "Bearer token"})
+    assert response.status_code == 503
+    assert "PRIVATE_STORAGE_DETAILS" not in response.text
 
 
 @pytest.mark.parametrize("provider", ["google.com", "password"])

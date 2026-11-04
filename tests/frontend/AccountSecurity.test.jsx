@@ -15,7 +15,6 @@ vi.mock("../../frontend/src/services/auth", () => ({
 }));
 vi.mock("qrcode", () => ({ default: { toDataURL: vi.fn() } }));
 vi.mock("../../frontend/src/services/caregiving", () => ({ deleteMyData: vi.fn(), deleteAccount: vi.fn() }));
-vi.mock("../../frontend/src/components/AccountUsage", () => ({ default: () => <p>Caregiver usage</p> }));
 vi.mock("../../frontend/src/components/AccountConsent", () => ({ default: () => <p>Caregiver consent</p> }));
 
 beforeEach(() => {
@@ -30,6 +29,17 @@ beforeEach(() => {
   QRCode.toDataURL.mockResolvedValue("data:image/png;base64,test-only");
 });
 afterEach(cleanup);
+
+it("opens the settings page while security details load without offering MFA changes prematurely", async () => {
+  let finish;
+  getAccountSecurityStatus.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  render(<AccountPage email="account@example.test" accountAccess={{ verified: true, role: "caregiver" }} />);
+  expect(screen.getByRole("heading", { name: "Your account" })).toBeTruthy();
+  expect(screen.getByText("Loading security settings...")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Add backup authenticator" })).toBeNull();
+  finish({ emailVerified: true, totpEnrolled: true, mfaRequired: false, factorCount: 1 });
+  expect(await screen.findByRole("heading", { name: "MFA enabled" })).toBeTruthy();
+});
 
 it("keeps administrator account settings separate from caregiver tools", async () => {
   render(<AccountPage email="account@example.test" accountAccess={{ verified: true, role: "administrator" }} />);

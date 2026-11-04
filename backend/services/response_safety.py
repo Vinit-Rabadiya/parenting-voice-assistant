@@ -44,6 +44,7 @@ BLANKET_REASSURANCE = re.compile(
     r"\b(?:completely normal|perfectly normal|nothing to worry about)\b", re.I,
 )
 CHILD_VIOLENCE = re.compile(r"\b(?:shake|hit|slap)\s+(?:your|the)\s+(?:baby|child|infant)\b", re.I)
+UNDERCOOKED_EGG = re.compile(r"\b(?:raw|runny|soft[ -]boiled|lightly[ -]cooked)\s+(?:hen(?:s['\u2019])?\s+)?eggs?\b", re.I)
 
 
 def directly_negated(answer, match):
@@ -72,6 +73,11 @@ def inspect_response(answer: str, returned_passages: list[RetrievedPassage],
         reasons.append("medication_instruction")
     if any(not directly_negated(answer, m) for m in CHILD_VIOLENCE.finditer(answer)):
         reasons.append("harmful_child_instruction")
+    # Observed meal suggestion; this narrow rule is not comprehensive food-safety validation.
+    if any(not re.search(r"\b(?:avoid|never|do not|don['\u2019]t|not|rather than|instead of)(?:\s+\w+){0,3}\s*$",
+                         answer[max(0, m.start() - 45):m.start()], re.I)
+           for m in UNDERCOOKED_EGG.finditer(answer)):
+        reasons.append("undercooked_egg_suggestion")
     if DIAGNOSIS.search(answer):
         reasons.append("diagnostic_claim")
     # Deliberately narrow: this catches observed wording, not all unsafe reassurance.

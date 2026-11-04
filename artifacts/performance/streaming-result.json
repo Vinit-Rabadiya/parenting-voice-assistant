@@ -1,0 +1,19 @@
+{
+  "application_usage_limits": "removed",
+  "usage_counter_reads_or_writes": "none in coaching or child creation",
+  "usage_panel": "removed",
+  "provider_quotas": "provider controlled",
+  "streaming": "POST /coach with Accept: text/event-stream; JSON compatibility retained",
+  "visible_text_policy": "checked sentence prefixes; full-answer hold for care-specific conditions",
+  "save_confirmation": "done only after persistence; pending previews have no audio or feedback",
+  "provider_probe_first_checked_sentence_ms": 1330.7,
+  "provider_probe_total_generation_ms": 1543.5,
+  "full_app_first_answer_ms": null,
+  "full_app_latency_status": "not yet measured with corrected capture; earlier 341.2/541.1 ms observations are header-only",
+  "backend_tests_passed": 1437,
+  "ui_tests_passed": 280,
+  "audio_tests_passed": 7,
+  "linters": "passed",
+  "frontend_build": "passed",
+  "capture_armed": false
+}

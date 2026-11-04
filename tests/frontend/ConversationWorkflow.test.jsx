@@ -7,6 +7,8 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@t
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import GuidanceWorkspace from "../../frontend/src/components/GuidanceWorkspace";
 import usePlaybackPreference from "../../frontend/src/hooks/usePlaybackPreference";
+import useAccountAccess from "../../frontend/src/hooks/useAccountAccess";
+import { auth } from "../../frontend/src/services/firebase";
 
 vi.mock("../../frontend/src/services/firebase", () => ({
   auth: { currentUser: { uid: "workflow-account", getIdToken: async () => "workflow-token" } },
@@ -34,6 +36,7 @@ beforeAll(async () => {
 afterAll(() => server?.kill());
 
 beforeEach(async () => {
+  window.history.replaceState(null, "", "/");
   await nativeFetch(`${base}/__workflow/reset`, { method: "POST" });
   requests = [];
   localStorage.clear();
@@ -84,6 +87,45 @@ async function openWorkspace() {
   return screen.findByRole("textbox", { name: "Question" });
 }
 
+it("renders a real checked stream before generation finishes and enables feedback after saving", async () => {
+  const input = await openWorkspace();
+  fireEvent.change(input, { target: { value: "How can I encourage babbling?" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByText("Talk gently.");
+  expect(screen.getByRole("button", { name: "Stop waiting" }).disabled).toBe(false);
+  expect(screen.getByRole("button", { name: "Listen" }).disabled).toBe(true);
+  expect(screen.queryByRole("combobox", { name: "Helpfulness rating" })).toBeNull();
+  await nativeFetch(`${base}/__workflow/continue`, { method: "POST" });
+  await screen.findByText("Talk gently. Pause and listen.");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Listen" }).disabled).toBe(false));
+  expect(screen.getByRole("combobox", { name: "Helpfulness rating" })).toBeTruthy();
+  expect(requests.filter(request => request.path === "/api/coach")).toHaveLength(1);
+});
+
+it("removes a partial reply when streaming is cancelled", async () => {
+  const input = await openWorkspace();
+  fireEvent.change(input, { target: { value: "How can I encourage babbling?" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByText("Talk gently.");
+  fireEvent.click(screen.getByRole("button", { name: "Stop waiting" }));
+  await screen.findByText("Request cancelled.");
+  expect(screen.queryByText("Talk gently.")).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Helpfulness rating" })).toBeNull();
+  await nativeFetch(`${base}/__workflow/continue`, { method: "POST" });
+});
+
+it("opens chat from one verified startup request without reloading consent or profiles", async () => {
+  function StartupWorkspace() {
+    const access = useAccountAccess(auth.currentUser);
+    return access.verified ? <GuidanceWorkspace userId="workflow-account" startup={access.startup} /> : <p>Checking access</p>;
+  }
+  render(<StartupWorkspace />);
+  await screen.findByRole("textbox", { name: "Question" });
+  await waitFor(() => expect(screen.queryByText("Loading conversations…")).toBeNull());
+  expect(requests.filter(r => r.path === "/api/me/startup")).toHaveLength(1);
+  expect(requests.filter(r => ["/api/me", "/api/privacy/consent", "/api/children"].includes(r.path))).toHaveLength(0);
+});
+
 it("uses the saved account playback choice without disabling manual Listen", async () => {
   const preference = renderHook(() => usePlaybackPreference("workflow-account"));
   act(() => preference.result.current.setAutomatic(false));
@@ -119,6 +161,8 @@ it("records, edits, sends, plays, saves feedback, restores history and deletes t
   await screen.findByText("Talk gently while dressing.");
   const sent = requests.find((r) => r.path === "/api/coach");
   expect(JSON.parse(sent.body).question).toBe(edited);
+  expect(JSON.parse(sent.body).start_conversation).toBe(true);
+  expect(requests.filter((r) => r.path === "/api/conversations" && r.method === "POST")).toHaveLength(0);
   fireEvent.click(await screen.findByRole("button", { name: "Stop audio" }));
   fireEvent.click(screen.getByRole("button", { name: "Listen" }));
   await waitFor(() => expect(speechSynthesis.speak).toHaveBeenCalledTimes(2));
@@ -134,7 +178,9 @@ it("records, edits, sends, plays, saves feedback, restores history and deletes t
   await screen.findByText("Talk gently while dressing.");
   expect(screen.getByLabelText("Helpfulness rating").value).toBe("5");
   expect(screen.getByLabelText("Optional comment").value).toBe("Clear steps.");
-  fireEvent.click(screen.getByRole("button", { name: `More options for ${edited}` }));
+  const options = screen.getByRole("button", { name: `More options for ${edited}` });
+  await waitFor(() => expect(options.disabled).toBe(false));
+  fireEvent.click(options);
   fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: edited })).toBeNull());
   const response = await nativeFetch(`${base}/conversations?child_id=workflow-child`);
@@ -159,32 +205,31 @@ it("handles generation failure and cancellation without resending or losing a ne
 });
 
 it("keeps each child's conversations separate when switching profiles", async () => {
-  const request = globalThis.fetch;
-  let profileRequests = 0, releaseProfiles;
-  const profilesReady = new Promise((resolve) => { releaseProfiles = resolve; });
-  vi.stubGlobal("fetch", async (path, options) => {
-    const response = await request(path, options);
-    // The selector reloads profiles after the initial chat history has loaded.
-    if (path === "/api/children" && ++profileRequests === 2) await profilesReady;
-    return response;
-  });
   const first = "How can I talk while dressing?";
-  try {
-    const input = await openWorkspace();
-    fireEvent.change(input, { target: { value: first } });
-    fireEvent.keyDown(input, { key: "Enter" });
-    await screen.findByText("Talk gently while dressing.");
-    expect(screen.queryByRole("button", { name: /Workflow child/ })).toBeNull();
-  } finally {
-    releaseProfiles();
-  }
+  const input = await openWorkspace();
+  fireEvent.change(input, { target: { value: first } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByText("Talk gently while dressing.");
+  expect(requests.filter((request) => request.path === "/api/children")).toHaveLength(1);
+  fireEvent.change(input, { target: { value: "My next draft" } });
   fireEvent.click(await screen.findByRole("button", { name: /Workflow child/ }));
   fireEvent.click(await screen.findByRole("button", { name: /Other child/ }));
   await screen.findByRole("textbox", { name: "Question" });
   expect(screen.queryByRole("button", { name: first })).toBeNull();
-  expect(screen.queryByText("Talk gently while dressing.")).toBeNull();
+  expect(screen.getByText("Talk gently while dressing.").closest("[hidden]")).not.toBeNull();
   fireEvent.click(await screen.findByRole("button", { name: /Other child/ }));
   fireEvent.click(screen.getByRole("button", { name: /Workflow child/ }));
-  fireEvent.click(await screen.findByRole("button", { name: first }));
   await screen.findByText("Talk gently while dressing.");
+  expect(screen.getByRole("textbox", { name: "Question" }).value).toBe("My next draft");
+  expect(requests.filter((request) => request.path.startsWith("/api/conversations?")
+    && new URL(request.path, base).searchParams.get("child_id") === "workflow-child")).toHaveLength(1);
+});
+
+it("opens chat from verified startup data without repeating consent and profile requests", async () => {
+  const consent = await (await nativeFetch(`${base}/privacy/consent`)).json();
+  const children = await (await nativeFetch(`${base}/children`)).json();
+  render(<GuidanceWorkspace userId="workflow-account" startup={{ consent, children }} />);
+  await screen.findByRole("textbox", { name: "Question" });
+  expect(requests.filter((request) => ["/api/children", "/api/privacy/consent"].includes(request.path))).toHaveLength(0);
+  expect(await screen.findByRole("button", { name: /Workflow child/ })).toBeTruthy();
 });

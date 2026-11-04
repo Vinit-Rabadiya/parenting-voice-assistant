@@ -1,0 +1,46 @@
+{
+  "source": "Read-only live Firestore experiment with two nonexistent synthetic documents; no writes or personal record reads",
+  "observed_on": "2026-11-04",
+  "samples_per_mode": 5,
+  "order": "Alternating sequential/batch order; one warm-up batch excluded",
+  "scope": "Read boundary only; no transaction begin/commit, model generation or browser timing",
+  "reads_per_mode": {
+    "sequential_rpc_count": 2,
+    "batch_rpc_count": 1,
+    "documents": 2
+  },
+  "sequential": {
+    "mean_ms": 1418.989,
+    "median_ms": 1406.31,
+    "min_ms": 1396.851,
+    "max_ms": 1457.593
+  },
+  "batch": {
+    "mean_ms": 641.13,
+    "median_ms": 392.6,
+    "min_ms": 301.541,
+    "max_ms": 1108.955
+  },
+  "pairs": [
+    {
+      "sequential_ms": 1399.502,
+      "batch_ms": 302.288
+    },
+    {
+      "batch_ms": 1100.268,
+      "sequential_ms": 1406.31
+    },
+    {
+      "sequential_ms": 1434.688,
+      "batch_ms": 301.541
+    },
+    {
+      "batch_ms": 1108.955,
+      "sequential_ms": 1457.593
+    },
+    {
+      "sequential_ms": 1396.851,
+      "batch_ms": 392.6
+    }
+  ]
+}

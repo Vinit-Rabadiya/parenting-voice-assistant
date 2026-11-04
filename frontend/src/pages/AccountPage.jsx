@@ -13,8 +13,6 @@ import {
   totpSignInFactors,
   turnOffMfa,
 } from "../services/auth";
-import QRCode from "qrcode";
-import AccountUsage from "../components/AccountUsage";
 import AccountConsent from "../components/AccountConsent";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
 import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
@@ -180,7 +178,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     setBusy(true);
     setMessage("");
     try {
-      const status = await getAccountSecurityStatus();
+      const status = await getAccountSecurityStatus({ refresh: true });
       const isVerified = status.emailVerified;
 
       setEmailVerified(isVerified);
@@ -245,6 +243,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     let qrDataUrl = null;
     try {
       const setupUri = pending.secret.generateQrCodeUrl(email, "Parenting Voice Assistant");
+      const { default: QRCode } = await import("qrcode");
       qrDataUrl = await QRCode.toDataURL(setupUri, { width: 240, margin: 4 });
     } catch { /* Manual setup with the same secret remains available. */ }
     if (attempt !== setupAttempt.current) return;
@@ -324,16 +323,11 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
     }
   }
 
-  // wait for the first account check before showing setup buttons.
-  if (checkingStatus) {
-    return <p className="account-initial-loading" role="status">Loading account…</p>;
-  }
-
   return (
     <section className="account-page" aria-labelledby="account-page-title">
       <header className="account-page-heading">
         <p className="account-eyebrow">ACCOUNT SETTINGS</p>
-        <h1 id="account-page-title">{emailVerified ? "Your account" : "Verify your email"}</h1>
+        <h1 id="account-page-title">{emailVerified === false ? "Verify your email" : "Your account"}</h1>
         <p>Manage your sign-in security and saved information.</p>
       </header>
       <div className="account-identity-card">
@@ -349,9 +343,9 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
             <circle cx="12" cy="12" r="11" fill="currentColor" />
             <path d="m7 12 3 3 7-7" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>}
-          {enrollmentComplete === true ? "MFA enabled" : enrollmentComplete === false ? (mfaRequired ? "MFA required" : "MFA off") : "MFA status unavailable"}
+          {enrollmentComplete === true ? "MFA enabled" : enrollmentComplete === false ? (mfaRequired ? "MFA required" : "MFA off") : checkingStatus ? "MFA" : "MFA status unavailable"}
         </h2></div>
-      {emailVerified ? (
+      {checkingStatus ? <p role="status">Loading security settings...</p> : emailVerified === null ? null : emailVerified ? (
         <div className="account-security-content">
           {!accountAccess?.verified && <p className="email-verified">Email verified.</p>}
 
@@ -499,7 +493,6 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
         </label>
         {playbackMessage && <p role="status">{playbackMessage}</p>}
       </section>}
-      {accountAccess?.verified && !administrator && <AccountUsage revision={dataDeleted} />}
       {accountAccess?.verified && !administrator && <AccountConsent key={String(dataDeleted)} />}
       {accountAccess?.verified && <section className="account-card account-data" aria-labelledby="account-data-title">
         <div className="account-card-heading"><h2 id="account-data-title">Data and account</h2>

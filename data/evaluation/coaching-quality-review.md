@@ -1644,3 +1644,117 @@ not comprehensive triage or a substitute for qualified review.
 All health candidate content remains review-blocked. Sample approval, when
 obtained, must identify exact source sections and answer revisions; it cannot be
 inferred from a publisher's reputation, an automated test or this editorial audit.
+
+## Conversation repair and latency checks — 3 November 2026
+
+The sequence of an older-child food question, `sorry I meant she is 23 months`,
+and `you did not respond to the question` exposed lost topic context. Age refusals
+now retain the request for explicit corrections; answer-repair requests reuse it.
+Integration checks verify the resolved age, search topic, saved request and retained
+domain/medical boundaries. Startup combines access, consent and profile loading;
+the React-to-FastAPI check verifies that the workspace does not repeat those reads.
+
+Direct local Gemini service observations with non-personal test messages were
+3.354 seconds for a diaper question, 3.161 seconds for the age correction and
+1.368 seconds for answer repair on a reused client. A final corrected-age request
+with selected references and output checks took 3.633 seconds. These are individual
+development observations, not a controlled speed comparison, hosted end-to-end
+measurement or evidence that all replies complete within five seconds.
+
+The early unsourced spice response stayed on topic but invented an age-related
+digestive explanation. Source selection now includes First Steps Nutrition Trust's
+herbs-and-spices section, PDF page 54, linked in `common-care-guidance.json`.
+The response guard replaces the observed unsupported restriction with selected
+basic-care text. Source checking and this regression case do not establish clinical
+validation or comprehensive factual accuracy.
+
+Further latency inspection found that vector results were discarded whenever a
+selected local basic-care packet applied. One live query for a non-personal spice
+question took 2.107 seconds; the updated application skips that query for locally
+covered questions. Other questions still use retrieval, and explicit vector-only
+experiments retain it. Complete-request timing now includes authentication,
+consent, profile lookup and storage; the former displayed duration excluded
+authentication and profile lookup. This improves measurement completeness and
+does not establish a five-second end-to-end maximum.
+
+### Groq comparison and local provider selection
+
+On 3 November, non-personal examples used the same coaching prompt, source
+selection, conversation context and output checks with Groq. GPT-OSS 120B returned
+fast answers but invented quantities and frequency for the chilli question; it was
+not selected. Qwen 3.8 27B was selected for local testing, with reasoning disabled
+and a reused HTTP connection. Observations below measure the generation service
+and response checks, excluding authentication, database operations and browser travel.
+
+| Qwen example | Seconds | Output review |
+| --- | ---: | --- |
+| Corrected age, chilli question | 0.968 | Stayed on topic without invented schedule; no replacement |
+| Nappy-care question | 1.105 | Passed existing checks without replacement |
+| Complaint that the answer missed the question | 2.592 | Retained the original chilli question at 23 months; no replacement |
+| Newborn turn-taking | 1.444 | Supported gentle interaction with head/neck support; no replacement |
+| Saved allergy and care instructions, recheck | 2.114 | Avoided peanuts, used cooked food and gentle play; no replacement |
+| Diaper-changing question, reused client | 0.669 | Passed existing checks without replacement |
+
+An earlier allergy-tailoring sample respected the allergy but suggested soft-boiled
+egg without an applicable egg-assurance condition. The prompt now requires thorough
+cooking, and a narrow output rule catches the observed raw/runny/soft-boiled egg
+wording while permitting explicit warnings against it. This follows
+[WHO's Five Keys to Safer Food](https://www.who.int/docs/default-source/food-safety/five-keys-to-safer-food-poster/5keys-en.pdf).
+The [NHS egg exception](https://www.nhs.uk/baby/weaning-and-feeding/foods-to-avoid-giving-babies-and-young-children/)
+depends on specific UK assurance schemes and is not assumed for Kenya. The recheck
+above used well-cooked chicken. These checks do not establish clinical validation.
+
+Groq errors, blocked responses and incomplete answers remain errors or safety
+responses, not successful fast answers. There is no automatic cross-provider
+fallback. The provider has its own [free-plan limits](https://console.groq.com/docs/rate-limits),
+including token limits that can constrain long prompts or concurrent testers.
+The phase timeouts do not impose an end-to-end five-second deadline. These few
+development observations do not demonstrate a maximum, percentile or hosted
+capacity guarantee. A provider-specific notice requires new acceptance before
+chat processing; previous feedback-sharing permission remains unchanged.
+
+### Fresh-query checks
+
+Additional non-personal queries covered first-tooth cleaning at eight months
+(4.211 seconds), spoon throwing during meals at 20 months (1.232 seconds), and
+the connected follow-up, "She only does it when we eat outside. What could I change?"
+(4.597 seconds). These times include reference selection/search, generation and
+output checks, excluding authentication, profile loading, storage and browser travel.
+The follow-up retained the spoon-throwing situation and addressed the new setting.
+
+A dressing query exposed invented garment-handling directions despite passing the
+automated checks. Specific crying triggers now use contextual retrieval rather
+than replacing it with generic soothing references. The prompt avoids inventing
+garment movements when the design is unknown and prefers suitable openings or
+front fastenings, consistent with [AAP dressing guidance](https://www.healthychildren.org/English/ages-stages/baby/diapers-clothing/Pages/Dressing-Your-Newborn.aspx).
+A different query about a jumper upsetting a three-month-old returned front-fastening
+alternatives without the invented movements; generation and checks took 2.274 seconds
+in a separate generation-only call. An intermediate revision still produced ambiguous
+directions and is not counted as a successful quality result. This finding reinforces
+that automated checks alone do not establish answer quality or medical accuracy.
+
+### Navigation and complete-response path
+
+The first conversation message now uses one coaching request instead of waiting
+for a separate authenticated conversation-create request. Supplied UUIDs cannot
+overwrite existing conversations; child ownership is checked before creation and
+again when saving the turn. A cancelled or failed first request retains its ID;
+before another submission, the client checks whether that conversation exists.
+Urgent fixed responses still survive a persistence failure.
+
+The workspace no longer waits for sidebar history before accepting input. Up to
+three child workspaces retain their draft, thread and history in account-scoped
+memory. Child deletion removes that workspace, and account/consent changes discard
+the affected component state. Account settings render immediately while security
+details load; a display-only summary is reused for at most 60 seconds and cleared
+on explicit refresh, enrollment, unenrollment or logout. Actual protected API calls
+retain server-side revocation, ownership, consent and MFA checks.
+
+The former word-reveal animation delayed complete visibility by up to 1.4 seconds
+after a response arrived, and delayed automatic playback with it. Checked answers
+now appear in full immediately. Browser-to-API workflow checks cover the combined
+first request, voice transcript editing, feedback persistence, cancellation,
+deletion, profile isolation and draft restoration without a repeated history load.
+These checks establish behavior, not a live authenticated latency maximum. Timing
+headers and fixed-path diagnostics now also cover `/speech/transcribe` so complete
+speech-request time can be distinguished from the local CPU inference time.

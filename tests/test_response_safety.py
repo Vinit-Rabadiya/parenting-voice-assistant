@@ -34,6 +34,8 @@ def reference():
     ("It is completely normal for your child to refuse food.", "blanket_reassurance"),
     ("This is perfectly normal.", "blanket_reassurance"),
     ("There is nothing to worry about.", "blanket_reassurance"),
+    ("Try soft-boiled egg mixed with mashed avocado.", "undercooked_egg_suggestion"),
+    ("Offer runny eggs for breakfast.", "undercooked_egg_suggestion"),
 ])
 def test_known_prohibited_output_is_blocked(answer, reason):
     passage = reference()
@@ -54,6 +56,9 @@ def test_known_prohibited_output_is_blocked(answer, reason):
     "Never shake your baby.",
     "Shake a rattle for your baby.",
     "Food preferences can vary. I cannot assess your child's health here.",
+    "Avoid raw eggs. Cook eggs thoroughly before serving.",
+    "Do not serve soft-boiled eggs.",
+    "Offer fully cooked egg instead of runny eggs.",
 ])
 def test_benign_wording_and_direct_medication_refusals_are_not_blocked(answer):
     passage = reference()
@@ -255,6 +260,30 @@ def test_all_permitted_care_fallbacks_pass_the_existing_output_checks():
         assert not decision.blocked, (entry["id"], decision.reasons)
 
 
+def test_spice_question_uses_traceable_food_guidance_without_an_invented_age_ban():
+    question = "At what time should I feed a 23 month old some chillies?"
+    guidance = get_care_guidance(question, 23)
+    assert guidance.topic == "food_flavours"
+    assert guidance.references[0].pdf_page == 54
+    assert "gradually" in guidance.fallback
+    result = CoachingResult("Avoid all spices because her immature digestive system cannot handle them.", guidance.references)
+    reviewed, decision = review_coaching_result(result, guidance.references, 23, question)
+    assert decision.replaced_with_basic_care
+    assert reviewed.answer == guidance.fallback
+    assert get_care_guidance("My baby has chilli in her eyes.", 23) is None
+    assert get_care_guidance("Can I introduce spices?", 3) is None
+
+
+@pytest.mark.parametrize("answer", ["Offer a tiny pinch once a day.", "Offer it mid-morning or early afternoon before bedtime."])
+def test_spice_sources_do_not_establish_a_measured_quantity_or_feeding_schedule(answer):
+    question = "When can my 23-month-old try chilli?"
+    guidance = get_care_guidance(question, 23)
+    reviewed, decision = review_coaching_result(CoachingResult(answer, guidance.references), guidance.references, 23, question)
+    assert decision.replaced_with_basic_care
+    assert "unsupported_food_flavour_schedule" in decision.reasons
+    assert reviewed.answer == guidance.fallback
+
+
 def test_teething_with_diarrhoea_preserves_the_illness_boundary():
     question = "Does teething explain loose stools?"
     guidance = get_care_guidance(question, 12)
@@ -283,3 +312,15 @@ def test_solid_food_preferences_are_separate_from_young_infant_feeding_problems(
 def test_cold_care_preserves_professional_first_product_advice(answer):
     guidance = get_care_guidance("My baby has a cold.", 9)
     assert "individual_nasal_product_instruction" not in guidance.findings(answer)
+
+
+@pytest.mark.parametrize("question", [
+    "My baby cries whenever I fasten the car-seat straps.",
+    "My baby cries during clothing changes.",
+])
+def test_specific_crying_trigger_uses_retrieval_instead_of_generic_soothing_pack(question):
+    assert get_care_guidance(question, 5) is None
+
+
+def test_ordinary_crying_still_has_local_comfort_references():
+    assert get_care_guidance("My baby is crying. How can I comfort her?", 5).topic == "soothing"

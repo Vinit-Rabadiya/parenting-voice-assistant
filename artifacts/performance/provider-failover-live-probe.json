@@ -1,0 +1,32 @@
+{
+  "source": "Synthetic non-personal live backup probes; no account/database/profile content",
+  "configured_failover": true,
+  "consent_version": "2026-11-04.dual.1",
+  "notice_names_both_services": true,
+  "probes": [
+    {
+      "primary_quota": "simulated HTTP 429; no quota intentionally exhausted",
+      "primary": "groq",
+      "live_backup": "gemini",
+      "provider_chunks": 5,
+      "first_backup_delta_ms": 3432.3,
+      "completed": true,
+      "provider_blocked": false,
+      "output_guard_blocked": false,
+      "answer_characters": 454,
+      "total_ms": 3829.7
+    },
+    {
+      "primary_quota": "simulated HTTP 429; no quota intentionally exhausted",
+      "primary": "gemini",
+      "live_backup": "groq",
+      "provider_chunks": 114,
+      "first_backup_delta_ms": 1602.7,
+      "completed": true,
+      "provider_blocked": false,
+      "output_guard_blocked": false,
+      "answer_characters": 530,
+      "total_ms": 1843.1
+    }
+  ]
+}

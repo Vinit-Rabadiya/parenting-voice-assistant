@@ -1,0 +1,22 @@
+{
+  "request_id": "57466f3d21d4",
+  "route": "/coach",
+  "status": 200,
+  "total_ms": 4218.4,
+  "stages_ms": {
+    "token_verification": 1.5,
+    "coaching_documents": 980.6,
+    "consent": 0.0,
+    "caregiver_safety": 0.3,
+    "profile_lookup": 0.2,
+    "conversation_context": 509.7,
+    "input_safety": 0.5,
+    "usage_limit": 0.4,
+    "conversation_start": 0.1,
+    "retrieval": 0.1,
+    "evidence_selection": 0.1,
+    "generation": 940.0,
+    "response_safety": 2.6,
+    "interaction_save": 1772.8
+  }
+}

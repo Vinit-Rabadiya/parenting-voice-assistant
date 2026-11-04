@@ -1,7 +1,13 @@
 from dataclasses import dataclass, field as dataclass_field
+from collections import OrderedDict
+from copy import deepcopy
+import hmac
+import json
 import logging
 from math import isfinite
+from secrets import token_bytes
 from threading import Lock
+from time import monotonic
 from typing import Any
 
 from qdrant_client import QdrantClient
@@ -132,6 +138,8 @@ class RetrievalService:
         client: QdrantClient | None = None,
         *,
         allow_candidate_content: bool = False,
+        cache_ttl_seconds: float | None = None,
+        corpus_revision: str | None = None,
     ):
         self.url = (url or settings.QDRANT_URL or "").strip()
         self.api_key = (api_key or settings.QDRANT_API_KEY or "").strip()
@@ -141,6 +149,15 @@ class RetrievalService:
         if allow_candidate_content and self.collection_name == settings.QDRANT_COLLECTION:
             raise ValueError("Candidate content is restricted to a separate evaluation collection.")
         self.allow_candidate_content = allow_candidate_content
+        self.corpus_revision = settings.QDRANT_CORPUS_REVISION if corpus_revision is None else corpus_revision
+        self._cache_ttl = settings.RETRIEVAL_CACHE_TTL_SECONDS if cache_ttl_seconds is None else cache_ttl_seconds
+        if type(self._cache_ttl) not in (int, float) or not isfinite(self._cache_ttl) or not 0 <= self._cache_ttl <= 300:
+            raise ValueError("Retrieval cache TTL must be between 0 and 300 seconds.")
+        # Keys never retain the question, account identifiers or profile notes.
+        # A per-instance secret also prevents dictionary lookup of question hashes.
+        self._cache_secret = token_bytes(32)
+        self._cache: OrderedDict[str, tuple[float, list[RetrievedPassage]]] = OrderedDict()
+        self._cache_epoch = 0
         self._client = client
         self._owns_client = client is None
         self._client_lock = Lock()
@@ -170,9 +187,17 @@ class RetrievalService:
             if self._closed:
                 return
             self._closed = True
+            self._cache.clear()
+            self._cache_epoch += 1
             client, self._client = self._client, None
         if self._owns_client and client is not None:
             client.close()
+
+    def clear_cache(self) -> None:
+        """Invalidate reference results, including any query already in flight."""
+        with self._client_lock:
+            self._cache.clear()
+            self._cache_epoch += 1
 
     def retrieve(
         self,
@@ -197,6 +222,24 @@ class RetrievalService:
         elif type(candidate_limit) is not int or candidate_limit < limit or candidate_limit < 1:
             raise ValueError("candidate_limit must be a positive integer at least as large as limit.")
 
+        normalized_routine = routine.strip().lower() if routine else None
+        key = hmac.digest(self._cache_secret, json.dumps([
+            self.url, self.collection_name, self.corpus_revision, self.allow_candidate_content,
+            "sentence-transformers/all-minilm-l6-v2", query.strip(), child_age_months,
+            child_age_days, normalized_routine, limit, candidate_limit,
+        ], separators=(",", ":")).encode(), "sha256").hex()
+        with self._client_lock:
+            if self._closed:
+                raise RuntimeError("Retrieval service is closed.")
+            now = monotonic()
+            for expired in [item for item, (deadline, _) in self._cache.items() if deadline <= now]:
+                del self._cache[expired]
+            cached = self._cache.get(key) if self._cache_ttl else None
+            if cached is not None:
+                self._cache.move_to_end(key)
+                return deepcopy(cached[1])
+            epoch = self._cache_epoch
+
         try:
             results = self.client.query_points(
                 collection_name=self.collection_name,
@@ -212,7 +255,6 @@ class RetrievalService:
             raise
 
         filtered: list[RetrievedPassage] = []
-        normalized_routine = routine.strip().lower() if routine else None
 
         for point in results.points:
             payload = point.payload or {}
@@ -260,4 +302,13 @@ class RetrievalService:
             if len(filtered) >= limit:
                 break
 
+        # Cache only successful, nonempty, filtered public source passages.
+        # Never cache provider errors, model replies or caregiver/profile records.
+        if filtered and self._cache_ttl:
+            with self._client_lock:
+                if not self._closed and epoch == self._cache_epoch:
+                    self._cache[key] = monotonic() + self._cache_ttl, deepcopy(filtered)
+                    self._cache.move_to_end(key)
+                    while len(self._cache) > 128:
+                        self._cache.popitem(last=False)
         return filtered

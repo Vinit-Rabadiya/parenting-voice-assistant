@@ -21,6 +21,9 @@ import { getAccountSecurity, disableAccountMfa } from "./caregiving";
 
 // keep firebase calls here and let the pages choose screens and messages.
 const provider = new GoogleAuthProvider();
+// Display summaries only. API authorization and security mutations always check the server.
+const securitySummaries = new WeakMap();
+const SECURITY_SUMMARY_MS = 60000;
 
 function enrollmentError(code, message) {
   return Object.assign(new Error(message), { code });
@@ -87,6 +90,7 @@ export const resendVerificationEmail = async () => {
 
 export const logOut = async () => {
   // log out this browser; other devices and previously copied login tokens may still work.
+  if (auth.currentUser) securitySummaries.delete(auth.currentUser);
   await signOut(auth);
 };
 
@@ -183,9 +187,10 @@ export const confirmTotpEnrollment = async (pending, code) => {
   // firebase checks the code and adds the authenticator; scanning alone does not finish setup.
   if (auth.currentUser !== user) throw new Error("Account changed. Start authenticator setup again.");
   await multiFactor(user).enroll(assertion, pending.displayName || "Authenticator");
+  securitySummaries.delete(user);
 };
 
-export const getAccountSecurityStatus = async () => {
+export const getAccountSecurityStatus = async ({ refresh = false } = {}) => {
   // fetch saved account details so the page stays correct after a reload.
   const user = auth.currentUser;
 
@@ -193,26 +198,44 @@ export const getAccountSecurityStatus = async () => {
     throw new Error("Log in to check your account.");
   }
 
-  await reload(user);
-  if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
-  await user.getIdToken(true);
-  const policy = user.emailVerified ? await getAccountSecurity() : null;
-  if (policy && (typeof policy.mfa_required !== "boolean" || typeof policy.mfa_enabled !== "boolean")) {
-    throw new Error("Account security could not be confirmed. Please try again.");
+  const cached = securitySummaries.get(user);
+  if (!refresh && cached && cached.expires > Date.now()) {
+    const summary = await cached.promise;
+    if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+    return summary;
   }
-  if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
-  const token = await user.getIdTokenResult();
+  const pending = { expires: Date.now() + SECURITY_SUMMARY_MS };
+  const load = async () => {
+    // Refreshing email verification explicitly needs Firebase reload; merely opening
+    // settings uses the existing token and a live server policy read.
+    if (refresh) await reload(user);
+    if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+    if (refresh) await user.getIdToken(true);
+    const policy = user.emailVerified ? await getAccountSecurity() : null;
+    if (policy && (typeof policy.mfa_required !== "boolean" || typeof policy.mfa_enabled !== "boolean")) {
+      throw new Error("Account security could not be confirmed. Please try again.");
+    }
+    if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
+    const token = await user.getIdTokenResult();
+    if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
 
-  return {
-    emailVerified: user.emailVerified,
-    mfaRequired: policy?.mfa_required ?? false,
-    factorCount: multiFactor(user).enrolledFactors.length,
-    usesGoogle: token.claims.firebase?.sign_in_provider === "google.com",
-    // an authenticator being set up does not prove its code was used for this login.
-    totpEnrolled: multiFactor(user).enrolledFactors.some(
-      (factor) => factor.factorId === TotpMultiFactorGenerator.FACTOR_ID,
-    ),
+    return {
+      emailVerified: user.emailVerified,
+      mfaRequired: policy?.mfa_required ?? false,
+      factorCount: multiFactor(user).enrolledFactors.length,
+      usesGoogle: token.claims.firebase?.sign_in_provider === "google.com",
+      // An enrolled authenticator does not prove its code was used for this login.
+      totpEnrolled: policy?.mfa_enabled ?? multiFactor(user).enrolledFactors.some(
+        (factor) => factor.factorId === TotpMultiFactorGenerator.FACTOR_ID,
+      ),
+    };
   };
+  pending.promise = load().catch((cause) => {
+    if (securitySummaries.get(user) === pending) securitySummaries.delete(user);
+    throw cause;
+  });
+  securitySummaries.set(user, pending);
+  return pending.promise;
 };
 
 export const totpSignInFactors = (resolver) => resolver.hints.filter(
@@ -247,4 +270,5 @@ export const turnOffMfa = async (expectedUid = auth.currentUser?.uid) => {
   await user.getIdToken(true);
   if (auth.currentUser !== user) throw new Error("Account changed. Please try again.");
   await disableAccountMfa();
+  securitySummaries.delete(user);
 };

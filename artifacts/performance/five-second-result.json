@@ -1,0 +1,25 @@
+{
+  "target_server_ms": 5000,
+  "previous_repeat_ms": 12022.3,
+  "first_ms": 8485.6,
+  "warm_ms": 4218.4,
+  "warm_observed_reduction_percent": 64.9,
+  "warm_target_met_in_observed_sample": true,
+  "all_requests_under_target": false,
+  "environment": "localhost, single development worker",
+  "usage_backend": "memory",
+  "auth_remote_check_reuse_seconds": 60,
+  "production_usage_backend": "firestore",
+  "backend_tests_passed": 1447,
+  "ui_api_workflow_tests_passed": 6,
+  "limits": [
+    "Two observations only; no percentile or overall guarantee",
+    "Memory quotas reset on restart and are local to one worker",
+    "Fresh authentication and new conversations can exceed five seconds",
+    "Browser end-to-end time was not captured"
+  ],
+  "captures": [
+    "artifacts/performance/five-second-live-first.json",
+    "artifacts/performance/five-second-live-warm.json"
+  ]
+}

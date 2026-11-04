@@ -13,6 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # set test environment variables so tests can run on their own.
 os.environ.setdefault("FIREBASE_PROJECT_ID", "test-project")
+os.environ.setdefault("COACHING_PROVIDER", "gemini")
+os.environ.setdefault("COACHING_PROVIDER_FAILOVER", "false")
 os.environ.setdefault("FIREBASE_ADMIN_KEY_PATH", ".secrets/firebase-admin.json")
 
 
@@ -49,8 +51,7 @@ def client(mock_firebase_app):
     """Provides a FastAPI TestClient fixture configured with mocked application lifespan."""
     from backend.main import app
     from backend.api.consent import require_processing_consent
-    from backend.api.dependencies import get_usage_control_service
-    from backend.services.usage import UsageDecision
+    from backend.api.coaching_context import prepare_coaching_documents
     from backend.core.security import get_account_security_service
     from backend.core.config import settings
 
@@ -58,11 +59,9 @@ def client(mock_firebase_app):
     # explicitly remove this override to exercise the actual access policy.
     overrides = app.dependency_overrides.copy()
     app.dependency_overrides[require_processing_consent] = lambda: None
-    # Feature tests have available quota; dedicated usage tests replace this
-    # service with controlled counters and exercise the real enforcement helper.
-    usage = MagicMock()
-    usage.consume.return_value = UsageDecision(True)
-    app.dependency_overrides[get_usage_control_service] = lambda: usage
+    # Legacy feature fixtures control the separate reads. Batched-read tests
+    # remove this override and exercise the real combined storage boundary.
+    app.dependency_overrides[prepare_coaching_documents] = lambda: None
     security = MagicMock()
     security.read.return_value = {"mfa_enabled": False, "mfa_required": False}
     app.dependency_overrides[get_account_security_service] = lambda: security

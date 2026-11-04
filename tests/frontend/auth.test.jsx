@@ -3,7 +3,7 @@ import { signInWithGoogle, completeTotpSignIn, getAccountSecurityStatus, reauthe
   beginTotpEnrollment, confirmTotpEnrollment } from "../../frontend/src/services/auth";
 import { auth } from "../../frontend/src/services/firebase";
 import { getAccountSecurity, disableAccountMfa } from "../../frontend/src/services/caregiving";
-import { signInWithPopup, multiFactor, TotpMultiFactorGenerator, reauthenticateWithPopup } from "firebase/auth";
+import { signInWithPopup, multiFactor, TotpMultiFactorGenerator, reauthenticateWithPopup, reload } from "firebase/auth";
 
 vi.mock("../../frontend/src/services/firebase", () => ({ auth: { currentUser: null } }));
 vi.mock("../../frontend/src/services/caregiving", () => ({ getAccountSecurity: vi.fn(), disableAccountMfa: vi.fn() }));
@@ -81,4 +81,36 @@ it("returns a specific error when two authenticators are already enrolled", asyn
 it("does not treat an unreadable mandatory-MFA policy as optional", async () => {
   getAccountSecurity.mockResolvedValue({});
   await expect(getAccountSecurityStatus()).rejects.toThrow("Account security could not be confirmed");
+});
+
+it("reuses only the current user's short-lived display summary without forcing token refresh", async () => {
+  const [first, second] = await Promise.all([getAccountSecurityStatus(), getAccountSecurityStatus()]);
+  expect(first).toEqual(second);
+  expect(getAccountSecurity).toHaveBeenCalledTimes(1);
+  expect(reload).not.toHaveBeenCalled();
+  expect(auth.currentUser.getIdToken).not.toHaveBeenCalledWith(true);
+  auth.currentUser = { ...auth.currentUser, uid: "another" };
+  await getAccountSecurityStatus();
+  expect(getAccountSecurity).toHaveBeenCalledTimes(2);
+});
+
+it("explicit refresh reloads verification and policy even with a cached display summary", async () => {
+  await getAccountSecurityStatus();
+  getAccountSecurity.mockResolvedValue({ mfa_required: true, mfa_enabled: true });
+  const status = await getAccountSecurityStatus({ refresh: true });
+  expect(status).toMatchObject({ mfaRequired: true, totpEnrolled: true });
+  expect(reload).toHaveBeenCalledOnce();
+  expect(auth.currentUser.getIdToken).toHaveBeenCalledWith(true);
+  expect(getAccountSecurity).toHaveBeenCalledTimes(2);
+});
+
+it("expires display summaries instead of caching security policy indefinitely", async () => {
+  const now = vi.spyOn(Date, "now").mockReturnValue(1000);
+  try {
+    await getAccountSecurityStatus();
+    now.mockReturnValue(62000);
+    getAccountSecurity.mockResolvedValue({ mfa_required: true, mfa_enabled: true });
+    expect((await getAccountSecurityStatus()).mfaRequired).toBe(true);
+    expect(getAccountSecurity).toHaveBeenCalledTimes(2);
+  } finally { now.mockRestore(); }
 });

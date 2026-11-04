@@ -1,0 +1,151 @@
+
+> parenting-voice-assistant@0.2.0 check
+> node scripts/check.mjs
+
+
+--- Python lint ---
+All checks passed!
+
+--- Python tests ---
+============================= test session starts =============================
+platform win32 -- Python 3.13.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: D:\Projects\parenting-voice-assistant
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.15.1, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 1333 items
+
+tests\test_account_security_pool.py ......                               [  0%]
+tests\test_age_filter.py ....................                            [  1%]
+tests\test_audio_validation.py ..........                                [  2%]
+tests\test_auth.py ..........................                            [  4%]
+tests\test_care_response.py ..........................................   [  7%]
+tests\test_caregiver_data.py ....................                        [  9%]
+tests\test_coaching_evaluation.py ...................................    [ 11%]
+tests\test_coaching_service.py ......................................... [ 15%]
+............                                                             [ 15%]
+tests\test_conversation_context.py ..................................... [ 18%]
+............................                                             [ 20%]
+tests\test_conversations.py ............................................ [ 24%]
+.................................                                        [ 26%]
+tests\test_corpus_requirement.py ....                                    [ 26%]
+tests\test_coverage_review.py ...............                            [ 27%]
+tests\test_crisis_safety.py ...............................              [ 30%]
+tests\test_deployment_security.py ....................                   [ 31%]
+tests\test_everyday_care_pack.py ......                                  [ 32%]
+tests\test_evidence_gate.py ............................................ [ 35%]
+..............................................                           [ 39%]
+tests\test_feedback_ratings.py ................                          [ 40%]
+tests\test_feedback_summary.py ......................................... [ 43%]
+....................                                                     [ 44%]
+tests\test_frontend_hosting.py .................                         [ 46%]
+tests\test_groq_client.py ........................                       [ 47%]
+tests\test_health.py ..                                                  [ 48%]
+tests\test_health_reference_pack.py ........                             [ 48%]
+tests\test_http_security.py ...............                              [ 49%]
+tests\test_index_variants.py .....                                       [ 50%]
+tests\test_input_safety.py ............................................. [ 53%]
+........................................................................ [ 58%]
+....................                                                     [ 60%]
+tests\test_practical_care_pack.py ...........................            [ 62%]
+tests\test_privacy_consent.py .......................................... [ 65%]
+..                                                                       [ 65%]
+tests\test_rag_data.py ................................................. [ 69%]
+.................                                                        [ 70%]
+tests\test_reference_expansion.py ............                           [ 71%]
+tests\test_release_corpus.py .........................                   [ 73%]
+tests\test_rerank_retrieval.py .............                             [ 74%]
+tests\test_response_safety.py .......................................... [ 77%]
+....................................................                     [ 81%]
+tests\test_retrieval.py ................................................ [ 85%]
+...............                                                          [ 86%]
+tests\test_retrieval_cases.py ........                                   [ 86%]
+tests\test_retrieval_corpus.py ............                              [ 87%]
+tests\test_retrieval_evaluation.py ..................................... [ 90%]
+.                                                                        [ 90%]
+tests\test_safety_evaluation.py ......                                   [ 90%]
+tests\test_service_lifecycle.py ..........................               [ 92%]
+tests\test_speech_endpoint.py ......................                     [ 94%]
+tests\test_speech_service.py ............                                [ 95%]
+tests\test_usage_controls.py ...................                         [ 96%]
+tests\test_vaccination.py .........................................      [100%]
+
+============================== warnings summary ===============================
+venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\Projects\parenting-voice-assistant\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+venv\Lib\site-packages\starlette\testclient.py:53
+  D:\Projects\parenting-voice-assistant\venv\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+====================== 1333 passed, 2 warnings in 24.11s ======================
+
+--- Frontend lint ---
+
+> frontend@0.2.0 lint
+> eslint .
+
+
+--- Frontend tests ---
+
+> frontend@0.2.0 test
+> npm run test:audio && npm run test:ui
+
+
+> frontend@0.2.0 test:audio
+> node --test ../tests/frontend/audio.test.mjs
+
+✔ merges audio batches in order (2.7981ms)
+✔ encodes a one-second mono pcm wav with correct header sizes (7.8855ms)
+✔ converts float samples to pcm16 without modifying the recording (1.0261ms)
+✔ rejects missing, empty, and incorrectly typed samples (1.287ms)
+✔ rejects nonfinite sample values (0.4112ms)
+✔ accepts exactly 30 seconds and rejects one extra sample (34.8286ms)
+✔ encodes merged audio batches in their original order (0.5154ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 216.6131
+
+> frontend@0.2.0 test:ui
+> vitest run --config vitest.config.js
+
+
+ RUN  v5.0.3 D:/Projects/parenting-voice-assistant
+
+
+ Test Files  21 passed (21)
+      Tests  254 passed (254)
+   Start at  19:29:30
+   Duration  111.05s (environment 58%, tests 30%, import 11%, transform 2%)
+
+Environment  jsdom was created 21 times · 60.70s total, 58% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+
+--- Frontend build ---
+
+> frontend@0.2.0 build
+> vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 102 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                    0.41 kB │ gzip:   0.27 kB
+dist/assets/index-ByD5AyXB.css    37.67 kB │ gzip:   7.41 kB
+dist/assets/browser-CD6XF--v.js   23.45 kB │ gzip:   8.85 kB
+dist/assets/index-DFQR-lVK.js    442.75 kB │ gzip: 132.70 kB
+
+✓ built in 521ms
+
+All configured checks passed.

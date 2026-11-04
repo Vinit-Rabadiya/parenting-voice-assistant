@@ -6,6 +6,50 @@ from backend.services.input_safety import inspect_input
 from scripts.evaluate_safety import load_cases
 
 
+FEEDING_PRECAUTIONS_QUESTION = (
+    "My baby is 6 months old and currently has breast milk and some infant formula. "
+    "We want to understand how to start complementary feeding, but different relatives give "
+    "conflicting advice about readiness, textures, feeding frequency and introducing several "
+    "foods together. My baby holds their head steady when supported, but I am unsure whether "
+    "their sitting and swallowing skills are ready. We have a small food budget, limited "
+    "refrigerator space and two caregivers who need to follow the same approach. Explain what "
+    "we should establish before starting, how to organise a simple feeding routine if the baby "
+    "is ready, and how to adapt it if the baby turns away or becomes tired. Distinguish age from "
+    "demonstrated readiness, explain how milk feeds fit into the routine, and include practical "
+    "food preparation and choking precautions. Avoid assuming abilities I have not described. "
+    "Keep the answer around 200 words."
+)
+
+
+@pytest.mark.parametrize("question", [
+    FEEDING_PRECAUTIONS_QUESTION,
+    "Include practical food preparation and choking precautions for my baby.",
+    "Which choking hazards should I remove before my child starts playing?",
+    "Explain choking prevention when feeding my baby.",
+    "What choking risks should I know about when my baby starts solids?",
+    "Explain choking safety tips for my baby.",
+])
+def test_choking_prevention_topics_are_not_active_incident_reports(question):
+    assert not inspect_input(question, 6).escalate
+
+
+@pytest.mark.parametrize("question", [
+    "My baby is choking on food. What should I do?",
+    "My baby chokes during feeds.",
+    "My child choked on a toy.",
+    "Explain choking precautions, but my baby is choking right now.",
+    "My baby is choking. Explain choking prevention too.",
+    "My baby cannot breathe. Include choking precautions.",
+    "My baby is choking prevention please.",
+    "My baby was choking precautions please.",
+    "My baby started choking safety tips please.",
+    "My baby is still choking risks please.",
+    "My baby needs choking first aid.",
+])
+def test_prevention_topics_never_hide_an_actual_or_ambiguous_choking_report(question):
+    assert inspect_input(question, 6).escalate
+
+
 @pytest.mark.parametrize("case", load_cases(), ids=lambda case: case["id"])
 def test_shared_safety_case(case):
     decision = inspect_input(case["question"], case["completed_months"])

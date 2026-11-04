@@ -1,0 +1,89 @@
+{
+  "environment": {
+    "python": "3.13.7",
+    "platform": "Windows",
+    "injected_io_delay_ms": 5.0,
+    "network": "in-process TestClient; no live services",
+    "percentiles": "P50 median; P95/P99 lower empirical order statistic"
+  },
+  "scenarios": {
+    "startup_legacy": {
+      "samples": 100,
+      "mean_ms": 72.379,
+      "p50_ms": 71.49,
+      "p95_ms": 79.324,
+      "p99_ms": 89.507,
+      "calls_per_sample": {
+        "account_security": 3.0,
+        "consent": 1.0,
+        "http_requests": 3.0,
+        "profiles": 1.0,
+        "token_revocation": 3.0
+      }
+    },
+    "startup_combined": {
+      "samples": 100,
+      "mean_ms": 25.4,
+      "p50_ms": 24.834,
+      "p95_ms": 28.372,
+      "p99_ms": 38.208,
+      "calls_per_sample": {
+        "account_security": 1.0,
+        "consent": 1.0,
+        "http_requests": 1.0,
+        "profiles": 1.0,
+        "token_revocation": 1.0
+      }
+    },
+    "first_turn_legacy": {
+      "samples": 100,
+      "mean_ms": 106.227,
+      "p50_ms": 104.714,
+      "p95_ms": 115.2,
+      "p99_ms": 130.244,
+      "calls_per_sample": {
+        "account_security": 2.0,
+        "consent": 2.0,
+        "conversation_create": 1.0,
+        "conversation_messages": 1.0,
+        "conversation_parent": 1.0,
+        "generation": 1.0,
+        "http_requests": 2.0,
+        "profiles": 2.0,
+        "quota": 1.0,
+        "token_revocation": 2.0,
+        "transaction_save": 1.0
+      }
+    },
+    "first_turn_combined": {
+      "samples": 100,
+      "mean_ms": 68.589,
+      "p50_ms": 67.209,
+      "p95_ms": 72.741,
+      "p99_ms": 91.725,
+      "calls_per_sample": {
+        "account_security": 1.0,
+        "consent": 1.0,
+        "conversation_create": 1.0,
+        "generation": 1.0,
+        "http_requests": 1.0,
+        "profiles": 2.0,
+        "quota": 1.0,
+        "token_revocation": 1.0,
+        "transaction_save": 1.0
+      }
+    }
+  },
+  "built_assets": [
+    {
+      "name": "index-ByD5AyXB.css",
+      "bytes": 37675,
+      "gzip_bytes": 7336
+    },
+    {
+      "name": "index-DKJvOjDf.js",
+      "bytes": 463059,
+      "gzip_bytes": 138892
+    }
+  ]
+}
