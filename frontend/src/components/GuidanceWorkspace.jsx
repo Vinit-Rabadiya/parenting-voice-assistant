@@ -252,6 +252,24 @@ function Workspace({ processingAllowed, isActive, userId, initialChildren }) {
   }, [activateChild, navigate]);
 
   useEffect(() => {
+    function updateProfiles(event) {
+      if (event.detail?.userId !== userId) return;
+      const items = event.detail.children;
+      rememberProfiles(items);
+      const current = selectedChild.current;
+      if (!current) return;
+      const updated = items.find(item => item.id === current.id);
+      if (updated) activateChild(updated);
+      else {
+        navigate(null, null, { replace: true });
+        activateChild(items[0] || null);
+      }
+    }
+    window.addEventListener("child-profiles-updated", updateProfiles);
+    return () => window.removeEventListener("child-profiles-updated", updateProfiles);
+  }, [userId, rememberProfiles, activateChild, navigate]);
+
+  useEffect(() => {
     async function restoreLocation() {
       routeRequest.current?.abort();
       routeRequest.current = null;

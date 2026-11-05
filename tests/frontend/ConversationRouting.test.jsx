@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import GuidanceWorkspace from "../../frontend/src/components/GuidanceWorkspace";
+import { publishChildProfiles } from "../../frontend/src/services/childSelection";
 import { getConversation, listConversations, requestCoaching } from "../../frontend/src/services/caregiving";
 
 vi.mock("../../frontend/src/services/caregiving", () => ({
@@ -24,6 +25,22 @@ const show = () => render(<GuidanceWorkspace userId="account" startup={{ childre
 const visit = path => act(() => {
   window.history.pushState(null, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
+});
+
+it("applies saved account profile edits without losing the chat draft or reloading history", async () => {
+  window.history.replaceState(null, "", "/chat/saved-chat");
+  show();
+  await screen.findByText("Saved message saved-chat");
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Unsent question" } });
+  act(() => publishChildProfiles("different-account", [{ ...children[1], name: "Wrong account" }]));
+  expect(screen.queryByRole("heading", { name: "Wrong account" })).toBeNull();
+  act(() => publishChildProfiles("account", [children[0], { ...children[1], name: "Updated name" }]));
+  await screen.findByRole("heading", { name: "Updated name" });
+  expect(screen.getByLabelText("Question").value).toBe("Unsent question");
+  expect(screen.getByText("Saved message saved-chat")).toBeTruthy();
+  expect(window.location.pathname).toBe("/chat/saved-chat");
+  expect(getConversation).toHaveBeenCalledTimes(1);
+  expect(listConversations).toHaveBeenCalledTimes(1);
 });
 beforeEach(() => {
   vi.resetAllMocks();
