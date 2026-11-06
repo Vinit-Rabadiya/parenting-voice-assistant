@@ -14,6 +14,7 @@ import {
   turnOffMfa,
 } from "../services/auth";
 import AccountConsent from "../components/AccountConsent";
+import ChildProfiles from "../components/ChildProfiles";
 import { deleteAccount, deleteMyData } from "../services/caregiving";
 import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
 import usePlaybackPreference, { clearPlaybackPreference } from "../hooks/usePlaybackPreference";
@@ -57,6 +58,7 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
   const { logout, user } = useAuth();
   const { automatic, setAutomatic } = usePlaybackPreference(user?.uid);
   const [playbackMessage, setPlaybackMessage] = useState("");
+  const [selectedChild, setSelectedChild] = useState(null);
   // remember this screen's progress, messages, and account setup details.
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -494,6 +496,12 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
         {playbackMessage && <p role="status">{playbackMessage}</p>}
       </section>}
       {accountAccess?.verified && !administrator && <AccountConsent key={String(dataDeleted)} />}
+      {accountAccess?.verified && !administrator && !dataDeleted && <section className="account-card" aria-labelledby="account-children-title">
+        <div className="account-card-heading"><h2 id="account-children-title">Child profiles</h2>
+          <p>Manage your child's details, milestones and care notes.</p></div>
+        <ChildProfiles userId={user?.uid} selectedChild={selectedChild} onSelect={setSelectedChild}
+          lazy triggerLabel="Edit child profiles" persistSelection={false} guidanceBusy={busy} />
+      </section>}
       {accountAccess?.verified && <section className="account-card account-data" aria-labelledby="account-data-title">
         <div className="account-card-heading"><h2 id="account-data-title">Data and account</h2>
           <p>These actions permanently remove information and cannot be undone.</p></div>

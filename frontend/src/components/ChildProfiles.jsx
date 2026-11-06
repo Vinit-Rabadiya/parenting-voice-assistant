@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { createChild, listChildren, updateChild, deleteChild } from "../services/caregiving";
 import "./ChildProfiles.css";
 import ChatLoading from "./ChatLoading";
-import { readChildSelection, saveChildSelection } from "../services/childSelection";
+import { publishChildProfiles, readChildSelection, saveChildSelection } from "../services/childSelection";
 
 const HEALTH_FIELDS = [
   ["allergies", "Known allergies"], ["conditions", "Diagnosed conditions"],
@@ -11,7 +11,9 @@ const HEALTH_FIELDS = [
   ["test_result_notes", "Test-result notes"],
 ];
 
-export default function ChildProfiles({ selectedChild, onSelect, userId, guidanceBusy = false, allowChanges = true, isActive = true, initialChildren, onProfilesChange }) {
+export default function ChildProfiles({ selectedChild, onSelect, userId, guidanceBusy = false, allowChanges = true, isActive = true, initialChildren, onProfilesChange,
+  lazy = false, triggerLabel, persistSelection = true }) {
+  const [loadRequested, setLoadRequested] = useState(!lazy);
   const [children, setChildren] = useState([]);
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -20,7 +22,7 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
   const [useHealthDetails, setUseHealthDetails] = useState(false);
   const [mode, setMode] = useState(null);
   const [pickerPosition, setPickerPosition] = useState(null);
-  const [busy, setBusy] = useState(true);
+  const [busy, setBusy] = useState(!lazy);
   const [error, setError] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
   const triggerRef = useRef(null);
@@ -33,11 +35,12 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
   const pickerOpen = pickerPosition !== null;
   const healthContextAvailable = selectedChild?.health_context_available === true;
   const selectChild = useCallback((child) => {
-    saveChildSelection(userId, child?.id);
+    if (persistSelection) saveChildSelection(userId, child?.id);
     onSelect(child);
-  }, [userId, onSelect]);
+  }, [userId, onSelect, persistSelection]);
 
   useEffect(() => {
+    if (!loadRequested) return;
     let active = true;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
@@ -50,10 +53,23 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
       const savedId = initialSelection.current || readChildSelection(userId);
       const restored = items.find((item) => item.id === savedId) || items[0] || null;
       selectChild(restored);
-    }).catch((cause) => active && setError(controller.signal.aborted ? "Profiles could not be loaded. Please reload to retry." : cause.message))
+      if (lazy) positionPicker();
+    }).catch((cause) => {
+      if (!active) return;
+      setError(controller.signal.aborted ? "Profiles could not be loaded. Please retry." : cause.message);
+      if (lazy) setLoadRequested(false);
+    })
       .finally(() => { clearTimeout(timer); if (active) { setBusy(false); setInitialLoading(false); } });
     return () => { active = false; clearTimeout(timer); controller.abort(); };
-  }, [selectChild, userId, onProfilesChange]);
+  }, [selectChild, userId, onProfilesChange, loadRequested, lazy]);
+
+  useEffect(() => {
+    const updateProfiles = event => {
+      if (event.detail?.userId === userId) setChildren(event.detail.children);
+    };
+    window.addEventListener("child-profiles-updated", updateProfiles);
+    return () => window.removeEventListener("child-profiles-updated", updateProfiles);
+  }, [userId]);
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -90,8 +106,7 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
     return () => { if (dialog.open) dialog.close(); };
   }, [mode, isActive]);
 
-  function togglePicker() {
-    if (pickerOpen) { setPickerPosition(null); return; }
+  function positionPicker() {
     const bounds = triggerRef.current.getBoundingClientRect();
     const width = Math.min(300, window.innerWidth - 16);
     const availableBelow = window.innerHeight - bounds.bottom - 16;
@@ -99,6 +114,14 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
     const top = availableBelow >= height ? bounds.bottom + 6 : Math.max(8, bounds.top - height - 6);
     setPickerPosition({ top, left: Math.max(8, Math.min(bounds.left, window.innerWidth - width - 8)), width,
       maxHeight: Math.min(height, window.innerHeight - top - 8) });
+  }
+
+  function togglePicker() {
+    if (lazy && !loadRequested) {
+      setBusy(true); setError(""); setLoadRequested(true); return;
+    }
+    if (pickerOpen) { setPickerPosition(null); return; }
+    positionPicker();
   }
 
   function openDetails(nextMode) {
@@ -132,6 +155,7 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
       const nextChildren = mode === "edit" ? children.map((item) => item.id === child.id ? child : item) : [...children, child];
       setChildren(nextChildren); onProfilesChange?.(nextChildren);
       dialogRef.current?.close(); setMode(null); selectChild(child); triggerRef.current?.focus();
+      publishChildProfiles(userId, nextChildren);
     } catch (cause) { setError(cause.message); }
     finally { setBusy(false); }
   }
@@ -145,15 +169,16 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
       const remaining = children.filter((item) => item.id !== selectedChild.id);
       dialogRef.current?.close(); setChildren(remaining); onProfilesChange?.(remaining); setMode(null); selectChild(remaining[0] || null);
       triggerRef.current?.focus();
+      publishChildProfiles(userId, remaining);
     } catch (cause) { setError(cause.message); }
     finally { setBusy(false); }
   }
 
-  if (initialLoading) return <ChatLoading />;
+  if (initialLoading && !lazy) return <ChatLoading />;
   return <div className="child-profile-control">
     <button type="button" className="child-profile-trigger" ref={triggerRef} disabled={busy || guidanceBusy}
-      aria-expanded={pickerOpen} aria-controls={pickerId} aria-haspopup="dialog" onClick={togglePicker}>
-      <span><strong>{selectedChild?.name || "Choose child profile"}</strong>
+      aria-label={triggerLabel} aria-expanded={pickerOpen} aria-controls={pickerId} aria-haspopup="dialog" onClick={togglePicker}>
+      <span><strong>{triggerLabel || selectedChild?.name || "Choose child profile"}</strong>
         <small>{selectedChild?.age_label || "Add or select a child"}</small></span>
       <svg className="profile-picker-chevron" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24"
         fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
