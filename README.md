@@ -19,6 +19,9 @@ references, and listen to the answer.
 - Guidance defaults to Kenya without a country picker; relevant safety responses include Kenya support contacts.
 - Source-checked Kenya vaccination education covers routine visit ages, vaccine purposes
   and common side effects. Clinics confirm individual due doses and regional eligibility.
+- **Understand vaccines** opens a searchable education area beside the selected child's
+  chat: booklet abbreviations, common questions, routine ages, original sources and optional listening.
+  **Open in new chat** prepares an editable question in a fresh conversation.
 - Qdrant retrieval from 216 selected source-linked passages and age-aware guidance with a configurable model provider.
   Baby-care questions can also receive guidance when references are missing or incomplete.
 - Reference titles, PDF page numbers, and source links displayed alongside answers.
@@ -60,6 +63,43 @@ Diagnosis, prescribing and individual dose decisions remain outside scope.
 See [source preparation and evaluation](data/README.md) for the source inventory,
 coverage review and verification records. Published release notes retain the
 scope of their tagged release.
+
+### Understand my baby's vaccines
+
+After selecting a child, choose **Understand vaccines** in the chat heading. Search
+names such as BCG, OPV/IPV, pentavalent, PCV, rotavirus, MR, TCV, malaria and yellow
+fever, or explore questions about immunity, multiple vaccines, autism claims,
+unclear booklet entries and general side effects. Each explanation links to its
+original WHO, UNICEF or Kenya Ministry of Health sources. **Listen to explanation**
+uses the existing browser speech controls and stops when changing cards or closing
+the area. Browser audio availability varies; the text remains available.
+
+This area provides general education for caregivers of babies aged 0–24 months.
+It does not interpret a baby's symptoms, infer vaccination history, calculate
+catch-up doses or determine eligibility. The clinic uses the booklet to confirm
+individual doses and appointments. **Open in new chat** starts a fresh conversation
+with an editable question; it never sends automatically or appends to the existing
+conversation. An unsent draft must be sent or cleared first. Consent remains required
+for coaching, and existing saved conversations remain available in history.
+
+**By age: days, weeks and months** shows the routine Kenya programme from birth
+through the second birthday. The Days view covers birth and exact equivalents of
+week visits (6/10/14 weeks = 42/70/98 days). The Weeks view keeps those official
+week labels. Later visits stay in calendar months (6, 7, 9, 18 and 24), available in
+Months; no fixed 30-day or four-week month conversions are used. Each vaccine card
+also shows its routine timing while that timing check is current. Malaria and
+yellow fever remain conditional on local programme/risk-area eligibility. These
+ages are not an individual due-dose list or a catch-up plan; products and records
+must be checked by the clinic. The source label shows the reporting year separately
+from the check date. See [timing source checks](data/evaluation/vaccine-schedule-learning-source-review.json).
+
+The explanations and their styles load only after the parent opens this area.
+Reading and searching make no application API, Firestore, Qdrant or model calls.
+The existing coaching path is used only if a parent sends a prepared question.
+Content is held back after its 90-day source-check window (or before its recorded
+check date), with an original-source link available instead. Updating the checked
+date requires rechecking the claims and links; it is not an automatic freshness stamp.
+See [education source checks](data/evaluation/vaccine-learning-source-review.json).
 
 ## How it works
 

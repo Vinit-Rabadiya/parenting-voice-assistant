@@ -9,6 +9,7 @@ import { stopGuidanceAudio } from "../hooks/useGuidanceAudio";
 import usePlaybackPreference from "../hooks/usePlaybackPreference";
 import { getConversation } from "../services/caregiving";
 import { readConversationLocation, setConversationLocation } from "../services/conversationLocation";
+import VaccineLearningButton from "./VaccineLearningButton";
 
 function ConversationListItem({ conversation, active, disabled, onOpen, onDelete, workspaceActive }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -94,6 +95,7 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
   const [routine, setRoutine] = useState("");
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [vaccinesOpen, setVaccinesOpen] = useState(false);
   const threadRef = useRef(null);
   const lastScrollTarget = useRef(null);
   const composerRef = useRef(null);
@@ -152,6 +154,15 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
       <header className="chat-heading">
         <button type="button" className="history-toggle" aria-controls={sidebarId} aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((value) => !value)}>History</button>
         <h2 id={threadTitleId}>{child.name}</h2><p>{child.age_label}</p>
+        {isActive && <VaccineLearningButton disabled={chat.busy || voiceBusy}
+          askDisabled={readOnly || chat.busy || voiceBusy} hasDraft={Boolean(question.trim())} onOpenChange={setVaccinesOpen}
+          onAsk={text => {
+            if (readOnly || chat.busy || voiceBusy || question.trim()) return;
+            chat.newChat();
+            setQuestion(text); setRoutine("");
+            setSidebarOpen(false);
+            setTimeout(() => composerRef.current?.focus(), 0);
+          }} />}
       </header>
       <div className="chat-stage">
       <section className="conversation-thread" aria-labelledby={threadTitleId} ref={threadRef} tabIndex={0}>
@@ -164,7 +175,7 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
             </article>
           : <GuidanceAnswer key={message.id} message={message} childName={child.name} allowFeedback={!readOnly}
               pending={message.pending === true}
-              fresh={message.id === chat.newAnswerId} automaticPlayback={automatic} active={isActive && !chat.generating && !voiceBusy}
+              fresh={message.id === chat.newAnswerId} automaticPlayback={automatic} active={isActive && !vaccinesOpen && !chat.generating && !voiceBusy}
               conversationId={message.conversation_id === null ? null : chat.conversationId} />)}
         {!chat.messages.length && <div className="chat-welcome"><h3>What are you doing with your baby today?</h3>
           <p>Describe the moment, or ask for guidance.</p></div>}
@@ -190,7 +201,7 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
             </div>
           </details>
           <div className="composer-actions">
-            {isActive && <MicrophoneControls key={chat.conversationId || "new-chat"} compact onTranscriptChange={setQuestion}
+            {isActive && !vaccinesOpen && <MicrophoneControls key={chat.conversationId || "new-chat"} compact onTranscriptChange={setQuestion}
               onCaptureStateChange={setVoiceBusy} disabled={chat.busy} />}
             {chat.generating ? <button type="button" className="send-message" aria-label="Stop waiting" title="Stop waiting" onClick={chat.cancelGeneration}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1" /></svg>
