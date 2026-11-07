@@ -1,0 +1,45 @@
+{
+  "checked_on": "2026-11-07",
+  "country": "KE",
+  "reporting_year": 2025,
+  "latest_reporting_year_returned": 2025,
+  "scope": "Routine programme ages from birth through 24 calendar months, not individual doses due or catch-up decisions.",
+  "implementation": "frontend/src/content/vaccineSchedule.js",
+  "review_kind": "Primary-source data retrieved and reconciled with existing Kenya vaccination education. This is source checking, not clinical approval.",
+  "sources": [
+    {
+      "title": "WHO: Kenya vaccination schedule (official country reporting through WHO/UNICEF JRF)",
+      "url": "https://immunizationdata.who.int/global/wiise-detail-page/vaccination-schedule-for-country_name?ISO_3_CODE=KEN",
+      "data_endpoint": "https://xmart-api-public.who.int/WIISE/MT_AD_SCHEDULER?$filter=ISO_3_CODE%20eq%20%27KEN%27&$select=VACCINECODE,VACCINE_DESCRIPTION,AGEADMINISTERED,YEAR,TARGETPOP,SOURCECOMMENT",
+      "finding": "Live response on the check date returned 2025 as the latest reporting year. The selected ages below match the routine visits already used in backend/services/vaccination.py. Programme descriptions are not an individual eligibility assessment."
+    },
+    {
+      "title": "Kenya Ministry of Health: Measles-rubella and typhoid vaccination",
+      "url": "https://www.health.go.ke/node/1955",
+      "finding": "The July 2025 announcement confirms routine TCV at nine months. The historical campaign dates and campaign eligibility are not displayed as a current campaign."
+    }
+  ],
+  "selected_age_codes": {
+    "BCG": ["B"],
+    "OPV": ["B", "W6", "W10", "W14"],
+    "IPV": ["W14", "M9"],
+    "DTWPHIBHEPB": ["W6", "W10", "W14"],
+    "PCV10": ["W6", "W10", "W14"],
+    "ROTAVIRUS_1": ["W6", "W10", "W14"],
+    "MR": ["M9", "M18"],
+    "TYPHOID_CONJ": ["M9"],
+    "MALARIA": ["M6", "M7", "M9", "M24"],
+    "YF": ["M9"]
+  },
+  "interpretation": {
+    "B": "At birth; display day 0 as the origin of the age axis, not an individual deadline.",
+    "W": "Exact seven-day weeks; W6/W10/W14 correspond to 42/70/98 elapsed days. Day labels are alternate representations of the same visits, not extra appointments.",
+    "M": "Calendar months; never convert them into fixed 30-day months or four-week months.",
+    "eligibility": "Malaria entries remain conditional on eligible programme areas and products; yellow fever entries remain conditional on designated risk areas. No county map, eligibility or vaccine product is inferred for a child.",
+    "products": "The clinic checks product differences and previous doses. No series conversion is calculated.",
+    "excluded": "No HPV, adult/risk-group COVID entries, vitamin supplements, travel schedules or historical campaigns are presented as routine infant visits."
+  },
+  "freshness": "90 days from checked_on; future or expired checks withhold timing entries and leave original sources accessible. General explanation checks retain their independent date.",
+  "performance": "This module is reachable only through the existing dynamic education import. Browsing ages, changing units and viewing explanations make no application API, Firestore, Qdrant or model calls.",
+  "chat_behavior": "Open in new chat clears the active conversation selection and prepares an editable question; a new conversation ID is created through the existing coaching flow only after Send. Existing saved conversations remain in history. Unsent drafts are protected by disabling this action until sent or cleared."
+}

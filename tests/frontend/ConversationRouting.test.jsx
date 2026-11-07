@@ -50,6 +50,78 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("exposes a native chat link and leaves its right-click menu available", async () => {
+  listConversations.mockResolvedValue([{ id: "saved-chat", title: "Feeding conversation" }]);
+  show();
+  fireEvent.click(screen.getByRole("button", { name: "Select First child" }));
+  const link = await screen.findByRole("link", { name: "Feeding conversation" });
+  expect(link.getAttribute("href")).toBe("/chat/saved-chat");
+  expect(new URL(link.href).origin).toBe(window.location.origin);
+  expect(fireEvent.contextMenu(link)).toBe(true);
+  expect(getConversation).not.toHaveBeenCalled();
+  expect(requestCoaching).not.toHaveBeenCalled();
+  expect(window.location.pathname).toBe("/");
+});
+
+it("opens an ordinary link click in place with one history read", async () => {
+  listConversations.mockResolvedValue([{ id: "saved-chat", title: "Feeding conversation" }]);
+  getConversation.mockResolvedValue(snapshot("saved-chat", "one"));
+  show();
+  fireEvent.click(screen.getByRole("button", { name: "Select First child" }));
+  const link = await screen.findByRole("link", { name: "Feeding conversation" });
+  expect(fireEvent.click(link)).toBe(false);
+  await screen.findByText("Saved message saved-chat");
+  expect(window.location.pathname).toBe("/chat/saved-chat");
+  expect(link.getAttribute("aria-current")).toBe("page");
+  expect(getConversation).toHaveBeenCalledTimes(1);
+  expect(requestCoaching).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["click", { ctrlKey: true }], ["click", { metaKey: true }],
+  ["click", { shiftKey: true }], ["click", { altKey: true }],
+  ["auxclick", { button: 1 }],
+])("leaves %s %j to the browser without changing the current chat", async (type, modifiers) => {
+  listConversations.mockResolvedValue([{ id: "saved-chat", title: "Feeding conversation" }]);
+  const view = show();
+  fireEvent.click(screen.getByRole("button", { name: "Select First child" }));
+  const link = await screen.findByRole("link", { name: "Feeding conversation" });
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Keep this draft" } });
+  let browserHandlesLink;
+  // Inspect after React's delegated handler, then suppress jsdom's unsupported navigation.
+  view.container.addEventListener(type, event => {
+    browserHandlesLink = !event.defaultPrevented;
+    event.preventDefault();
+  }, { once: true });
+  fireEvent(link, new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...modifiers }));
+  expect(browserHandlesLink).toBe(true);
+  expect(getConversation).not.toHaveBeenCalled();
+  expect(requestCoaching).not.toHaveBeenCalled();
+  expect(window.location.pathname).toBe("/");
+  expect(screen.getByLabelText("Question").value).toBe("Keep this draft");
+});
+
+it("blocks same-tab history navigation while an answer is in progress", async () => {
+  let finish;
+  listConversations.mockResolvedValue([{ id: "saved-chat", title: "Feeding conversation" }]);
+  requestCoaching.mockImplementation(payload => new Promise(resolve => {
+    finish = () => resolve({ conversation_id: payload.conversation_id, message_id: "new-answer",
+      answer: "New answer.", status: "answered" });
+  }));
+  show();
+  fireEvent.click(screen.getByRole("button", { name: "Select First child" }));
+  const link = await screen.findByRole("link", { name: "Feeding conversation" });
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Feeding question" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
+  await waitFor(() => expect(typeof finish).toBe("function"));
+  expect(link.getAttribute("aria-disabled")).toBe("true");
+  expect(fireEvent.click(link)).toBe(false);
+  expect(getConversation).not.toHaveBeenCalled();
+  await act(async () => finish());
+  await screen.findByText("New answer.");
+  expect(link.hasAttribute("aria-disabled")).toBe(false);
+});
+
 it("opens a bookmarked conversation under its owned child with one history read", async () => {
   window.history.replaceState(null, "", "/chat/saved-chat");
   show();

@@ -174,7 +174,7 @@ it("records, edits, sends, plays, saves feedback, restores history and deletes t
   await screen.findByText(/your feedback was saved/);
   cleanup();
   await openWorkspace();
-  fireEvent.click(await screen.findByRole("button", { name: edited }));
+  fireEvent.click(await screen.findByRole("link", { name: edited }));
   await screen.findByText("Talk gently while dressing.");
   expect(screen.getByLabelText("Helpfulness rating").value).toBe("5");
   expect(screen.getByLabelText("Optional comment").value).toBe("Clear steps.");
@@ -182,7 +182,7 @@ it("records, edits, sends, plays, saves feedback, restores history and deletes t
   await waitFor(() => expect(options.disabled).toBe(false));
   fireEvent.click(options);
   fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
-  await waitFor(() => expect(screen.queryByRole("button", { name: edited })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("link", { name: edited })).toBeNull());
   const response = await nativeFetch(`${base}/conversations?child_id=workflow-child`);
   expect(await response.json()).toEqual([]);
 });
@@ -215,7 +215,7 @@ it("keeps each child's conversations separate when switching profiles", async ()
   fireEvent.click(await screen.findByRole("button", { name: /Workflow child/ }));
   fireEvent.click(await screen.findByRole("button", { name: /Other child/ }));
   await screen.findByRole("textbox", { name: "Question" });
-  expect(screen.queryByRole("button", { name: first })).toBeNull();
+  expect(screen.queryByRole("link", { name: first })).toBeNull();
   expect(screen.getByText("Talk gently while dressing.").closest("[hidden]")).not.toBeNull();
   fireEvent.click(await screen.findByRole("button", { name: /Other child/ }));
   fireEvent.click(screen.getByRole("button", { name: /Workflow child/ }));

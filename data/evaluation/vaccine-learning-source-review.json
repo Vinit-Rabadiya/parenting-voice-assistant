@@ -1,0 +1,64 @@
+{
+  "checked_on": "2026-11-06",
+  "scope": "General explanations for caregivers of babies aged 0–24 months in the Kenya-focused application. The separately checked routine timing overview is documented in vaccine-schedule-learning-source-review.json; neither area makes individual eligibility or catch-up decisions.",
+  "implementation": "frontend/src/content/vaccineLearning.js",
+  "review_window_days": 90,
+  "review_kind": "Publisher pages checked for the limited claims below; this is source checking, not pediatric or clinical approval.",
+  "sources": [
+    {
+      "url": "https://www.who.int/news-room/questions-and-answers/item/vaccines-and-immunization-what-is-vaccination",
+      "supports": ["Immune-system preparation", "Recommended vaccines together and combination vaccines", "Healthcare-worker advice for missed vaccines", "Records and country-specific appointments"],
+      "used_in": ["how", "several", "missed"]
+    },
+    {
+      "url": "https://www.unicef.org/parenting/health/vaccines-and-diseases-they-prevent",
+      "supports": ["BCG and tuberculosis", "Pneumococcal disease", "Rotavirus and severe diarrhoea", "Measles, rubella and MMR composition"],
+      "used_in": ["bcg", "pcv", "rotavirus", "mr"]
+    },
+    {
+      "url": "https://www.who.int/news-room/questions-and-answers/item/poliomyelitis",
+      "supports": ["OPV and IPV expansions and polio prevention"],
+      "used_in": ["polio"]
+    },
+    {
+      "url": "https://www.who.int/teams/immunization-vaccines-and-biologicals/diseases/tetanus/1000",
+      "supports": ["DTP-Hib-HepB pentavalent composition"],
+      "used_in": ["pentavalent"],
+      "qualification": "Other five-antigen combinations exist internationally. This card describes the combination already used in the Kenya-focused education service; it does not identify a product from a photograph or assign it to a child."
+    },
+    {
+      "url": "https://www.health.go.ke/node/1955",
+      "supports": ["Kenya measles-rubella naming"],
+      "used_in": ["mr"],
+      "qualification": "The July 2025 campaign dates and eligibility are not displayed as a current campaign or individualized schedule."
+    },
+    {
+      "url": "https://www.who.int/news-room/fact-sheets/detail/typhoid",
+      "supports": ["TCV expansion", "Typhoid prevention and contaminated food or water transmission"],
+      "used_in": ["tcv"]
+    },
+    {
+      "url": "https://www.who.int/news-room/questions-and-answers/item/q-a-on-rts-s-malaria-vaccine",
+      "supports": ["RTS,S and R21 protection against P. falciparum", "Vaccination within combined malaria prevention"],
+      "used_in": ["malaria"],
+      "qualification": "No country or county eligibility map, dose timing, product assignment or comparative effectiveness claim is made."
+    },
+    {
+      "url": "https://www.who.int/news-room/fact-sheets/detail/yellow-fever",
+      "supports": ["Vaccine prevention of mosquito-borne yellow fever", "Need for eligibility assessment"],
+      "used_in": ["yellow-fever"]
+    },
+    {
+      "url": "https://www.unicef.org/parenting/health/parents-frequently-asked-questions-vaccines",
+      "supports": ["No evidence of a vaccine-autism link", "Temporary soreness or mild fever and rare serious effects", "Seek professional advice about concerns"],
+      "used_in": ["autism", "effects"],
+      "qualification": "The effects card cannot evaluate a symptom or attribute causation; no medication advice or reassurance about an individual baby is included."
+    }
+  ],
+  "performance": "Content and styles are dynamically imported only on opening. No application requests are made by the education module; Open in new chat prepares a fresh conversation, and questions use the existing checked coaching flow only after Send. Source links open publisher pages only when selected.",
+  "limitations": [
+    "Source checking does not establish clinical validation or guarantee safety.",
+    "No booklet OCR, vaccine tracking, reminders or record inference is included.",
+    "No global latency guarantee is inferred from code splitting or mocked workflow tests."
+  ]
+}
