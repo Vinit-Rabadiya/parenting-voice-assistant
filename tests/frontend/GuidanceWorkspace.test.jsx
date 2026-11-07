@@ -76,8 +76,8 @@ it("sends a first turn in one request while history is still loading", async () 
   expect(payload.conversation_id).toMatch(/^[0-9a-f-]{36}$/);
   expect(createConversation).not.toHaveBeenCalled();
   await act(async () => finishHistory([{ id: payload.conversation_id, title: "Old snapshot title" }, { id: "older", title: "Earlier chat" }]));
-  expect(screen.getAllByRole("button", { name: "Feeding ideas" })).toHaveLength(1);
-  expect(screen.getByRole("button", { name: "Earlier chat" })).toBeTruthy();
+  expect(screen.getAllByRole("link", { name: "Feeding ideas" })).toHaveLength(1);
+  expect(screen.getByRole("link", { name: "Earlier chat" })).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Another idea" } });
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(2));
@@ -121,10 +121,10 @@ it("does not restore a deleted conversation when the initial history response ar
   await screen.findByText("Talk softly.");
   fireEvent.click(screen.getByRole("button", { name: "More options for Feeding ideas" }));
   fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
-  await waitFor(() => expect(screen.queryByRole("button", { name: "Feeding ideas" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("link", { name: "Feeding ideas" })).toBeNull());
   const id = requestCoaching.mock.calls[0][0].conversation_id;
   await act(async () => finishHistory([{ id, title: "Feeding ideas" }]));
-  expect(screen.queryByRole("button", { name: "Feeding ideas" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Feeding ideas" })).toBeNull();
 });
 
 it("uses Kenya by default without country or support-contact controls", async () => {
@@ -158,7 +158,7 @@ it("allows history review and deletion without mounting input or feedback before
     status: "answered", citations: [], feedback: null }] });
   render(<GuidanceWorkspace />);
   await selectProfile();
-  fireEvent.click(screen.getByRole("button", { name: "Feeding conversation" }));
+  fireEvent.click(screen.getByRole("link", { name: "Feeding conversation" }));
   await screen.findByText("Talk softly.");
   expect(screen.queryByRole("textbox", { name: "Question" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Record into message" })).toBeNull();
@@ -197,8 +197,8 @@ it("allows sending while history is pending and preserves the new chat when hist
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   await screen.findByText("Try a soft rattle.");
   await act(async () => { finishHistory([{ id: "older", title: "Older conversation" }]); });
-  expect(screen.getByRole("button", { name: "Playing ideas" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Older conversation" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Playing ideas" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Older conversation" })).toBeTruthy();
 });
 
 it("can start the same new conversation after a failed request that never created it", async () => {
@@ -228,7 +228,7 @@ it("preserves the open conversation and draft when leaving and returning to chat
   ] });
   const view = render(<GuidanceWorkspace />);
   await selectProfile();
-  fireEvent.click(screen.getByRole("button", { name: "Feeding conversation" }));
+  fireEvent.click(screen.getByRole("link", { name: "Feeding conversation" }));
   await screen.findByText("Talk softly.");
   fireEvent.change(screen.getByLabelText("Question"), { target: { value: "My next question" } });
   view.rerender(<GuidanceWorkspace isActive={false} />);
@@ -361,7 +361,7 @@ it("shows saved sources in a collapsed disclosure and includes a privacy notice"
       pdf_page: 7, source_url: "https://example.test/reference" }] }] });
   render(<GuidanceWorkspace />);
   await selectProfile();
-  fireEvent.click(screen.getByRole("button", { name: "Feeding conversation" }));
+  fireEvent.click(screen.getByRole("link", { name: "Feeding conversation" }));
   const summary = await screen.findByText("References consulted (1)");
   expect(summary.closest("details").open).toBe(false);
   fireEvent.click(summary);
@@ -438,7 +438,7 @@ it("opens a saved conversation without another generation call", async () => {
   ] });
   render(<GuidanceWorkspace />);
   await selectProfile();
-  fireEvent.click(screen.getByRole("button", { name: "Feeding conversation" }));
+  fireEvent.click(screen.getByRole("link", { name: "Feeding conversation" }));
   await screen.findByText("Talk softly.");
   expect(screen.getByText("Feeding ideas")).toBeTruthy();
   expect(requestCoaching).not.toHaveBeenCalled();
@@ -488,15 +488,15 @@ it("deletes another conversation from its title menu without clearing the open c
   deleteConversation.mockResolvedValue(undefined);
   render(<GuidanceWorkspace />);
   await selectProfile();
-  fireEvent.click(screen.getByRole("button", { name: "Feeding advice" }));
+  fireEvent.click(screen.getByRole("link", { name: "Feeding advice" }));
   await screen.findByText("Talk softly.");
   expect(screen.queryByRole("button", { name: "Delete conversation" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "More options for Play advice" }));
   fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
-  await waitFor(() => expect(screen.queryByRole("button", { name: "Play advice" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("link", { name: "Play advice" })).toBeNull());
   expect(deleteConversation).toHaveBeenCalledWith("other-chat");
   expect(screen.getByText("Talk softly.")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Feeding advice" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("link", { name: "Feeding advice" }).getAttribute("aria-current")).toBe("page");
 });
 
 it("keeps a conversation when deletion is cancelled", async () => {
@@ -507,7 +507,7 @@ it("keeps a conversation when deletion is cancelled", async () => {
   fireEvent.click(screen.getByRole("button", { name: "More options for Feeding advice" }));
   fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
   expect(deleteConversation).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "Feeding advice" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Feeding advice" })).toBeTruthy();
 });
 
 it("closes conversation options with Escape and restores focus", async () => {
@@ -532,7 +532,7 @@ it("keeps the conversation visible when deletion fails", async () => {
   fireEvent.click(screen.getByRole("button", { name: "More options for Feeding advice" }));
   fireEvent.click(screen.getByRole("button", { name: "Delete conversation" }));
   await screen.findByText("Conversation deletion could not finish. Please retry.");
-  expect(screen.getByRole("button", { name: "Feeding advice" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Feeding advice" })).toBeTruthy();
 });
 
 it("returns to a new chat when the open conversation is deleted", async () => {
@@ -544,7 +544,7 @@ it("returns to a new chat when the open conversation is deleted", async () => {
   deleteConversation.mockResolvedValue(undefined);
   render(<GuidanceWorkspace />);
   await selectProfile();
-  fireEvent.click(screen.getByRole("button", { name: "Feeding advice" }));
+  fireEvent.click(screen.getByRole("link", { name: "Feeding advice" }));
   await screen.findByText("Talk softly.");
   expect(window.location.pathname).toBe("/chat/chat-1");
   fireEvent.click(screen.getByRole("button", { name: "More options for Feeding advice" }));

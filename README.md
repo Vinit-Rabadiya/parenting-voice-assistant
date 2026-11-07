@@ -95,6 +95,9 @@ deletion update the workspace's profile list, including when its controls remoun
 Conversation history remains a separate authenticated request.
 
 Each saved conversation has an address such as `/chat/<conversation-id>`.
+Chat titles in history are links: right-click to open in a new tab or copy the
+address, or use Ctrl/Cmd-click or the middle mouse button. A normal click opens
+the conversation within the existing workspace.
 Refreshing or opening that address selects its child profile after checking access.
 Browser Back and Forward restore chats; switching within the app does not reload
 the page or request another generated answer. These addresses require sign-in

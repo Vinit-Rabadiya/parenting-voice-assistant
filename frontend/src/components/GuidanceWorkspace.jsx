@@ -48,8 +48,17 @@ function ConversationListItem({ conversation, active, disabled, onOpen, onDelete
   }, [optionsOpen]);
 
   return <li ref={rowRef} className="conversation-row">
-    <button type="button" disabled={disabled} aria-pressed={active}
-      onClick={() => { setOptionsOpen(false); onOpen(conversation.id); }}>{conversation.title}</button>
+    <a className="conversation-link" href={`/chat/${encodeURIComponent(conversation.id)}`}
+      aria-current={active ? "page" : undefined} aria-disabled={disabled || undefined}
+      onClick={event => {
+        if (event.defaultPrevented) return;
+        if (disabled) { event.preventDefault(); return; }
+        // Keep browser link actions (new tab/window, copy address) native.
+        if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        setOptionsOpen(false);
+        onOpen(conversation.id);
+      }}>{conversation.title}</a>
     <button type="button" className="conversation-more" ref={triggerRef}
       disabled={disabled} aria-label={`More options for ${conversation.title}`}
       aria-expanded={optionsOpen} aria-controls={optionsId}
