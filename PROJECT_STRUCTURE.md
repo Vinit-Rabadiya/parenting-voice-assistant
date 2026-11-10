@@ -1,7 +1,8 @@
 # Project structure
 
-Use [README.md](README.md) for installation, configuration, API routes, and data
-handling. This guide maps the implementation without duplicating setup details.
+Start with [README.md](README.md). Focused guides cover [setup](docs/setup.md),
+[API routes](docs/api.md), [data handling](docs/privacy.md) and
+[deployment](docs/deployment.md). This guide maps the implementation.
 
 ## Backend
 
@@ -9,7 +10,7 @@ handling. This guide maps the implementation without duplicating setup details.
 | --- | --- |
 | `backend/main.py` | FastAPI application, Firebase startup, shared speech model, transcription capacity limit, and shutdown. |
 | `backend/api/v1/router.py` | Registers health, account, speech, children, coaching, and conversation routes. |
-| `backend/api/dependencies.py` | Provides shared services; coaching, retrieval, and data services initialize on demand. |
+| `backend/api/dependencies.py` | Provides shared process-owned coaching/retrieval wrappers and caregiver data services; provider transports initialize lazily. |
 | `backend/core/config.py` | Loads application and service settings. |
 | `backend/core/firebase.py`, `security.py` | Firebase Admin initialization and authenticated access requirements. |
 | `backend/schemas/` | API request and response validation. |
@@ -84,4 +85,5 @@ migrated into the history list.
   to `main`, using Python 3.12 and Node.js 22.
 - `requirements.txt`: runtime dependencies.
 - `requirements-data.txt`: standalone data tooling dependencies.
+- `requirements-speech-evaluation.txt`: optional offline speech accuracy and speed evaluation.
 - `requirements-dev.txt`: runtime, data tooling, lint, and test dependencies.
