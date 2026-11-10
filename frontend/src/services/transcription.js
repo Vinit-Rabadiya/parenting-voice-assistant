@@ -17,7 +17,7 @@ export async function transcribeAudio(wavBlob, signal) {
   let response;
   try {
     // send the blob directly because the endpoint expects wav bytes, not a multipart form.
-    response = await fetch("/api/speech/transcribe", {
+    response = await fetch("/api/speech/transcribe?language=en", {
       method: "POST",
       body: wavBlob,
       headers: {

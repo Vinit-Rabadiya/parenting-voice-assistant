@@ -81,6 +81,9 @@ jobs:
       - name: Evaluate child danger-sign routing
         run: python -m scripts.evaluate_safety --check --output safety-report.json
 
+      - name: Evaluate English-only language boundary
+        run: python -m scripts.evaluate_language_safety --check --output language-safety-report.json
+
       - name: Verify fixture-corpus age filtering
         run: pytest -q tests/test_retrieval_evaluation.py -k fixture_corpus
 
@@ -101,7 +104,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: safety-evaluation
-          path: safety-report.json
+          path: |
+            safety-report.json
+            language-safety-report.json
           if-no-files-found: ignore
 
   frontend-checks:

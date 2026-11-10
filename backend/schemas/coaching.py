@@ -60,7 +60,7 @@ class CoachingResponse(BaseModel):
     conversation_id: str | None = None
     message_id: str | None = None
     answer: str
-    response_kind: Literal["clarification", "unrelated", "professional_referral", "insufficient_references", "age_out_of_scope"] | None = None
+    response_kind: Literal["clarification", "unrelated", "professional_referral", "insufficient_references", "age_out_of_scope", "unsupported_language"] | None = None
     answer_basis: Literal["reference_assisted", "general_information"] | None = None
     reference_status: Literal["matched", "no_match", "unavailable"] | None = None
     citations: list[CitationSchema]

@@ -88,7 +88,7 @@ function validateCoachingResponse(value) {
     catch { return false; }
   };
   const statuses = ["answered", "no_evidence", "safety_blocked", "escalated", "crisis_support", "caregiver_support", "vaccination_notice"];
-  const kinds = ["clarification", "unrelated", "professional_referral", "insufficient_references", "age_out_of_scope"];
+  const kinds = ["clarification", "unrelated", "professional_referral", "insufficient_references", "age_out_of_scope", "unsupported_language"];
   const valid = object(value) && text(value.answer) && statuses.includes(value.status)
     && ["not_flagged", "escalate"].includes(value.safety)
     && number(value.processing_seconds) && number(value.child_age_months)

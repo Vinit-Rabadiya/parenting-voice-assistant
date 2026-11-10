@@ -30,6 +30,7 @@ from backend.services.care_response import professional_assessment_response, con
 from backend.services.response_safety import SAFE_RESPONSE, review_coaching_result
 from backend.services.input_safety import inspect_input
 from backend.services.crisis_safety import inspect_crisis
+from backend.services.language_safety import LANGUAGE_MESSAGE, supports_english
 from backend.services.kenya_contacts import emergency_resources
 from backend.services.vaccination import inspect_vaccination
 from backend.services.conversation_context import (
@@ -246,6 +247,26 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
             data_service, user["uid"], payload, age_months, triage, crisis, request_id, triage_started,
             stream=stream,
         )
+    with timed_stage(request_id, "language_safety"):
+        english_supported = await run_in_threadpool(supports_english, payload.question)
+    if not english_supported:
+        response = CoachingResponse(
+            interaction_id=None, answer=LANGUAGE_MESSAGE, citations=[],
+            child_age_months=age_months, subject_age_override=subject_age_override,
+            processing_seconds=round(time.perf_counter() - started, 3),
+            status="no_evidence", response_kind="unsupported_language",
+        )
+        if stream is not None:
+            await stream.send("ready", {"response": response.model_dump(mode="json")})
+            await stream.send("status", {"phase": "saving"})
+        try:
+            with timed_stage(request_id, "interaction_save"):
+                await save_coaching_response(data_service, user["uid"], payload, response)
+        except Exception:
+            # A database outage cannot suppress the fixed language boundary.
+            timing_logger.warning("coaching_language_safety request=%s persistence=failed", request_id)
+        response.processing_seconds = round(time.perf_counter() - started, 3)
+        return response
     context = []
     if has_history:
         if not parallel:
