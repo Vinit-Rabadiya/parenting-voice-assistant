@@ -24,6 +24,11 @@ AUTHENTICATION_SYSTEM_DESIGN_ROADMAP.md
 # local audio recordings used for manual checks.
 samples/
 
+# Participant recordings, references and detailed speech evaluation outputs.
+eval/stt/audio/
+eval/stt/manifest.local.jsonl
+eval/stt/results/
+
 # local source documents and datasets; keep only the folder placeholders in git.
 data/raw/pdfs/*
 !data/raw/pdfs/.gitkeep

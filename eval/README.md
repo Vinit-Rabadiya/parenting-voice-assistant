@@ -1,5 +1,8 @@
 # Safety evaluation
 
+Speech accuracy and speed have a separate [offline evaluation protocol and
+document notes](stt/README.md). That work does not modify the live speech path.
+
 ## English-only language boundary
 
 `language-safety.jsonl` contains 43 project-authored development examples: English

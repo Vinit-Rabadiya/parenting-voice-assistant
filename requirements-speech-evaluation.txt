@@ -1,0 +1,4 @@
+# Optional offline speech evaluation; never installed by the application image.
+-r requirements.txt
+jiwer==4.0.0
+rapidfuzz==3.14.6
