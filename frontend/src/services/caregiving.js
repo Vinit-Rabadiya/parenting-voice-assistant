@@ -66,6 +66,16 @@ export const listChildren = (signal) => request("/children", { signal });
 export const getAccountSecurity = () => request("/me/security");
 export const disableAccountMfa = () => request("/me/security/mfa/disable", { method: "POST" });
 export const getFeedbackSummary = (signal) => request("/admin/feedback/summary", { signal });
+export const listFeedbackImprovements = (signal, before = null) => request(`/admin/feedback/improvements${before ? `?before=${encodeURIComponent(before)}` : ""}`, { signal });
+export const createFeedbackImprovement = (content, signal) => request("/admin/feedback/improvements", {
+  method: "POST", signal, body: JSON.stringify({ content }),
+});
+export const updateFeedbackImprovement = (id, content, version, signal) => request(`/admin/feedback/improvements/${encodeURIComponent(id)}`, {
+  method: "PUT", signal, body: JSON.stringify({ content, expected_version: version }),
+});
+export const deleteFeedbackImprovement = (id, version, signal) => request(`/admin/feedback/improvements/${encodeURIComponent(id)}?expected_version=${version}`, {
+  method: "DELETE", signal,
+});
 export const getPrivacyConsent = (signal) => request("/privacy/consent", { signal });
 export const acceptPrivacyConsent = (version, signal) => request("/privacy/consent", {
   method: "POST", signal,

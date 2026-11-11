@@ -1,0 +1,21 @@
+.admin-improvements { display: grid; gap: 16px; }
+.admin-improvements > p { margin: 0; }
+.improvement-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.improvement-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.improvement-list button { width: 100%; display: grid; gap: 5px; text-align: left; overflow-wrap: anywhere; }
+.improvement-list small { color: var(--text); font-size: 12px; }
+.improvement-editor { display: grid; gap: 20px; }
+.improvement-editor h3, .improvement-editor h4 { margin: 0; }
+.improvement-editor fieldset { min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--border); border-radius: 10px; display: grid; gap: 14px; }
+.improvement-editor legend { padding: 0 6px; font-size: 14px; font-weight: 600; }
+.improvement-editor label { display: grid; gap: 6px; min-width: 0; font-size: 13px; text-align: left; }
+.improvement-editor input:not([type="checkbox"]), .improvement-editor textarea, .improvement-editor select { box-sizing: border-box; width: 100%; min-height: 40px; padding: 9px 10px; color: var(--text-h); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+.improvement-editor textarea { resize: vertical; }
+.improvement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.improvement-capture { min-width: 0; display: grid; align-content: start; gap: 12px; }
+.improvement-editor .improvement-check { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
+.improvement-check input { flex-shrink: 0; width: 16px; height: 16px; margin-top: 2px; }
+.improvement-details > summary { padding: 10px 0; cursor: pointer; font-weight: 600; }
+.improvement-editor :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.improvement-editor :disabled { opacity: .7; }
+@media (max-width: 700px) { .improvement-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -8,6 +8,8 @@ email. TOTP is required when enrolled or enforced by policy. Backend routes are 
 
 | Method | Route | Purpose |
 |---|---|---|
+| GET / POST | `/admin/feedback/improvements` | List or create the signed-in administrator's own fictional improvement cases; administrator role and MFA required |
+| PUT / DELETE | `/admin/feedback/improvements/{id}` | Update or delete an owned case with its expected version; stale writes are rejected |
 | GET | `/health/live` | Public liveness check |
 | GET | `/me` | Verify account access |
 | GET | `/me/startup` | Verify access once and return the current consent notice and owned profiles for chat startup; administrators receive no caregiver data |
