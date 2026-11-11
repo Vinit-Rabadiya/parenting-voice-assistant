@@ -1,5 +1,41 @@
 # Safety evaluation
 
+## English-only language boundary
+
+`language-safety.jsonl` contains 43 project-authored development examples: English
+caregiver wording, short follow-ups, local food names, Kiswahili, selected mixed
+phrases, other languages/scripts and uncertain input. Tests use the real pinned
+`lingua-language-detector==2.2.0` offline. The gate requires zero unsupported inputs
+allowed and zero English examples refused **on this set only**. It is not an
+independent language benchmark, complete code-switching detector or clinical validation.
+The 60-case child-danger dataset and its metric denominators remain unchanged.
+
+Run `python -m scripts.evaluate_language_safety --check`. An optional
+`--output <new-path.json>` records the detector version, dataset fingerprint and
+case outcomes without overwriting an existing report. CI runs this as a separate
+gate and uploads the report alongside the child-danger report. API tests cover
+normal/streaming refusals, urgent-report priority, failed persistence, saved-history
+contracts and exclusion of refusals from later model context.
+
+Messages without a supported English classification are refused. The detector
+compares spoken languages; a separate English-only model can resolve near-ties.
+Short ambiguous clauses are allowed only when the whole message is classified as
+English and English remains a near-tied interpretation of that clause.
+Explicit whole-message exceptions support short acknowledgements, age replies and
+selected vaccine abbreviations. Sentence checks, script checks and selected
+Kiswahili markers supplement the whole-message detector. Mixed-language spans
+require at least three words and a separate matching classification to reduce
+false positives on English phrases. English text can still be falsely rejected,
+and untested code-switching, transliteration or unsupported languages can be missed.
+Thresholds are development policy choices, not calibrated safety probabilities.
+
+The browser explicitly requests Whisper `language=en` and `task=transcribe`.
+Voice input remains English-only, without automatic language detection. The
+caregiver reviews and edits the transcript, which is checked by the backend on
+submission. Unsupported speech can be misrecognized as English; the text gate
+cannot validate the original recording. The Kenyan-speaker WER evaluation is
+still needed.
+
 ## Scope
 
 The safety workstream covers the shared child-danger dataset and CI report (#59),

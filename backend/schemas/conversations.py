@@ -28,7 +28,7 @@ class ConversationMessageResponse(BaseModel):
     citations: list[CitationSchema] = Field(default_factory=list)
     support_resources: list[SupportResource] = Field(default_factory=list)
     status: str | None = None
-    response_kind: Literal["clarification", "unrelated", "professional_referral", "insufficient_references", "age_out_of_scope"] | None = None
+    response_kind: Literal["clarification", "unrelated", "professional_referral", "insufficient_references", "age_out_of_scope", "unsupported_language"] | None = None
     answer_basis: Literal["reference_assisted", "general_information"] | None = None
     reference_status: Literal["matched", "no_match", "unavailable"] | None = None
     routine: str | None = None

@@ -18,7 +18,7 @@ describe("speech api client", () => {
     const blob = new Blob(["audio"], { type: "audio/wav" });
     const controller = new AbortController();
     expect(await transcribeAudio(blob, controller.signal)).toEqual(validResult);
-    expect(fetch).toHaveBeenCalledWith("/api/speech/transcribe", expect.objectContaining({
+    expect(fetch).toHaveBeenCalledWith("/api/speech/transcribe?language=en", expect.objectContaining({
       method: "POST", body: blob, signal: controller.signal, credentials: "omit",
       headers: { Authorization: "Bearer test-token", "Content-Type": "audio/wav" },
     }));

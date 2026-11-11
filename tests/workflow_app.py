@@ -122,6 +122,7 @@ def transcribe(audio, **kwargs):
     with wave.open(BytesIO(audio)) as recording:
         assert recording.getnchannels() == 1 and recording.getframerate() == 16000
         duration = recording.getnframes() / recording.getframerate()
+    assert kwargs["language"] == "en"
     return {"text": "I am dressing my baby.", "audio_seconds": duration, "processing_seconds": 0.01}
 
 

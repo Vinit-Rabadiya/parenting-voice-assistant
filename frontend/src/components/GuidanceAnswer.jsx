@@ -55,6 +55,7 @@ function GuidanceAnswer({ message, childName, conversationId, allowFeedback = tr
         : result.status === "safety_blocked" ? "Guidance could not be provided"
         : result.status === "vaccination_notice" ? "Vaccination information"
         : result.response_kind === "clarification" ? "Tell me a little more"
+        : result.response_kind === "unsupported_language" ? "Please use English"
         : result.response_kind === "age_out_of_scope" ? "Supported age range"
         : result.response_kind === "unrelated" ? "Baby-care topics only"
         : result.response_kind === "professional_referral" ? "Professional advice needed"

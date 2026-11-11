@@ -1,0 +1,43 @@
+{"id":"en01","question":"How can I encourage babbling?","should_allow":true}
+{"id":"en02","question":"What else?","should_allow":true}
+{"id":"en03","question":"Yes please","should_allow":true}
+{"id":"en04","question":"No","should_allow":true}
+{"id":"en05","question":"18 months","should_allow":true}
+{"id":"en06","question":"18","should_allow":true}
+{"id":"en07","question":"Hello!","should_allow":true}
+{"id":"en08","question":"Teething","should_allow":true}
+{"id":"en09","question":"How can I prepare uji for my baby?","should_allow":true}
+{"id":"en10","question":"Can I give my baby posho and mashed beans?","should_allow":true}
+{"id":"en11","question":"My baby does not like a banana","should_allow":true}
+{"id":"en12","question":"He still cries","should_allow":true}
+{"id":"en13","question":"What does that mean?","should_allow":true}
+{"id":"en14","question":"BCG","should_allow":true}
+{"id":"en15","question":"My daughter Amina is six months old. How can I help her sleep?","should_allow":true}
+{"id":"en16","question":"My baby has a fever","should_allow":true}
+{"id":"en17","question":"What is postpartum depression?","should_allow":true}
+{"id":"en18","question":"How much?","should_allow":true}
+{"id":"en19","question":"Play","should_allow":true}
+{"id":"en20","question":"Thanks","should_allow":true}
+{"id":"en21","question":"I am batting my baby.","should_allow":true}
+{"id":"en22","question":"My baby is sleeping. Write Python code.","should_allow":true}
+{"id":"en23","question":"My baby has reflux.","should_allow":true}
+{"id":"sw01","question":"Mtoto wangu ana homa","should_allow":false}
+{"id":"sw02","question":"Mtoto hapumui","should_allow":false}
+{"id":"sw03","question":"Nifanye nini mtoto akilia?","should_allow":false}
+{"id":"sw04","question":"Nisaidie","should_allow":false}
+{"id":"sw05","question":"Nina wasiwasi kuhusu afya ya mtoto","should_allow":false}
+{"id":"mix01","question":"My baby ana homa what should I do?","should_allow":false}
+{"id":"mix02","question":"I need advice about feeding my baby because I am worried. Mtoto wangu analia.","should_allow":false}
+{"id":"mix03","question":"My baby ne respire pas","should_allow":false}
+{"id":"mix04","question":"How can I help my baby sleep? No puedo dormir.","should_allow":false}
+{"id":"mix05","question":"I want to know how to settle my baby because he cries and no puede dormir","should_allow":false}
+{"id":"mix06","question":"Please help my baby لا يتنفس","should_allow":false}
+{"id":"other01","question":"Mi bebé no quiere comer","should_allow":false}
+{"id":"other02","question":"Mon bébé ne veut pas dormir","should_allow":false}
+{"id":"other03","question":"Mein Baby möchte nicht schlafen","should_allow":false}
+{"id":"other04","question":"طفلي لا يتنفس","should_allow":false}
+{"id":"other05","question":"我的宝宝发烧了","should_allow":false}
+{"id":"other06","question":"मेरे बच्चे को बुखार है","should_allow":false}
+{"id":"unknown01","question":"🤔🤔","should_allow":false}
+{"id":"unknown02","question":"???","should_allow":false}
+{"id":"unknown03","question":"qzxv qzxv","should_allow":false}

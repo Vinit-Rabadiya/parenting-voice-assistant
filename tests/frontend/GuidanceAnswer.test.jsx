@@ -7,6 +7,14 @@ import { sendFeedback } from "../../frontend/src/services/caregiving";
 vi.mock("../../frontend/src/services/caregiving", () => ({ sendFeedback: vi.fn() }));
 const message = { id: "answer-1", text: "Talk softly.", status: "answered", citations: [], processing_seconds: 1 };
 
+it("shows the fixed language boundary without source cards", () => {
+  render(<GuidanceAnswer message={{ ...message, status: "no_evidence", response_kind: "unsupported_language",
+    text: "Please use English. Tafadhali tumia Kiingereza." }} />);
+  expect(screen.getByRole("heading", { name: "Please use English" })).toBeTruthy();
+  expect(screen.getByText(/Tafadhali tumia Kiingereza/)).toBeTruthy();
+  expect(screen.queryByText(/References consulted/)).toBeNull();
+});
+
 it("shows guidance and preparation time without information-type labels", () => {
   render(<GuidanceAnswer message={{ ...message, text: "**General information:** Talk softly.", answer_basis: "general_information", reference_status: "unavailable" }} />);
   expect(screen.getByText("Talk softly.")).toBeTruthy();

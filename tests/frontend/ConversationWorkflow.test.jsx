@@ -187,6 +187,22 @@ it("records, edits, sends, plays, saves feedback, restores history and deletes t
   expect(await response.json()).toEqual([]);
 });
 
+it("saves and reloads a checked language refusal through the streaming API", async () => {
+  const question = "Mtoto wangu ana homa";
+  const input = await openWorkspace();
+  fireEvent.change(input, { target: { value: question } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByRole("heading", { name: "Please use English" });
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Stop waiting" })).toBeNull());
+  expect(screen.getByText(/Kwa sasa LittleCare/)).toBeTruthy();
+  expect(screen.queryByText("Talk gently while dressing.")).toBeNull();
+  cleanup();
+  await openWorkspace();
+  fireEvent.click(await screen.findByRole("link", { name: question }));
+  await screen.findByRole("heading", { name: "Please use English" });
+  expect(screen.getByText(/Kwa sasa LittleCare/)).toBeTruthy();
+});
+
 it("handles generation failure and cancellation without resending or losing a new draft", async () => {
   const input = await openWorkspace();
   fireEvent.change(input, { target: { value: "I need dressing ideas during an outage" } });
