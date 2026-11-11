@@ -2,7 +2,8 @@
 
 Current release: [v0.2.0](../RELEASE.md). Hosted application:
 [littlecare.app](https://littlecare.app). Setup, environment variables and hosting
-operation are maintained in [README.md](../README.md); reference preparation is in
+operation are maintained in the [setup](setup.md) and [deployment](deployment.md)
+guides; reference preparation is in
 [data/README.md](../data/README.md).
 
 ## Using the application

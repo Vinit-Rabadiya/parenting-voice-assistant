@@ -38,7 +38,19 @@ data/raw/datasets/*
 # generated data and retrieval indexes can be reproduced from source files.
 data/processed/
 data/indexes/
-docs/
+# Keep private working notes and document drafts ignored; publish only these guides.
+docs/*
+!docs/product-workflow.md
+!docs/setup.md
+!docs/api.md
+!docs/privacy.md
+!docs/streaming.md
+!docs/administration.md
+!docs/deployment.md
+!docs/hosting.md
+!docs/troubleshooting.md
+!docs/safety.md
+!docs/evaluation.md
 
 # local module backups
 .backup_llm_tts/
