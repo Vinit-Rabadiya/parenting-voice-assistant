@@ -38,6 +38,7 @@ verifying it. The documentation update does not change storage or delete data.
 | Browser automatic-playback preference | Stored per account in that browser until changed or cleared; deleting data/account clears the app's preference in the current browser |
 | Cloud logs, backups, provider-held records and exported copies | Governed by separate host/provider/operator settings; app deletion does not erase them or prove immediate backup removal |
 | Offline speech-evaluation recordings, references and reports | Separate local files kept until manually removed under the evaluation plan; account/data deletion in the app does not remove them |
+| Administrator-authored improvement cases | Private to the signed-in administrator under their user data; removed by case deletion, Delete my data or Delete my account. Downloaded copies are separate local files |
 
 `DELETE /me/data` recursively deletes application records under `users/{uid}`
 while preserving the login account. `DELETE /me` deletes application data first,

@@ -22,6 +22,7 @@ account settings were not verified as part of this documentation update.
 - Fixed urgent-care routing and local language checks before ordinary generation.
 - Kenya vaccine education, source-linked timing information and emergency contacts.
 - Optional feedback, versioned processing consent and account/data deletion.
+- Administrator improvement cases for reviewed corrections, evaluation evidence and release records.
 
 Voice transcription stays fixed to English. The current development checkout
 checks typed messages and edited transcripts locally and returns an
@@ -129,7 +130,7 @@ Independent qualified review of the advice has not yet been completed. See the
 | [Privacy and retention](docs/privacy.md) | Data flows, consent, deletion and provider boundaries |
 | [Safety](docs/safety.md) | Input routing, language boundary and output checks |
 | [Streaming](docs/streaming.md) | Provider failover, cancellation and timing |
-| [Administration](docs/administration.md) | Feedback access and improvement workflow |
+| [Administration](docs/administration.md) | Feedback access and the [review-to-release loop](docs/feedback-loop.md) |
 | [Deployment](docs/deployment.md) | Demo/pilot modes, containers, hosting and provider confirmations |
 | [Hosting](docs/hosting.md) | Container verification, Azure workflows and domain operation |
 | [Evaluation](docs/evaluation.md) | Recorded evidence, speech status and remaining validation |

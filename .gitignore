@@ -51,6 +51,7 @@ docs/*
 !docs/troubleshooting.md
 !docs/safety.md
 !docs/evaluation.md
+!docs/feedback-loop.md
 
 # local module backups
 .backup_llm_tts/

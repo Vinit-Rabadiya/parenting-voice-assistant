@@ -22,6 +22,7 @@ vi.mock("../../frontend/src/components/LoginForm", () => ({ default: () => <div>
 vi.mock("../../frontend/src/components/SignUpForm", () => ({ default: () => <div>Signup form</div> }));
 vi.mock("../../frontend/src/components/GoogleSignInButton", () => ({ default: ({ onMfaRequired }) => <button onClick={() => onMfaRequired({ hints: state.mfaHints })}>Google sign in</button> }));
 vi.mock("../../frontend/src/components/AdminFeedbackSummary", () => ({ default: () => <section aria-label="Feedback overview"><h2>Caregiver feedback</h2></section> }));
+vi.mock("../../frontend/src/components/AdminFeedbackImprovements", () => ({ default: () => <section aria-label="Answer improvement workflow" /> }));
 vi.mock("../../frontend/src/pages/AccountPage", () => ({ default: ({ email, verificationEmailRequested, onDataDeleted }) => (
   <div>Account: {email}. Verification requested: {String(verificationEmailRequested)}
     <button onClick={onDataDeleted}>Simulate saved data deletion</button>

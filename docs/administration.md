@@ -39,7 +39,7 @@ It does not attach questions, answers, transcripts, names, birth dates, account 
 individual timestamps or conversation links. Comments contain the text supplied
 by the caregiver; both the notice and comment field explain administrator access
 and ask caregivers to avoid names and private details. There are no account filters,
-exports, totals, averages or conversation drill-down. Each answer's saved feedback contributes once,
+source-feedback exports, totals, averages or conversation drill-down. Each answer's saved feedback contributes once,
 including multiple answers rated by the same caregiver. Editing feedback replaces
 that answer's previous contribution. There is no minimum number of caregivers;
 counts include categories with one response. A response may select more than one
@@ -110,20 +110,29 @@ administrator must enroll and complete MFA again before opening grouped feedback
 
 ### Improvement workflow without private chats
 
+The dashboard now includes **Answer improvement cases**, a separate private
+workspace for each administrator. It records fictional reproduction scenarios,
+baseline/candidate answer evidence, review checks and the deployed correction.
+It does not give access to caregiver conversations or attach those conversations
+to a case. See [the complete feedback loop](feedback-loop.md) for stages, storage,
+limitations and how a released correction changes future answers.
+
 1. Review rating and reason counts for improvement signals; a low rating alone
    does not establish an incorrect answer.
-2. Open an improvement issue using only the category and a separately written
-   test question. Shared comments may inform the investigation, but do not copy
-   a caregiver's question, answer, private details or comment into a public issue.
+2. Choose **New improvement case** and write a fictional test scenario for the
+   selected category. Shared comments may inform the investigation, but do not
+   copy a caregiver's question, answer, private details or comment into the case.
 3. Reproduce the concern with the existing evaluation tools. Record the test
    case, original sources, corpus fingerprint, actual model/prompt configuration
    and evaluation split. Keep tuning separate from held-out evaluation.
 4. Review a source, retrieval or prompt correction and compare the same
    development example before and after. Do not describe source checks or automated
    evaluation as professional validation; that review has not been obtained.
-5. Link the correction and evaluation evidence in the improvement issue, then
-   close that issue when its acceptance criteria are met. Do not mark an
-   individual private conversation reviewed or train automatically from ratings.
+5. Save the correction and evaluation evidence in the case and choose **Record
+   successful evaluation** when the requirements are met. Apply the reviewed
+   correction through the normal deployment process, then use **Record release**
+   to save the checked deployed commit. Neither button runs an evaluation,
+   deploys a change or trains a model.
 
 Administrator review identifies problems to reproduce with separate evaluation
 cases. Compare a correction or candidate model on the same cases before adoption.
