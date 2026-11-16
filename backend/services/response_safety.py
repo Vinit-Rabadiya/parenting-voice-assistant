@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from backend.services.retrieval import RetrievedPassage
 from backend.services.care_guidance import get_care_guidance
+from backend.services.conversation_context import caregiver_request
 
 if TYPE_CHECKING:
     from backend.services.coaching import CoachingResult
@@ -45,6 +46,10 @@ BLANKET_REASSURANCE = re.compile(
 )
 CHILD_VIOLENCE = re.compile(r"\b(?:shake|hit|slap)\s+(?:your|the)\s+(?:baby|child|infant)\b", re.I)
 UNDERCOOKED_EGG = re.compile(r"\b(?:raw|runny|soft[ -]boiled|lightly[ -]cooked)\s+(?:hen(?:s['\u2019])?\s+)?eggs?\b", re.I)
+UNSUITABLE_PLAY_MATERIAL = re.compile(
+    r"\b(?:offer\w*|giv\w*|bring\w*|provid\w*|fill\w*|us(?:e|ing))\b[^.!?\n]{0,110}"
+    r"\b(?P<material>stones?|pebbles?|plastic bags?|zip[ -]?lock bags?|paper bags?)\b", re.I,
+)
 
 
 def directly_negated(answer, match):
@@ -119,6 +124,14 @@ def review_coaching_result(result: "CoachingResult", evidence: list[RetrievedPas
     if result.blocked:
         return result, SafetyDecision(True, ("provider_content_block",))
     decision = inspect_response(result.answer, result.passages, evidence, child_age_months)
+    request = caregiver_request(question, context or [])
+    if (re.search(r"\b(?:play|games?|sensory|textures?|screen-free|toys?)\b", request, re.I)
+            and any(not re.search(r"\b(?:avoid|never|do not|don['\u2019]t|not)(?:\s+\w+){0,2}\s*$",
+                                  result.answer[max(0, m.start() - 35):m.start()], re.I)
+                    and not re.search(r"\b(?:without|instead of|rather than|not|no|avoid)(?:\s+\w+){0,2}\s*$",
+                                      result.answer[m.start():m.start("material")], re.I)
+                    for m in UNSUITABLE_PLAY_MATERIAL.finditer(result.answer))):
+        decision = SafetyDecision(True, decision.reasons + ("unsuitable_child_play_material",))
     guidance = get_care_guidance(question, child_age_months, context)
     if guidance is None or not all(reference in evidence for reference in guidance.references):
         return result, decision

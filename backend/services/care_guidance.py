@@ -18,7 +18,7 @@ TOPICS = {
     "food_flavours": r"\b(?:chill(?:i|ies)|chili(?:es)?|spic(?:e|es|y)|hot sauce|hot peppers?)\b",
     "reflux": r"\b(?:reflux|regurgitat\w*|spit(?:s|ting)? up|spitting)\b|\b(?:milk|feeds?)\b.{0,45}\b(?:comes? back|coming back|dribbles? back|back up|brought up)\b|\bbring(?:s|ing)? up\b.{0,25}\bmilk\b|\bbrings? (?:some )?milk back\b",
     "nappy_rash": r"\b(?:nappy|diaper)[ -]?(?:area )?(?:rash|soreness|irritation)\b|\b(?:bottom|nappy area|diaper area)\b.{0,30}\b(?:sore|red|irritated)\b|\b(?:sore|red|irritated)\b.{0,55}\b(?:bottom|nappy area|diaper area)\b",
-    "sleep": r"\b(?:sleep|sleeping|bedtime|night waking)\b|\bwake[sn]?\b.{0,25}\b(?:night|often)\b|\bwaking\b.{0,25}\bnight\b|\bsettle\b.{0,30}\bnight\b",
+    "sleep": r"\b(?:sleep|sleeping|bedtime|night waking)\b|\bwake[sn]?\b.{0,70}\b(?:night|often|cot|crib)\b|\bwaking\b.{0,25}\bnight\b|\bsettl\w*\b.{0,30}\b(?:night|cot|crib)\b",
     "feeding": r"\b(?:food|foods|meals?|feeding|breastfeed\w*|formula|mealtime|recipes?)\b",
     "stomach_upset": r"\b(?:vomit\w*|diarrh[oe]+a|(?:loose|watery) (?:stools?|poo)|being sick)\b",
     "fever": r"\b(?:fever|high temperature|thermometer)\b|\b(?:baby|child)\b.{0,20}\bfeels? hot\b",
@@ -35,8 +35,13 @@ TOPICS = {
     "birthday": r"\b(?:second birthday|turn(?:s|ing)? two|2nd birthday)\b",
     "teething_illness": r"\bteething\b.{0,70}\b(?:diarrh[oe]+a|loose stools?|fever|vomit\w*)\b|\b(?:diarrh[oe]+a|loose stools?|fever|vomit\w*)\b.{0,70}\bteething\b",
     "food_refusal": r"\b(?:fussy eat\w*|picky eat\w*|refus\w*.{0,25}(?:solids|food)|(?:food|solids).{0,25}refus\w*)\b",
+    "food_storage": r"\b(?:foods?|snacks?|fruit|vegetables?|meals?|lunch)\b[\s\S]*\b(?:refrigerat\w*|cool bag|cool box|overnight|night before|pack\w*|portable|storing|storage)\b|\b(?:pack\w*|storing|storage|refrigerat\w*)\b[\s\S]*\b(?:foods?|snacks?|fruit|vegetables?|meals?|lunch)\b",
+    "cup_drinking": r"\b(?:open cup|free-flow cup|drink\w* from (?:an? |the )?cup)\b",
+    "cradle_cap": r"\bcradle[ -]cap\b",
+    "cord_safety": r"\b(?:curtain|blind|window)[ -]cords?\b|\bcords? (?:from|on) (?:the )?(?:blinds?|curtains?)\b",
+    "occupied_play": r"\bkeep (?:him|her|them|(?:my|our|the) (?:child|baby|toddler)) (?:busy|occupied|entertained)\b",
 }
-HEALTH_TOPICS = {"reflux", "nappy_rash", "stomach_upset", "fever", "cough_cold", "teething", "teething_illness", "stools", "jaundice", "development_concern"}
+HEALTH_TOPICS = {"reflux", "nappy_rash", "stomach_upset", "fever", "cough_cold", "teething", "teething_illness", "stools", "jaundice", "development_concern", "cradle_cap"}
 INTERACTION = re.compile(r"\b(?:talk|talking|communicat\w*|language|sing|singing|bond|bonding|pretend|teddy|doll)\b", re.I)
 FOOD_IDEAS = re.compile(r"\b(?:(?:what|which) (?:(?:soft|first|finger|family|healthy) )?foods?|meal ideas?|food ideas?|recipes?|cook|cooking|prepare|make for|serve)\b", re.I)
 SCHEDULE_REQUEST = re.compile(r"\b(?:how often|how many (?:times|meals|feeds|snacks)|schedule|timetable|frequency|times (?:a|per) day)\b", re.I)
@@ -68,7 +73,7 @@ def load_references():
     date.fromisoformat(data["checked_on"])
     for source in data["sources"].values():
         url = urlsplit(source["url"])
-        if (url.scheme != "https" or url.hostname not in {"www.nhs.uk", "www.unicef.org", "healthiertogether.westlondon.nhs.uk"}
+        if (url.scheme != "https" or url.hostname not in {"www.nhs.uk", "www.unicef.org", "healthiertogether.westlondon.nhs.uk", "www.gov.uk"}
                 or url.username or url.password or not source["publisher"] or not source["title"]):
             raise ValueError("Invalid basic-care source.")
     ids = set()
@@ -96,6 +101,8 @@ class CareGuidance:
     first_solids: bool
     milk_only: bool
     allow_timing: bool
+    overnight_storage: bool
+    caregiver_one_handed: bool
 
     @property
     def fallback(self):
@@ -114,6 +121,18 @@ class CareGuidance:
         if self.topic == "food_flavours":
             rules.append("Distinguish mild herbs/spices from very hot chilli. Follow the selected source on gradual introduction and the child's tolerance. Do not invent a universal age or time of day for chilli, or claim it damages an immature digestive system.")
             rules.append("The selected source establishes no chilli quantity, frequency or clock time. Do not recommend pinches, spoonfuls, once-a-day use, morning/afternoon use or a bedtime interval. If asked when, explain that no special feeding time is established by this guidance; discuss gradual flavour introduction without prescribing a schedule.")
+        if self.topic == "food_storage":
+            rules.append("Keep all packing and cooling constraints from this conversation. Cooked foods and pre-cut fruit/vegetables need cold storage and an insulated bag with ice packs during transport; a sealed ordinary bag does not keep them safe overnight. Distinguish whole uncut fruit: a whole banana does not need the same refrigeration as cut or cooked food. With no cooling, suggest whole soft fruit prepared only when served, not raw hard apple/carrot pieces. Answer advance-packing questions directly; do not invent storage time limits or say all whole fruit is unsafe without refrigeration.")
+        if self.topic == "cup_drinking":
+            rules.append("Discuss drinking practice with safe drinking water and a clean cup only. Do not introduce bath-water play, bath-water drinking or a separate play activity. Let the child set the pace without forced drinking.")
+        if self.topic == "cradle_cap":
+            rules.append("Explain gentle scalp care and the selected assessment signs, without confirming a diagnosis. Do not choose oils, creams or medicines; a pharmacist can advise on suitable products.")
+        if self.topic == "cord_safety":
+            rules.append("Keep cords out of reach and climbing furniture away from windows. Do not invent safety-device mechanisms or installation steps, or promise that any device eliminates strangulation risk.")
+        if self.topic == "occupied_play":
+            rules.append("The caregiver is doing another task nearby. Use large safe objects with a dry empty container, or a sturdy baby book. Do not suggest water play, tear-and-paste crafts, glue or small objects. Pause the caregiver's task whenever the child needs help; do not suggest leaving the child alone.")
+            if self.caregiver_one_handed:
+                rules.append("The caregiver needs a one-handed option. Keep their other hand free; do not say they can use both hands. This restriction does not apply to the child's hands.")
         if self.topic in HEALTH_TOPICS:
             rules.append("Give basic care and conditional assessment advice. Do not select creams, active ingredients or treatment durations.")
         if self.topic in {"reflux", "cough_cold"}:
@@ -124,12 +143,29 @@ class CareGuidance:
             rules.append("Do not suggest that teething, drooling or swallowed saliva explains diarrhoea, vomiting or fever.")
         if self.topic == "sleep" and not self.allow_timing:
             rules.append("Do not add sleep-hour targets or timed bedtime steps: none were requested.")
+        if self.infant and self.topic == "sleep":
+            rules.append("Use the supplied quiet settling and clear-cot facts. Do not recommend warming a cot or mattress with heating pads or hot-water bottles, or invent a required deep-sleep waiting interval.")
         if self.infant and self.topic in {"reflux", "sleep"}:
             rules.append("Keep the distinction between upright awake care and sleeping flat on the back.")
         return "\n".join(rules)
 
     def findings(self, answer: str) -> tuple[str, ...]:
         reasons = []
+        if self.topic == "food_storage":
+            if not re.search(r"\b(?:chill\w*|refrigerat\w*|cold|cool bag|cool box|ice packs?)\b", answer, re.I):
+                reasons.append("missing_food_cooling_precaution")
+            if self.overnight_storage and not re.search(r"\b(?:do not|don't|cannot|can't|avoid|never|not safe|unsafe|no)\b[^.!?\n]{0,110}\b(?:overnight|night before|room temperature|unrefrigerated|ordinary bag)\b|\b(?:overnight|night before|room temperature|unrefrigerated)\b[^.!?\n]{0,110}\b(?:not|unsafe|cannot|can't)\b", answer, re.I):
+                reasons.append("missing_overnight_storage_boundary")
+            if re.search(r"\b(?:whole (?:uncut )?fruit|whole (?:ripe )?banana)\b[^.!?\n]{0,100}\b(?:unsafe|not safe|requires? refrigeration|needs? cooling)\b", answer, re.I):
+                reasons.append("unsupported_whole_fruit_restriction")
+        if self.topic == "cup_drinking" and re.search(r"\b(?:bath\w*|tub|splash\w*)\b", answer, re.I):
+            reasons.append("unrelated_bath_activity")
+        if self.topic == "cord_safety" and re.search(r"\b(?:tassels?|break(?:s)? apart|eliminat\w*|guarantee\w*)\b", answer, re.I):
+            reasons.append("unsupported_cord_device_assurance")
+        if self.topic == "occupied_play" and re.search(r"\b(?:water|basin|glue|tear\w*|scissors|beads?|marbles?)\b", answer, re.I):
+            reasons.append("activity_exceeds_available_supervision")
+        if self.caregiver_one_handed and re.search(r"\b(?:you|caregiver|parent)\b[^.!?\n]{0,75}\bboth hands\b", answer, re.I):
+            reasons.append("conflicting_caregiver_hand_constraint")
         if self.topic == "food_flavours" and re.search(
             r"\b(?:immature|underdeveloped)\s+digestive|\bdigestive system\b[^.!?\n]{0,50}\b(?:matur\w*|develop\w*)\b|"
             r"\b(?:avoid|never (?:give|offer))\s+all\s+(?:spices|seasonings)\b", answer, re.I,
@@ -159,6 +195,9 @@ class CareGuidance:
                 reasons.append("unsupported_care_duration")
             if not REFERRAL.search(answer):
                 reasons.append("missing_assessment_boundary")
+        if self.topic == "cradle_cap" and positive_match(re.compile(
+            r"\b(?:apply|use|try|massage|rub)\b[^.!?\n]{0,55}\b(?:oil|oils)\b", re.I), answer):
+            reasons.append("individual_scalp_product_selection")
         if self.topic == "cough_cold":
             nasal = re.compile(r"\b(?:use|using|give|giving|put|putting)\b[^.!?\n]{0,70}\b(?:saline|nasal drops|nose drops)\b", re.I)
             for match in nasal.finditer(answer):
@@ -174,6 +213,8 @@ class CareGuidance:
             reasons.append("individual_feeding_change")
         if self.topic == "sleep" and not self.allow_timing and CARE_DURATION.search(answer):
             reasons.append("unrequested_sleep_timing")
+        if self.infant and self.topic == "sleep" and re.search(r"\b(?:heating pad|hot[ -]water bottle|warm water bottle|electric blanket)\b", answer, re.I):
+            reasons.append("sleep_surface_heating_instruction")
         if self.topic == "teething_illness" and re.search(r"\b(?:drool\w*|saliva)\b[^.!?\n]{0,65}\b(?:digesti\w*|diarrh\w*|loose stools)\b|\bteething (?:can |may |sometimes )?(?:cause|affect|lead to)\b", answer, re.I):
             reasons.append("unsupported_teething_explanation")
         if self.infant and self.topic in {"reflux", "sleep"} and not SAFE_SLEEP.search(answer):
@@ -237,7 +278,9 @@ def get_care_guidance(question: str, age_months: float, context: list[dict] | No
     return CareGuidance(topic, references, food_ideas, bool(SCHEDULE_REQUEST.search(text)),
                         bool(AMOUNT_REQUEST.search(text)), age_months < 12,
                         6 <= age_months < 7 and not re.search(r"\b(?:already (?:eating )?solids|(?:introduced|started) (?:solid foods|solids))\b", text, re.I),
-                        age_months < 6, bool(TIMING_REQUEST.search(text)))
+                        age_months < 6, bool(TIMING_REQUEST.search(text)),
+                        bool(re.search(r"\b(?:overnight|night before)\b", text, re.I)),
+                        bool(re.search(r"\b(?:one[ -]hand(?:ed)?|one hand free)\b", text, re.I)))
 
 
 def select_care_references(question: str, age_months: float, context: list[dict],

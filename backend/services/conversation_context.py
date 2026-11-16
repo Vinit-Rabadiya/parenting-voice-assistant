@@ -3,22 +3,42 @@
 import re
 from math import isfinite
 
-from backend.services.age import message_age_months
+from backend.services.age import message_age_months, normalize_age_expressions
 from backend.services.profile_context import health_context_available
 from backend.services.care_response import AGE_CLARIFICATION_MESSAGES
 
 MAX_CONTEXT_MESSAGES = 8
 MAX_CONTEXT_CHARACTERS = 4000
+CONTEXT_REFERENCE = re.compile(
+    r"\b(?:the (?:first|second|third|fourth|last|other|earlier|previous) (?:choice|option|suggestion|idea|step|example|point)|"
+    r"(?:the )?same (?:task|activity|game|age|starting age|food|snack|routine)|"
+    r"your (?:last |previous )?(?:answer|reply|response|suggestions|instructions)|"
+    r"(?:rewrite|shorten|summari[sz]e|simplify|rephrase|explain|repeat|adapt|replace|swap|make|turn|change) "
+    r"(?:only )?(?:that|this|it|them|those)(?:\b| one))\b", re.I,
+)
+REFERENTIAL_QUESTION = re.compile(
+    r"\b(?:can|could|should|would|may) (?:i|we)\b[^.!?\n]{0,45}\b(?:it|them)\b", re.I,
+)
 
 
 def is_follow_up(question: str) -> bool:
     normalized = " ".join(question.lower().replace("\u2019", "'").split()).rstrip("?.!")
+    if CONTEXT_REFERENCE.search(normalized):
+        return True
+    reference = REFERENTIAL_QUESTION.search(normalized)
+    if reference and not re.search(r"\b(?:baby|child|infant|toddler|food|book|toy)\b", reference.group(), re.I):
+        return True
     return re.fullmatch(
         r"(?:what else(?: can i (?:try|do))?|(?:any )?more (?:ideas|suggestions|examples)|"
         r"(?:can|could) you (?:give|suggest) (?:me )?(?:another|more) (?:idea|ideas|activity|activities|example|examples)|"
         r"(?:can|could) you explain (?:that|this)|how (?:do|can) i do (?:that|this)|"
         r"(?:another|one more) (?:idea|activity|example)(?: please)?|something else|"
-        r"tell me more|anything else(?: i can (?:try|do))?|please explain (?:that|this)|"
+        r"tell me more|why|why not|what about (?:the )?(?:first|second|third|last|other) (?:one|idea|suggestion|option)|"
+        r"(?:what about |(?:and |also )?(?:for |over )?)(?:the )?next .{1,35}\b(?:days?|weeks?|months?|years?)|"
+        r"(?:(?:also|and|please) )*(?:include|add)\b.{1,120}|"
+        r"(?:can|could|should|would|may) (?:i|we) (?:do|try|use|repeat|continue|stop|start|give|offer) "
+        r"(?:it|that|this|them|those|these)(?: (?:before|after|during|at|in|with|without|instead|again|too|as well)\b.{0,100})?|"
+        r"anything else(?: i can (?:try|do))?|please explain (?:that|this)|"
         r"you (?:did not|didn't|have not|haven't) (?:answer|respond to|address) (?:my |the )?(?:question|message|request)|"
         r"(?:that|this) (?:is not|isn't|was not|wasn't) what i (?:asked|meant)|you misunderstood(?: (?:me|my question))?|"
         r"what (?:does|do) (?:that|this|it|they) mean|"
@@ -111,7 +131,7 @@ def caregiver_request(question: str, context: list[dict]) -> str:
                 return context[-2]["text"]
         return question
     clarification = clarifies_recent_answer(question, context)
-    if is_follow_up(question) or clarification:
+    if is_follow_up(question) or clarification or _is_age_correction(question):
         if context and context[-1].get("caregiver_request"):
             request = context[-1]["caregiver_request"]
             if not is_follow_up(request) and _age_reply_months(request) is None:
@@ -162,9 +182,16 @@ def needs_topic_clarification(question: str, context: list[dict]) -> bool:
 
 
 def _clarified_age_months(question: str, context: list[dict]) -> float | None:
-    if context and context[-1].get("response_kind") in {"clarification", "age_out_of_scope"}:
+    if context and (context[-1].get("response_kind") in {"clarification", "age_out_of_scope"}
+                    or _is_age_correction(question)):
         return _age_reply_months(question)
     return None
+
+
+def _is_age_correction(question: str) -> bool:
+    """A complete age correction can resume a topic; an unexplained number cannot."""
+    return bool(re.match(r"\s*(?:sorry[ ,]*\s*)?(?:i meant|actually|correction)\b", question, re.I)
+                and _age_reply_months(question) is not None)
 
 
 def _age_reply_months(question: str) -> float | None:
@@ -173,7 +200,7 @@ def _age_reply_months(question: str) -> float | None:
         r"(?:sorry[ ,]*\s*)?(?:(?:i meant|actually|correction)[ ,]*\s*)?"
         r"(?:(?:he|she|they|(?:my|our|the) (?:baby|child|infant|toddler)) (?:is|are) )?"
         r"(?P<age>\d+(?:\.\d+)?\s*[- ]?(?:days?|weeks?|months?|years?))"
-        r"(?:[- ]old)?(?: please)?", question.strip().rstrip(".!?"), re.I,
+        r"(?:[- ]old)?(?: please)?", normalize_age_expressions(question).strip().rstrip(".!?"), re.I,
     )
     return message_age_months(f"My baby is {match['age']}") if match else None
 

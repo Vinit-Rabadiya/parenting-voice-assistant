@@ -103,9 +103,21 @@ def supports_english(question: str) -> bool:
         # least three words before treating it as another language.
         for span in detector.detect_multiple_languages_of(text):
             fragment = text[span.start_index:span.end_index]
-            if (span.language != Language.ENGLISH and len(WORDS.findall(fragment)) >= 3
-                    and _language(detector, fragment) == span.language):
-                return False
+            if span.language != Language.ENGLISH and len(WORDS.findall(fragment)) >= 3:
+                values = detector.compute_language_confidence_values(fragment)
+                if _language(detector, fragment) == span.language:
+                    # Experimental spans can split fluent English into phrases
+                    # resembling another language. Corroborate an ambiguous span
+                    # with its full clause, while keeping clear foreign spans blocked.
+                    clause = next((part for part in re.finditer(r"[^.!?;\n]+", text)
+                                   if part.start() <= span.start_index < part.end()), None)
+                    clause_values = detector.compute_language_confidence_values(clause.group()) if clause else []
+                    strong_english = (len(clause_values) >= 2
+                                      and clause_values[0].language == Language.ENGLISH
+                                      and clause_values[0].value >= clause_values[1].value * 2)
+                    strong_foreign = len(values) >= 2 and values[0].value >= values[1].value * 2
+                    if strong_foreign or not strong_english:
+                        return False
         return True
     except Exception:
         # Detector failures must not become permission to generate.
