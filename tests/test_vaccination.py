@@ -32,6 +32,60 @@ def test_nine_month_schedule_includes_new_programme_updates():
     assert "6 weeks:" not in decision.answer
 
 
+@pytest.mark.parametrize("age", ["1-month old", "one-month-old", "one month old"])
+def test_plans_next_six_months_from_stated_age_instead_of_a_single_visit(age):
+    decision = inspect_vaccination(f"Provide a summary of vaccines for my {age} baby for the next six months.", 18)
+    for label in ["6 weeks:", "10 weeks:", "14 weeks:", "6 months:", "7 months:"]:
+        assert label in decision.answer
+    for label in ["At birth:", "9 months:", "18 months:", "24 months (second birthday):"]:
+        assert label not in decision.answer
+    assert "next 6 months" in decision.answer
+
+
+@pytest.mark.parametrize("age", ["newborn", "new born", "one-day", "1-day"])
+def test_newborn_and_day_age_plans_do_not_return_only_the_nine_month_visit(age):
+    decision = inspect_vaccination(f"Provide a vaccine schedule for my {age} baby for the next 9 months.", 18)
+    for label in ["6 weeks:", "10 weeks:", "14 weeks:", "6 months:", "7 months:", "9 months:"]:
+        assert label in decision.answer
+    assert "18 months:" not in decision.answer
+    assert "24 months (second birthday):" not in decision.answer
+
+
+def test_missing_message_age_uses_profile_age_without_borrowing_planning_duration():
+    decision = inspect_vaccination("A summary of vaccines for my month old baby for the next 6 months for planning.", 1)
+    assert "6 weeks:" in decision.answer
+    assert "7 months:" in decision.answer
+    assert "9 months:" not in decision.answer
+    assert "starting from 1 month" in decision.answer
+    unknown = inspect_vaccination("A vaccine plan for the next six months.")
+    assert "How old" in unknown.answer
+    assert "6 months:" not in unknown.answer
+
+
+def test_follow_up_changes_the_planning_period_without_changing_the_child_age():
+    topic = "A vaccine schedule for my one-month-old baby for the next six months.\nFollow-up: What about the next three months?"
+    decision = inspect_vaccination("What about the next three months?", 1, topic=topic)
+    assert "next 3 months" in decision.answer
+    assert "14 weeks:" in decision.answer
+    assert "6 months:" not in decision.answer
+    assert "7 months:" not in decision.answer
+
+
+def test_optional_and_comfort_requests_are_explicit_and_source_linked():
+    decision = inspect_vaccination("A vaccine schedule for my one-month-old baby for the next six months. Include optional vaccines and baby friendly alternatives.", 18)
+    assert "hepatitis B" in decision.answer
+    assert "Additional vaccines:" in decision.answer
+    assert "breastfeeding during vaccination" in decision.answer
+    assert "do not replace vaccines" in decision.answer
+    assert any(source.key == "vaccine-comfort" for source in decision.sources)
+
+
+def test_named_vaccine_not_scheduled_in_period_does_not_expand_to_all_ages():
+    decision = inspect_vaccination("BCG vaccine for my one-month-old baby for the next six months.", 1)
+    assert "No routine visit ages" in decision.answer
+    assert "At birth:" not in decision.answer
+
+
 def test_general_education_does_not_override_a_schedule_request():
     decision = inspect_vaccination("What is vaccination schedule at 9 months?")
     assert decision.reason == "routine_schedule"

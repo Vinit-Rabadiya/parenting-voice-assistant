@@ -170,6 +170,36 @@ def test_bare_age_reply_is_used_only_after_a_clarification():
     assert contextual_age_months("My baby is 6 weeks old", context) == pytest.approx(42 / 30.4375)
 
 
+@pytest.mark.parametrize("reply", ["eighteen months", "She is eighteen months old", "one year old"])
+def test_word_age_reply_resumes_the_pending_request(reply):
+    messages = pair("Food ideas for my toddler?", "How old is the child you mean?", status="no_evidence")
+    messages[-1].update(response_kind="clarification", clarification_field="age")
+    context = select_conversation_context(messages)
+    assert caregiver_request(reply, context) == "Food ideas for my toddler?"
+    assert contextual_age_months(reply, context) == (12 if reply == "one year old" else 18)
+
+
+@pytest.mark.parametrize("reply", ["Why?", "What about the second suggestion?", "What about the next three months?",
+                                  "Also include optional vaccines.", "Please include optional vaccines.",
+                                  "Could I do this after a feed?"])
+def test_follow_up_variations_preserve_the_caregiver_request(reply):
+    context = select_conversation_context(pair("Vaccines for my one-month-old baby for the next six months?", "Schedule information."))
+    assert caregiver_request(reply, context) == context[0]["text"]
+    assert contextual_age_months(reply, context) == 1
+
+
+def test_demonstrative_before_a_new_topic_is_not_mistaken_for_a_generic_follow_up():
+    assert not is_follow_up("Can I use this picture book with my baby?")
+
+
+@pytest.mark.parametrize("reply", ["Actually one month", "Sorry, I meant one month old", "Actually she is one month old"])
+def test_explicit_age_correction_resumes_an_answered_request_without_an_age_question(reply):
+    context = select_conversation_context(pair("Vaccines for my six-month-old baby for the next six months?"))
+    assert caregiver_request(reply, context) == context[0]["text"]
+    assert contextual_age_months(reply, context) == 1
+    assert contextual_age_months("one month", context) is None
+
+
 def test_resolved_age_survives_bounded_history_without_trusting_generated_age_claims():
     messages = pair("What else can I try?", "Your baby is 36 months old. UNVERIFIED_CLAIM")
     messages[-1]["subject_age_override"] = 18
@@ -252,3 +282,26 @@ def test_sourced_vaccine_education_allows_follow_up_but_unsourced_notices_do_not
         assert contextual_retrieval_query(question, context) == f"What is TCV?\nFollow-up: {question}"
     messages[-1]["safety"] = "escalate"
     assert select_conversation_context(messages) == []
+
+
+@pytest.mark.parametrize("follow_up", [
+    "The second choice needs cooking. Could you swap only that one for something I can pack as it is?",
+    "Can I pack it the night before and keep it in my bag?",
+    "Please keep the same age in mind and shorten it to a three-point checklist for my partner.",
+    "Could you rewrite that for someone who reads only short sentences?",
+])
+def test_referential_edits_and_practical_follow_ups_keep_request_and_age(follow_up):
+    original = "For my eleven-month-old, suggest two portable snack ideas with no refrigerator."
+    messages = pair(original, "Try soft fruit.")
+    messages[-1]["subject_age_override"] = 11
+    context = select_conversation_context(messages)
+    assert caregiver_request(follow_up, context) == original
+    assert contextual_age_months(follow_up, context) == 11
+    assert original in contextual_retrieval_query(follow_up, context)
+
+
+def test_explicit_topic_change_replaces_context_age_and_request():
+    context = select_conversation_context(pair("My child is twenty-one months. Suggest a sock sorting game."))
+    question = "Now a different question: my eight-week-old wakes when I transfer him into the cot. Give two settling ideas."
+    assert caregiver_request(question, context) == question
+    assert contextual_age_months(question, context) == pytest.approx(56 / 30.4375)

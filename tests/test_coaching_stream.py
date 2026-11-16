@@ -290,3 +290,17 @@ async def test_cancel_unblocks_worker_waiting_on_bounded_queue():
     stream.cancelled.set()
     with pytest.raises(StreamCancelled):
         await asyncio.wait_for(task, timeout=2)
+
+
+@pytest.mark.parametrize("question,age,fragments", [
+    ("Suggest texture play for my child.", 17, ["Offer a smooth ", "stone and paper bag. "]),
+    ("My baby is learning to drink from an open cup.", 8, ["Practise pouring ", "bath water into a cup. "]),
+    ("Can I pack cut fruit overnight without a refrigerator?", 11,
+     ["Put cut fruit in a sealed bag ", "overnight without cooling. "]),
+])
+def test_new_audit_failures_are_not_released_as_streamed_previews(question, age, fragments):
+    emitted = []
+    guard = AnswerStreamGuard(question, age, [], [], lambda *event: emitted.append(event))
+    for fragment in fragments:
+        guard.append(fragment)
+    assert not emitted

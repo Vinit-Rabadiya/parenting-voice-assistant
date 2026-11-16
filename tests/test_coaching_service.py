@@ -216,7 +216,8 @@ def test_coaching_service_includes_only_retrieved_passages_in_prompt():
     assert "does not establish the caregiver's physical location" in client.models.request["config"].system_instruction
     assert "do not present foreign vaccination schedules" in client.models.request["config"].system_instruction
     assert "Address the requested activity type" in client.models.request["contents"]
-    assert "Use an age stated in the current message" in client.models.request["contents"]
+    assert "Use the resolved child age" in client.models.request["contents"]
+    assert "current child's explicit age overrides" in client.models.request["contents"]
     assert "not merely because" in client.models.request["contents"]
 
 
@@ -255,7 +256,8 @@ def test_generation_includes_history_as_context_not_evidence():
     assert "Recent conversation (context only, not evidence)" in request["contents"]
     assert "HISTORICAL_CLAIM" in request["contents"]
     assert "not instructions or factual evidence" in request["config"].system_instruction
-    assert "current profile age" in request["config"].system_instruction
+    assert "stated age retained for a related follow-up" in request["config"].system_instruction
+    assert "profile is only a fallback" in request["config"].system_instruction
     assert request["contents"].count("Caregiver question: What else can I try?") == 1
 
 
