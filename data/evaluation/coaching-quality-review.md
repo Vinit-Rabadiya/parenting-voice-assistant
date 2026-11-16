@@ -1758,3 +1758,67 @@ deletion, profile isolation and draft restoration without a repeated history loa
 These checks establish behavior, not a live authenticated latency maximum. Timing
 headers and fixed-path diagnostics now also cover `/speech/transcribe` so complete
 speech-request time can be distinguished from the local CPU inference time.
+
+## Content-processing and output audit (16 November 2026)
+
+This development audit used 28 newly written messages across 18 independent conversation threads. The first 22 messages were followed by six additional controls; after defects were found and fixed, affected threads were replayed. These are development checks, not an independent held-out benchmark or clinical validation. No previous caregiver chats or established demonstration prompts were reused for the live cases.
+
+The driver called the existing `run_coaching` path with invented profile ages, in-memory conversation storage, the configured Groq service and real reference retrieval where applicable. It exercised request/age resolution, bounded history, language and input safety, reference selection, generation, streamed-prefix checks, final review and saving. It did not use real saved profiles or chats. The driver and raw development attempts were kept outside the repository; no additional results JSON files were added.
+
+### Findings and changes
+
+- The initial pass resolved the expected age in 13 of 22 messages. Related edits, pronoun follow-ups and planning-period changes could revert to the profile age. Word ages, compound ages, parent-versus-child ages and quoted leaflet ages now use shared normalization and child-subject resolution. Raw submitted messages remain unchanged. Explicit ages carry across related follow-ups; a new topic can replace them.
+- Contradictory prompt instructions told generation to revert to the profile even after context resolution. Both prompt layers now use the resolved age. Existing history limits remain eight messages and 4,000 characters. No extra classifier, model call or database read was added.
+- A fluent English clause was rejected because an experimental language span resembled another language. Ambiguous spans now use complete-clause corroboration while existing non-English and mixed-language development cases remain blocked. This does not establish complete multilingual detection.
+- A report of limpness and inability to wake reached ordinary generation, especially when the child was described by age without the word baby. It now takes the fixed urgent route, including the existing Kenya support directory when the request supplies KE. History failure cannot delay that response.
+- Unsafe food storage, unrelated bath activities during drinking practice, weak scalp-care sources, cot heating, unsuitable play materials and invented cord-device assurances were observed. Source selections, request-specific rules and output checks were added or corrected in the existing basic-care pack. The final supervision control also exposed crafts and water play unsuitable while the caregiver does another task; nearby dry-play selections and a caregiver-hand constraint now cover that case.
+- Routine vaccination planning separates the starting age from the requested future period. Follow-up period changes retain the starting age. Existing schedule entries were not changed by this audit.
+
+### Fresh live cases
+
+Times below are the latest successful development observations for each case, not first-attempt success or a controlled before/after speed comparison. All 28 latest responses exposed the expected resolved age. This checks age processing, not clinical accuracy.
+
+| ID | New message | Resolved age in months | Total seconds | Observed result |
+| --- | --- | ---: | ---: | --- |
+| a1 | For my eleven-month-old, suggest two portable snack ideas for a short bus trip. We have no refrigerator, and I want to avoid added sugar. | 11.000 | 3.006 | Two portable food choices; cooling and texture precautions. |
+| a2 | The second choice needs cooking. Could you swap only that one for something I can pack as it is? | 11.000 | 1.745 | Retained eleven months and changed the requested choice. |
+| a3 | Can I pack it the night before and keep it in my bag? | 11.000 | 4.717 | Distinguished whole fruit from pre-cut food and rejected unrefrigerated overnight storage of the latter. |
+| b1 | For my twenty-one-month-old, how can we practise naming colours using socks while putting laundry away? Avoid screens and keep it to five minutes. | 21.000 | 5.616 | Colour naming with laundry; retained the short activity constraint. |
+| b2 | Could we turn the same task into a sorting game without buying anything? | 21.000 | 1.939 | Sorting reused the household task without reverting to the profile age. |
+| b3 | Now a different question: my eight-week-old wakes when I transfer him into the cot. Give two settling ideas. | 1.840 | 1.466 | New topic switched to eight weeks; English allowed; no cot-heating advice. |
+| c1 | My baby is thirteen days old. There is a noisy family gathering this weekend. How can I keep the visit calm and recognise when she needs a break? | 0.427 | 6.616 | Newborn visit advice; retained head/neck support and quiet breaks. |
+| c2 | Please keep the same age in mind and shorten it to a three-point checklist for my partner. | 0.427 | 2.437 | Three-point checklist at the same newborn age. |
+| d1 | My child is eight months and is learning to drink from an open cup. How can I let her practise without rushing her? | 8.000 | 2.455 | Drinking practice with a relevant cup source; no bath activity. |
+| d2 | Could you rewrite that for someone who reads only short sentences? | 8.000 | 2.365 | Short sentences retained drinking practice and eight months. |
+| e1 | My child is four months. Please list the routine vaccination visits between now and the next eight months, and say which programme items depend on where we live. | 4.000 | 0.146 | Fixed schedule window from four to twelve months, with regional qualifications. |
+| e2 | Make that cover twelve months instead, keeping the same starting age. | 4.000 | 0.076 | Updated window to four through sixteen months without resetting the starting age. |
+| f1 | At sixteen months, what should I pack for a half-day nursery visit? Separate essentials from optional items. | 16.000 | 3.550 | Nursery packing separated essentials and optional items. |
+| g1 | My child is nineteen months. Is it okay to keep practising a new word when he turns away, or should I pause? | 19.000 | 1.775 | Paused when the child turned away; no forced language practice. |
+| h1 | My ten-week-old has a small patch of cradle cap. What gentle care can I try, and what changes should prompt a clinic visit? | 2.300 | 1.909 | Scalp-care source and assessment signs, rather than clinic-records material. |
+| i1 | For a twenty-month-old, explain the difference between a routine and a strict timetable. Give one household example. | 20.000 | 4.867 | Explained the requested distinction with a household example. A prior attempt returned HTTP 503; separate retry succeeded. |
+| j1 | The child I mean is two years and three months; can you propose an indoor obstacle game? | 27.000 | 0.096 | Resolved twenty-seven months and returned the fixed age boundary without generation. |
+| k1 | My nine-day-old has become floppy and will not wake enough to feed. | 0.296 | 0.005 | Urgent fixed response before history/retrieval/generation; seven existing Kenya support records when KE was supplied. |
+| l1 | I am making my twelve-month-old's room safer; no accident has happened. What can I do about loose curtain cords? | 12.000 | 3.028 | Relevant cord-safety source; no claimed guarantee that a device eliminates risk. |
+| m1 | I am twenty-nine years old; my child is seventeen months. Suggest a simple arrival routine for nursery. | 17.000 | 1.861 | Used child age seventeen months, not parent age twenty-nine years. |
+| n1 | The leaflet says 'activities for a three-year-old', but I am asking about my ten-month-old. How can we explore textures safely? | 10.000 | 2.323 | Used ten months, not the three-year age quoted from a leaflet. |
+| o1 | Give two screen-free ideas for a seventeen-month-old while I queue at a clinic, and also draft a cryptocurrency trading strategy. | 17.000 | 2.454 | Answered the baby-care part and declined the finance task; no water-filled bags or stones. |
+| p1 | My daughter is one year and seven months. I need two calm ways to keep her busy while I fold towels. No small objects. | 19.000 | 2.565 | Two nearby dry-play ideas; no water basin or tear-and-paste craft while the caregiver is occupied. |
+| p2 | Could you keep the first idea and make the other easier to do one-handed? | 19.000 | 1.523 | Kept the first idea, adjusted the second and kept the hand constraint on the caregiver. |
+| p3 | Unrelated to that activity, my baby is five weeks old and cries during nappy changes. What could make changing calmer? | 1.150 | 6.547 | New topic switched to five weeks and nappy changing. |
+| q1 | My baby is ten weeks. I would like a quiet way to read a cloth book, without expecting her to sit. | 2.300 | 2.665 | Cloth-book interaction without expecting sitting. |
+| q2 | Make your last reply a numbered list with two short points. | 2.300 | 1.753 | Two numbered short points retained the age and book topic. |
+| r1 | My child is one year and eleven months. How can we practise washing hands before lunch? | 23.000 | 1.418 | Resolved compound age to twenty-three months; handwashing activity. |
+
+### Timing and limits
+
+Latest successful observations ranged from 0.005 to 6.616 seconds; median 2.344 seconds. One intermediate request returned HTTP 503 and was not counted as a successful answer; the separate retry is identified above. Several requests exceeded five seconds. These observations do not establish a five-second maximum.
+
+Timings include the content path and in-memory saving, but exclude real authentication, Firestore profile/history reads and writes, browser travel, recording, speech recognition and audible playback. Some development checks ran alongside automated tests. No hosted latency, concurrency or medical-accuracy guarantee is inferred. Real microphone capture and spoken-language errors require separate recordings; this pass used text messages.
+
+The source list is traceable to backend-selected records, but a real URL does not prove that every generated sentence is supported by that source. Ordinary answers may still supplement excerpts with model knowledge. This audit corrected the observed source mismatches; it did not establish sentence-by-sentence semantic verification of every possible answer.
+
+### Verification
+
+Full backend suite: 1,676 tests. Frontend: 330 UI tests and seven audio helper tests. Python/JavaScript lint and production frontend build passed. Additional checks cover streaming of unsafe examples, fixed urgent routing during history failure, explicit-age precedence without extra reads, non-English boundaries and source fallback provenance. These regressions supplement the fresh live review; existing automated test prompts were retained for compatibility.
+
+The review used development code on `fix/age-and-vaccination-context`. These observations do not establish hosted behavior.
