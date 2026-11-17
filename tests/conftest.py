@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("FIREBASE_PROJECT_ID", "test-project")
 os.environ.setdefault("COACHING_PROVIDER", "gemini")
 os.environ.setdefault("COACHING_PROVIDER_FAILOVER", "false")
+os.environ.setdefault("QDRANT_WARMUP_ENABLED", "false")
 os.environ.setdefault("FIREBASE_ADMIN_KEY_PATH", ".secrets/firebase-admin.json")
 
 

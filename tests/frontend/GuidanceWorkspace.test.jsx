@@ -1,12 +1,12 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import GuidanceWorkspace from "../../frontend/src/components/GuidanceWorkspace";
-import { createConversation, deleteConversation, getConversation, listConversations, requestCoaching } from "../../frontend/src/services/caregiving";
+import { deleteConversation, getConversation, listConversations, requestCoaching } from "../../frontend/src/services/caregiving";
 const { consentState } = vi.hoisted(() => ({ consentState: { allowed: true } }));
 
 vi.mock("../../frontend/src/services/caregiving", () => ({
   requestCoaching: vi.fn(), sendFeedback: vi.fn(),
-  createConversation: vi.fn(), getConversation: vi.fn(), listConversations: vi.fn(), deleteConversation: vi.fn(),
+  getConversation: vi.fn(), listConversations: vi.fn(), deleteConversation: vi.fn(),
 }));
 vi.mock("../../frontend/src/components/MicrophoneControls", () => ({
   default: ({ onTranscriptChange, compact }) => <button type="button" onClick={() => onTranscriptChange("I am feeding my baby.")}>
@@ -27,7 +27,6 @@ beforeEach(() => {
   vi.resetAllMocks();
   consentState.allowed = true;
   listConversations.mockResolvedValue([]);
-  createConversation.mockResolvedValue({ id: "chat-1", title: "New conversation" });
   vi.stubGlobal("SpeechSynthesisUtterance", function (text) { this.text = text; });
   vi.stubGlobal("speechSynthesis", { cancel: vi.fn(), speak: vi.fn() });
 });
@@ -74,7 +73,6 @@ it("sends a first turn in one request while history is still loading", async () 
   const payload = requestCoaching.mock.calls[0][0];
   expect(payload.start_conversation).toBe(true);
   expect(payload.conversation_id).toMatch(/^[0-9a-f-]{36}$/);
-  expect(createConversation).not.toHaveBeenCalled();
   await act(async () => finishHistory([{ id: payload.conversation_id, title: "Old snapshot title" }, { id: "older", title: "Earlier chat" }]));
   expect(screen.getAllByRole("link", { name: "Feeding ideas" })).toHaveLength(1);
   expect(screen.getByRole("link", { name: "Earlier chat" })).toBeTruthy();
@@ -180,7 +178,6 @@ it("sends a message with Enter through the existing submission flow", async () =
   expect(requestCoaching).toHaveBeenCalledTimes(1);
   expect(requestCoaching.mock.calls[0][0].question).toBe("Feeding ideas");
   expect(input.value).toBe("");
-  expect(createConversation).not.toHaveBeenCalled();
   expect(requestCoaching.mock.calls[0][0].start_conversation).toBe(true);
   expect(requestCoaching.mock.calls[0][0].conversation_id).toMatch(/^[0-9a-f-]{36}$/);
 });
@@ -218,7 +215,6 @@ it("can start the same new conversation after a failed request that never create
   fireEvent.click(screen.getByRole("button", { name: "Get guidance" }));
   await screen.findByText("Try a soft rattle.");
   expect(requestCoaching.mock.calls[1][0]).toMatchObject({ conversation_id: first.conversation_id, start_conversation: true });
-  expect(createConversation).not.toHaveBeenCalled();
 });
 
 it("preserves the open conversation and draft when leaving and returning to chat", async () => {
@@ -251,7 +247,6 @@ it.each([
   const input = screen.getByLabelText("Question");
   fireEvent.change(input, { target: { value: "Feeding ideas" } });
   fireEvent.keyDown(input, { key: "Enter", ...modifiers });
-  expect(createConversation).not.toHaveBeenCalled();
   expect(requestCoaching).not.toHaveBeenCalled();
 });
 
@@ -261,7 +256,6 @@ it("does not submit blank messages or send again while preparing guidance", asyn
   await selectProfile();
   const input = screen.getByLabelText("Question");
   fireEvent.keyDown(input, { key: "Enter" });
-  expect(createConversation).not.toHaveBeenCalled();
   fireEvent.change(input, { target: { value: "Feeding ideas" } });
   fireEvent.keyDown(input, { key: "Enter" });
   await waitFor(() => expect(requestCoaching).toHaveBeenCalledTimes(1));

@@ -79,8 +79,21 @@ def profile_storage(monkeypatch):
     monkeypatch.setattr(settings, "GEMINI_PAID_SERVICES_CONFIRMED", False)
     monkeypatch.setattr(settings, "GEMINI_NONPERSONAL_TESTING_CONFIRMED", False)
     database = MagicMock()
+    monkeypatch.setattr("backend.services.caregiver_data.firestore.transactional", lambda function: function)
     service = CaregiverDataService(database)
+    account = service._account("account-a")
+    account.path = "users/account-a"
+    account.get.return_value.exists = True
+    account.get.return_value.to_dict.return_value = {}
     document = service._children("account-a").document.return_value
+    document.path = "users/account-a/children/child-1"
+
+    def batch_get(references, **kwargs):
+        for reference in references:
+            snapshot = reference.get.return_value
+            snapshot.reference = reference
+            yield snapshot
+    database.get_all.side_effect = batch_get
     document.id = "child-1"
     document.get.return_value.exists = True
     document.get.return_value.id = "child-1"
@@ -92,7 +105,7 @@ def test_health_notes_are_private_profile_fields_and_default_to_not_shared(profi
     service, document, _ = profile_storage
     service.create_child("account-a", "Example", date(2026, 4, 20), None,
                          health_details={"allergies": " Example allergy "})
-    stored = document.set.call_args.args[0]
+    stored = service.client.transaction.return_value.create.call_args.args[1]
     assert stored["health_details"]["allergies"] == "Example allergy"
     assert stored["use_health_details"] is False
     assert service.get_child("account-a", "child-1")["health_context_available"] is False
@@ -101,12 +114,12 @@ def test_health_notes_are_private_profile_fields_and_default_to_not_shared(profi
 def test_health_note_edits_and_clear_do_not_replace_other_profile_fields(profile_storage):
     service, document, _ = profile_storage
     service.update_child("account-a", "child-1", {"health_details": {"history": "Review note"}})
-    stored = document.update.call_args.args[0]
+    stored = service.client.transaction.return_value.update.call_args.args[1]
     assert set(stored) == {"health_details", "health_context_revision"}
     assert stored["health_details"]["history"] == "Review note"
     service.update_child("account-a", "child-1", {"health_details": None})
-    assert all(value == "" for value in document.update.call_args.args[0]["health_details"].values())
-    assert document.update.call_args.args[0]["health_context_revision"] != stored["health_context_revision"]
+    assert all(value == "" for value in service.client.transaction.return_value.update.call_args.args[1]["health_details"].values())
+    assert service.client.transaction.return_value.update.call_args.args[1]["health_context_revision"] != stored["health_context_revision"]
 
 
 def test_legacy_profiles_return_empty_health_notes_without_a_migration(profile_storage):
@@ -120,10 +133,10 @@ def test_unconfirmed_configuration_cannot_enable_health_sharing_at_storage_bound
     service, document, _ = profile_storage
     with pytest.raises(ValueError, match="currently unavailable"):
         service.create_child("account-a", "Example", date(2026, 4, 20), None, use_health_details=True)
-    document.set.assert_not_called()
+    service.client.transaction.return_value.create.assert_not_called()
     with pytest.raises(ValueError, match="currently unavailable"):
         service.update_child("account-a", "child-1", {"use_health_details": True})
-    document.update.assert_not_called()
+    service.client.transaction.return_value.update.assert_not_called()
 
 
 def test_confirmed_testing_allows_notes_in_replies_without_paid_confirmation(profile_storage, monkeypatch):
@@ -131,7 +144,7 @@ def test_confirmed_testing_allows_notes_in_replies_without_paid_confirmation(pro
     monkeypatch.setattr(settings, "GEMINI_NONPERSONAL_TESTING_CONFIRMED", True)
     service.update_child("account-a", "child-1", {"health_details": {"allergies": "Example note"},
                                                 "use_health_details": True})
-    values = document.update.call_args.args[0]
+    values = service.client.transaction.return_value.update.call_args.args[1]
     assert values["health_details"]["allergies"] == "Example note"
     assert values["use_health_details"] is True
     assert service.get_child("account-a", "child-1")["health_context_available"] is True
@@ -142,10 +155,10 @@ def test_health_sharing_can_be_enabled_and_revoked_when_available(profile_storag
     service, document, _ = profile_storage
     monkeypatch.setattr(settings, "GEMINI_PAID_SERVICES_CONFIRMED", True)
     service.update_child("account-a", "child-1", {"use_health_details": True})
-    assert document.update.call_args.args[0]["use_health_details"] is True
+    assert service.client.transaction.return_value.update.call_args.args[1]["use_health_details"] is True
     monkeypatch.setattr(settings, "GEMINI_PAID_SERVICES_CONFIRMED", False)
     service.update_child("account-a", "child-1", {"use_health_details": False})
-    assert document.update.call_args.args[0]["use_health_details"] is False
+    assert service.client.transaction.return_value.update.call_args.args[1]["use_health_details"] is False
 
 
 @pytest.mark.parametrize("health", [{"history": "x" * 601}, {"unknown_field": "value"}, {"allergies": ["value"]}])

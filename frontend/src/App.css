@@ -46,7 +46,6 @@ main.account-shell { max-width: 840px; width: calc(100% - 40px); margin: 24px au
 .account-enrollment { max-width: 480px; }
 .account-page .account-enrollment img { max-width: 100%; height: auto; margin: 4px 0; background: #fff; }
 .account-page .account-enrollment code { margin: 0; text-align: left; }
-.account-initial-loading { padding: 32px 0; }
 @media (max-width: 600px) {
   main.account-shell { width: calc(100% - 28px); margin-top: 12px; }
   .account-identity-card, .account-card { padding: 18px; }

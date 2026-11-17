@@ -15,6 +15,7 @@ from backend.api.dependencies import get_caregiver_data_service, get_coaching_se
 from backend.core.security import require_authenticated_user, require_caregiver_user
 from backend.api.consent import require_processing_consent
 from backend.api.coaching_context import prepare_coaching_documents
+from backend.api.request_admission import require_processing_slot, run_processing_worker
 from backend.api.coaching_stream import CoachingStream, StreamCancelled
 from backend.services.answer_stream import AnswerStreamGuard
 from backend.schemas.coaching import CoachingRequest, CoachingResponse, CitationSchema, FeedbackRequest, FeedbackResponse
@@ -132,7 +133,8 @@ async def read_coaching_data(data_service, uid: str, payload: CoachingRequest,
         snapshot = documents["child_snapshot"]
         async def profile_from_snapshot():
             with timed_stage(request_id, "profile_lookup"):
-                return data_service._child_response(snapshot) if snapshot.exists else None
+                return (data_service._child_response(snapshot)
+                        if snapshot.exists and not snapshot.to_dict().get("deleting", False) else None)
         profile = profile_from_snapshot()
         history_options = {"prefetched_snapshot": documents["conversation_snapshot"]}
     if parallel:
@@ -188,7 +190,7 @@ async def respond_to_safety(data_service: CaregiverDataService, uid: str,
 
 
 @router.post("", response_model=CoachingResponse,
-             dependencies=[Depends(prepare_coaching_documents), Depends(require_processing_consent)])
+             dependencies=[Depends(require_processing_slot), Depends(prepare_coaching_documents), Depends(require_processing_consent)])
 async def coach(
     payload: CoachingRequest,
     request: Request,
@@ -386,8 +388,8 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
                             stream.send_from_worker("reset", {})
                             guard.reset()
                         context_options["on_reset"] = reset_preview
-                result = await run_in_threadpool(
-                    coaching_service.generate, payload.question, age_months,
+                result = await run_processing_worker(
+                    request, user["uid"], coaching_service.generate, payload.question, age_months,
                     payload.routine, evidence, **context_options,
                 )
             stage = "Response safety"
@@ -403,6 +405,8 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
                     status = "safety_blocked"
                     result = CoachingResult(answer=PROVIDER_BLOCK_MESSAGE if result.blocked else SAFE_RESPONSE, passages=[])
     except StreamCancelled:
+        raise
+    except HTTPException:
         raise
     except ValueError:
         raise HTTPException(status_code=503, detail=REQUEST_ERROR) from None

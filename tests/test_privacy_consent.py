@@ -204,10 +204,51 @@ def test_data_deletion_requires_authentication(client):
 
 def test_data_deletion_recursively_targets_only_the_authenticated_account():
     storage = MagicMock()
+    account = storage.collection.return_value.document.return_value
+    collections = [MagicMock(), MagicMock()]
+    account.collections.return_value = collections
     CaregiverDataService(storage).delete_account_data("account-a")
     storage.collection.assert_called_once_with("users")
     storage.collection.return_value.document.assert_called_once_with("account-a")
-    storage.recursive_delete.assert_called_once_with(storage.collection.return_value.document.return_value)
+    account.set.assert_called_once_with({"deleting": True}, merge=True)
+    assert [call.args[0] for call in storage.recursive_delete.call_args_list] == collections
+    account.delete.assert_called_once_with()
+
+
+def test_account_deletion_keeps_its_barrier_until_descendant_cleanup_finishes():
+    storage = MagicMock()
+    account = storage.collection.return_value.document.return_value
+    first, second = MagicMock(), MagicMock()
+    account.collections.return_value = [first, second]
+    order = []
+    account.set.side_effect = lambda *args, **kwargs: order.append("barrier")
+    storage.recursive_delete.side_effect = lambda collection: order.append(collection)
+    account.delete.side_effect = lambda: order.append("parent_deleted")
+    CaregiverDataService(storage).delete_account_data("account-a")
+    assert order == ["barrier", first, second, "parent_deleted"]
+
+
+def test_incomplete_account_deletion_leaves_a_retryable_barrier():
+    storage = MagicMock()
+    account = storage.collection.return_value.document.return_value
+    account.collections.return_value = [MagicMock()]
+    storage.recursive_delete.side_effect = RuntimeError("Storage unavailable")
+    with pytest.raises(RuntimeError):
+        CaregiverDataService(storage).delete_account_data("account-a")
+    account.set.assert_called_once_with({"deleting": True}, merge=True)
+    account.delete.assert_not_called()
+
+
+def test_consent_cannot_reopen_an_account_during_deletion():
+    storage = MagicMock()
+    account = storage.collection.return_value.document.return_value
+    account.get.return_value.exists = True
+    account.get.return_value.to_dict.return_value = {"deleting": True}
+    with patch("backend.services.caregiver_data.firestore.transactional", side_effect=lambda function: function):
+        with pytest.raises(ValueError, match="being deleted"):
+            CaregiverDataService(storage).save_consent("account-a", CONSENT_VERSION)
+    storage.transaction.return_value.set.assert_not_called()
+    assert CaregiverDataService(storage).get_consent("account-a") == {}
 
 
 def test_storage_failure_blocks_new_processing(client, consent_api):

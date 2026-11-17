@@ -194,3 +194,35 @@ CI includes a Gitleaks scan of new commits with redacted findings. It uses a pin
 release with checksum verification, does not post comments or upload reports,
 and needs no secret-scanning subscription. This detects leaked secrets after a
 push; it does not replace before-push protection or the cloud credential review.
+
+## Application abuse and browser protections
+
+Production uses short-lived, in-memory burst checks: eight processing starts may
+arrive together, with one allowance replenished every three seconds. There is no
+hourly or daily caregiver usage quota. Each process permits four simultaneous
+processing requests, at most two per account, and one speech inference. Rejected
+requests receive HTTP 429 and a short Retry-After value; accepted requests are not
+queued by these controls. Sign-in, data deletion and the public emergency contacts
+remain outside the processing quota. Actual model workers retain their capacity
+until they finish, including after a browser disconnects.
+
+Authenticated reads have a separate, more generous burst allowance of 32,
+replenished once per second, to protect database reads without using up processing
+allowances. Development keeps concurrency protection but disables burst throttling.
+
+Uploads have bounded parallel body reads, size and upload-time checks. The
+container also limits concurrent HTTP connections. These are per-process controls;
+larger deployments should add shared ingress protection against distributed abuse.
+
+The browser policy permits the configured Firebase project's sign-in origins.
+When Firebase uses a custom authentication domain, add its exact HTTPS origin to
+`CSP_AUTH_ORIGINS` before deployment. Test Google sign-in, authenticator setup and
+recording on the hosted domain after changing authentication origins.
+
+Reference destinations must appear in the checked-in source manifests copied into
+the image. Use a collection-scoped, read-only Qdrant key at runtime, and reserve
+write credentials for indexing. An allowed citation URL does not prove that the
+retrieved excerpt is authentic or that a generated answer is medically correct.
+Review provider data terms before using real personal data: testing confirmation
+flags are operator assertions, not anonymization. Rotate previously exposed private
+keys in their provider consoles; changing application code cannot revoke them.

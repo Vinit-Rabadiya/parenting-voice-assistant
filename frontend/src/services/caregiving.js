@@ -143,9 +143,6 @@ export async function requestCoaching(payload, { signal, timeoutMs = 60000, onEv
 }
 export const sendFeedback = (interactionId, payload) => request(`/coach/${interactionId}/feedback`, { method: "POST", body: JSON.stringify(payload) });
 
-export const createConversation = (childId, { signal } = {}) => request("/conversations", {
-  method: "POST", body: JSON.stringify({ child_id: childId }), signal,
-});
 export const deleteConversation = (id) => request(`/conversations/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const listConversations = (childId, before = null, signal) => {
   const query = new URLSearchParams({ child_id: childId, limit: "30" });

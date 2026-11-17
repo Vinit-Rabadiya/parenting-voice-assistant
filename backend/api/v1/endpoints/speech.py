@@ -2,11 +2,11 @@
 # api/v1/router.py registers this endpoint; frontend services/transcription.js calls it.
 from anyio import WouldBlock
 from fastapi import APIRouter, Depends, HTTPException, Request
-from starlette.concurrency import run_in_threadpool
 
 from backend.api.dependencies import get_speech_service
 from backend.core.security import require_caregiver_user
 from backend.api.consent import require_processing_consent
+from backend.api.request_admission import require_processing_slot, run_processing_worker
 from backend.schemas.speech import SpeechLanguage, TranscriptionResponse
 from backend.services.speech import SpeechService
 from backend.services.speech_errors import InvalidAudioError, SpeechServiceError
@@ -22,7 +22,8 @@ router = APIRouter(
 )
 
 
-@router.post("/transcribe", response_model=TranscriptionResponse, dependencies=[Depends(require_processing_consent)])
+@router.post("/transcribe", response_model=TranscriptionResponse,
+             dependencies=[Depends(require_processing_slot), Depends(require_processing_consent)])
 async def transcribe_audio(
     request: Request,
     service: SpeechService = Depends(get_speech_service),
@@ -63,7 +64,8 @@ async def transcribe_audio(
 
     try:
         # run blocking transcription outside the event loop.
-        return await run_in_threadpool(service.transcribe, audio_bytes, language=language)
+        return await run_processing_worker(request, request.state.caregiver_uid, service.transcribe,
+                                           audio_bytes, language=language, speech=True)
     except InvalidAudioError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except SpeechServiceError as exc:

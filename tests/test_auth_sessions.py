@@ -4,7 +4,8 @@ from types import SimpleNamespace
 import time
 from unittest.mock import Mock, patch
 
-from fastapi import Request
+from fastapi import FastAPI, Request
+from fastapi.testclient import TestClient
 from firebase_admin import auth
 import pytest
 
@@ -41,6 +42,27 @@ def test_repeat_request_validates_jwt_but_reuses_remote_checks(session_context):
     assert revocation_checks(c) == [True, False]
     c.security.read.assert_called_once_with("caregiver")
     assert c.client.get("/me").status_code == 401
+
+
+def test_browser_api_alias_reuses_checks_but_security_settings_refresh_them(session_context):
+    from backend.api.v1.router import api_router
+
+    c = session_context
+    hosted = FastAPI()
+    hosted.state.firebase = c.client.app.state.firebase
+    hosted.state.auth_session_cache = c.cache
+    hosted.include_router(api_router, prefix="/api")
+    hosted.dependency_overrides[get_account_security_service] = lambda: c.security
+    with TestClient(hosted) as browser:
+        for _ in range(2):
+            assert browser.get("/api/me", headers=c.headers).status_code == 200
+        assert revocation_checks(c) == [True, False]
+        c.security.read.assert_called_once_with("caregiver")
+        c.security.read.return_value = {"mfa_enabled": False, "mfa_required": True}
+        assert browser.get("/api/me/security", headers=c.headers).status_code == 200
+        assert browser.get("/api/me", headers=c.headers).status_code == 403
+    assert revocation_checks(c) == [True, False, True, True]
+    assert c.security.read.call_count == 3
 
 
 def test_cache_hits_do_not_extend_freshness_and_revocation_is_checked_after_ttl(session_context):
@@ -194,19 +216,27 @@ def test_zero_ttl_disables_reuse_and_missing_cache_falls_back_to_fresh_checks(se
     assert revocation_checks(c) == [True, True, True]
 
 
+@pytest.mark.parametrize("prefix", ["", "/api", "/api/v1"])
 @pytest.mark.parametrize("method,path,reusable", [
-    ("POST", "/coach", True), ("POST", "/api/v1/coach", True),
+    ("POST", "/coach", True), ("GET", "/me/startup", True),
     ("POST", "/speech/transcribe", True), ("GET", "/conversations/thread", True),
     ("POST", "/coach/interaction/feedback", True), ("GET", "/privacy/consent", True),
     ("GET", "/me/security", False), ("POST", "/me/security/mfa/disable", False),
-    ("GET", "/admin/feedback/summary", False), ("GET", "/api/v1/admin/feedback/access", False),
+    ("GET", "/admin/feedback/summary", False), ("GET", "/admin/feedback/access", False),
     ("DELETE", "/me", False), ("DELETE", "/me/data", False),
     ("DELETE", "/children/child", False), ("PATCH", "/children/child", False),
     ("DELETE", "/conversations/thread", False), ("GET", "/new-protected-feature", False),
 ])
-def test_only_ordinary_caregiver_routes_can_reuse_remote_checks(method, path, reusable):
-    request = Request({"type": "http", "method": method, "path": path, "headers": []})
+def test_only_ordinary_caregiver_routes_can_reuse_remote_checks(method, path, reusable, prefix):
+    request = Request({"type": "http", "method": method, "path": prefix + path, "headers": []})
     assert can_reuse_session(request) is reusable
+
+
+@pytest.mark.parametrize("path", ["/apiary/me", "/api/v10/me", "/api/v1extra/me",
+                                 "/api/api/me", "/api/v1/api/me", "/api/v1/me/security"])
+def test_similar_or_nested_api_prefixes_cannot_gain_cache_access(path):
+    request = Request({"type": "http", "method": "GET", "path": path, "headers": []})
+    assert can_reuse_session(request) is False
 
 
 def test_cache_bounds_privacy_invalidation_and_lifecycle():

@@ -43,7 +43,7 @@ class MemoryData:
     def get_coaching_documents(self, uid, child_id, conversation_id):
         child = self.get_child(uid, child_id)
         return {"consent": self.get_consent(uid),
-                "child_snapshot": SimpleNamespace(exists=child is not None, profile=child),
+                "child_snapshot": SimpleNamespace(exists=child is not None, profile=child, to_dict=lambda: child or {}),
                 "conversation_snapshot": self.chats.get(conversation_id)}
 
     @staticmethod
@@ -140,6 +140,8 @@ if __name__ == "__main__":
         get_speech_service: lambda: SimpleNamespace(transcribe=transcribe),
     })
     app.state.speech_limiter = anyio.CapacityLimiter(1)
+    from backend.core.request_admission import RequestAdmission
+    app.state.request_admission = RequestAdmission(enforce_rate=False)
 
     @app.get("/__workflow/ready")
     def ready():

@@ -8,6 +8,7 @@ import re
 from backend.services.account_security import AccountSecurityService
 from backend.core.http_security import timed_request_stage
 from backend.core.config import settings
+from backend.core.request_admission import AdmissionRejected
 
 # read the login token from the request header.
 bearer = HTTPBearer(auto_error=False)
@@ -17,8 +18,10 @@ def can_reuse_session(request: Request) -> bool:
     # Explicit allowlist: new routes, all destructive operations, security and
     # administrator requests default to fresh provider checks.
     path = request.url.path
-    if path.startswith("/api/v1/"):
-        path = path[len("/api/v1"):]
+    for prefix in ("/api/v1", "/api"):
+        if path.startswith(prefix + "/"):
+            path = path[len(prefix):]
+            break
     if request.method == "GET":
         return path in {"/me", "/me/startup", "/children", "/conversations", "/privacy/consent"} or bool(
             re.fullmatch(r"/conversations/[^/]+", path)
@@ -185,12 +188,27 @@ def require_authenticated_user(request: Request, user: dict = Depends(require_ve
         # logins, administrators and security-setting reads never populate it.
         cache.remember(request.state.auth_cache_key, request.state.auth_claims, security,
                        started=request.state.auth_cache_started, revision=request.state.auth_cache_revision)
+    admission = getattr(request.app.state, "request_admission", None)
+    if admission is not None and request.method == "GET":
+        try:
+            admission.check_read(user["uid"])
+        except AdmissionRejected as exc:
+            raise HTTPException(status_code=429, detail=str(exc), headers={"Retry-After": "1"}) from None
     return user
 
 
 def require_caregiver_user(request: Request, user: dict = Depends(require_authenticated_user)) -> dict:
+    request.state.caregiver_uid = user["uid"]
     if getattr(request.state, "account_role", None) == "administrator":
         raise HTTPException(status_code=403, detail="Administrator accounts cannot access caregiver features. Use a caregiver account.")
+    path = request.url.path.removeprefix("/api/v1").removeprefix("/api")
+    admission = getattr(request.app.state, "request_admission", None)
+    if (admission is not None and request.method in {"POST", "PATCH", "PUT"}
+            and path not in {"/coach", "/speech/transcribe"}):
+        try:
+            admission.check_write(user["uid"])
+        except AdmissionRejected as exc:
+            raise HTTPException(status_code=429, detail=str(exc), headers={"Retry-After": "3"}) from None
     return user
 
 
