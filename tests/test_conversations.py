@@ -9,6 +9,7 @@ import pytest
 
 from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service
 from backend.core.security import require_authenticated_user
+from backend.core.request_admission import RequestAdmission
 from backend.main import app
 from backend.services.caregiver_data import CaregiverDataService
 from backend.services.coaching import CoachingResult
@@ -179,29 +180,27 @@ def test_conversation_routes_require_authentication(client):
     assert client.get("/conversations?child_id=child-1").status_code == 401
 
 
-def test_new_conversation_creation_has_no_readback_and_cannot_overwrite():
+def test_new_conversation_creation_has_no_readback_and_cannot_overwrite(transactional_storage):
     from google.api_core.exceptions import AlreadyExists
 
-    service = CaregiverDataService(MagicMock())
-    service.get_child = MagicMock(return_value={"id": "child-1"})
-    reference = service._conversations("account-a").document.return_value
+    service, transaction, reference, _ = transactional_storage
     reference.id = "00000000-0000-4000-8000-000000000001"
     created = service.create_conversation("account-a", "child-1", conversation_id=reference.id)
     assert created["id"] == reference.id
     assert created["created_at"].utcoffset() is not None
-    reference.create.assert_called_once()
+    transaction.create.assert_called_once_with(reference, {key: value for key, value in created.items() if key != "id"})
     reference.get.assert_not_called()
-    reference.create.side_effect = AlreadyExists("PRIVATE_DATABASE_DETAILS")
+    transaction.create.side_effect = AlreadyExists("PRIVATE_DATABASE_DETAILS")
     with pytest.raises(AlreadyExists):
         service.create_conversation("account-a", "child-1", conversation_id=reference.id)
     reference.set.assert_not_called()
 
 
-def test_new_conversation_still_requires_owned_child_before_writing():
-    service = CaregiverDataService(MagicMock())
-    service.get_child = MagicMock(return_value=None)
+def test_new_conversation_still_requires_owned_child_before_writing(transactional_storage):
+    service, transaction, _, children = transactional_storage
+    children.document.return_value.get.return_value.exists = False
     assert service.create_conversation("account-a", "foreign-child", conversation_id="id") is None
-    service.client.collection.assert_not_called()
+    transaction.create.assert_not_called()
 
 
 @pytest.fixture
@@ -283,7 +282,7 @@ def test_cached_sources_still_reload_profile_and_generate_each_answer(client, co
         "source_title": "Care reference", "source_url": "https://example.test/book", "pdf_page": 2,
         "source_age": {"min_months": 0, "max_months_exclusive": 25}, "routines": ["reading"],
     })]
-    retrieval = RetrievalService(client=source_client, cache_ttl_seconds=60)
+    retrieval = RetrievalService(client=source_client, cache_ttl_seconds=60, source_urls=["https://example.test/book"])
     app.dependency_overrides[get_retrieval_service] = lambda: retrieval
     monkeypatch.setattr("backend.api.v1.endpoints.coaching.select_care_references", lambda *args: [])
     coaching.generate.side_effect = lambda question, age, routine, passages, **kwargs: CoachingResult(
@@ -438,6 +437,67 @@ def test_start_requires_a_new_canonical_uuid(client, coaching_dependencies, cid)
 
 def coaching_payload(question="Play ideas"):
     return {"child_id": "child-1", "conversation_id": "chat-1", "question": question}
+
+
+def test_caregiver_age_does_not_trigger_child_scope_refusal(client, coaching_dependencies):
+    _, _, coaching = coaching_dependencies
+    question = "I'm twenty-eight years old and find it hard to remember nursery instructions. What should I write down?"
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert response.json()["child_age_months"] == 6
+    coaching.generate.assert_called_once()
+
+
+
+def test_new_concern_after_vaccine_chat_reaches_generation_at_same_child_age(client, coaching_dependencies):
+    data, _, coaching = coaching_dependencies
+    data.get_conversation.return_value = {**conversation(), "messages": [
+        {"role": "user", "text": "My daughter is fifteen months. Explain her vaccination record."},
+        {"role": "assistant", "text": "Keep the record for your next clinic visit.",
+         "status": "vaccination_notice", "citations": [{"source_title": "Kenya schedule"}],
+         "subject_age_override": 15},
+    ]}
+    question = "She cries when I leave her with her aunt. How can I make saying goodbye easier?"
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert response.json()["child_age_months"] == 15
+    assert response.json()["caregiver_request"] == question
+    coaching.generate.assert_called_once()
+    assert coaching.generate.call_args.args[:2] == (question, 15)
+    data.get_child.assert_called_once()
+    data.get_conversation.assert_called_once()
+
+
+def test_revised_age_and_continuation_reach_generation_without_changing_raw_messages(client, coaching_dependencies):
+    data, _, coaching = coaching_dependencies
+    original = "My son has just turned fourteen months. How can I make putting shoes on less upsetting?"
+    data.get_conversation.return_value = {**conversation(), "messages": [
+        {"role": "user", "text": original},
+        {"role": "assistant", "text": "Offer a choice of two pairs.", "status": "answered",
+         "subject_age_override": 14},
+    ]}
+    correction = "No, I meant seventeen months, not seven months."
+    response = client.post("/coach", json=coaching_payload(correction))
+    assert response.status_code == 200
+    assert response.json()["child_age_months"] == 17
+    assert response.json()["caregiver_request"] == original
+    coaching.generate.assert_called_once()
+    assert coaching.generate.call_args.args[:2] == (correction, 17)
+    stored = data.save_conversation_turn.call_args.args
+    assert stored[3] == correction
+    assert stored[5]["subject_age_override"] == 17
+
+
+def test_activity_request_with_incidental_sleep_uses_semantic_retrieval(client, coaching_dependencies):
+    _, retrieval, coaching = coaching_dependencies
+    question = "Suggest a quiet game for my sixteen-month-old while her brother sleeps."
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    retrieval.retrieve.assert_called_once()
+    assert retrieval.retrieve.call_args.args[:2] == (question, 16)
+    coaching.generate.assert_called_once()
 
 
 @pytest.mark.parametrize("age", ["one-month-old", "1-month-old"])
@@ -720,7 +780,7 @@ def test_named_clarification_retrieves_definitions_using_permitted_caregiver_con
     assert response.json()["status"] == "answered"
     assert response.json()["answer"] == reference.text
     assert response.json()["citations"][0]["passage_id"] == "definition"
-    assert retrieval.retrieve.call_args.args[0] == "I am bathing my baby.\nFollow-up: " + question
+    assert retrieval.retrieve.call_args.args[0] == question + "\nEarlier caregiver request: I am bathing my baby."
     assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 14
     assert coaching.generate.call_args.args[0] == question
     data.save_conversation_turn.assert_called_once()
@@ -888,14 +948,19 @@ def transactional_storage(monkeypatch):
     monkeypatch.setattr("backend.services.caregiver_data.firestore.transactional", lambda function: function)
     database = MagicMock()
     service = CaregiverDataService(database)
-    children, conversations = MagicMock(), MagicMock()
+    children, conversations, interactions = MagicMock(), MagicMock(), MagicMock()
     children.document.return_value.get.return_value.to_dict.return_value = {}
     account = database.collection.return_value.document.return_value
-    account.collection.side_effect = {"children": children, "conversations": conversations}.__getitem__
+    account.path = "users/account-a"
+    account.get.return_value.to_dict.return_value = {}
+    account.collection.side_effect = {"children": children, "conversations": conversations,
+                                      "interactions": interactions}.__getitem__
     reference = conversations.document.return_value
     reference.get.return_value.to_dict.return_value = {"child_id": "child-1", "message_count": 0}
     reference.path = "users/account-a/conversations/chat-1"
     children.document.return_value.path = "users/account-a/children/child-1"
+    interactions.document.return_value.path = "users/account-a/interactions/legacy-answer-1"
+    interactions.document.return_value.id = "legacy-answer-1"
     reference.collection.return_value.document.return_value.path = "users/account-a/conversations/chat-1/messages/answer-1"
 
     def batch_get(references, **kwargs):
@@ -929,7 +994,7 @@ def test_turn_saves_two_ordered_messages_in_one_transaction(transactional_storag
     assert update["message_count"] == 2
     assert update["title"] == "Play ideas"
     service.client.get_all.assert_called_once_with(
-        [reference, service._children("account-a").document("child-1")],
+        [reference, service._children("account-a").document("child-1"), service._account("account-a")],
         field_paths=("child_id", "message_count", "deleting"), transaction=transaction,
     )
     reference.get.assert_not_called()
@@ -973,7 +1038,7 @@ def test_storage_feedback_only_updates_assistant_messages(transactional_storage,
     message.get.return_value.to_dict.return_value = {"role": role}
     recorded_at = service.save_message_feedback("account-a", "chat-1", "answer-1", True, " Clear ")
     service.client.get_all.assert_called_once_with(
-        [reference, message], field_paths=("role", "deleting"), transaction=transaction,
+        [reference, message, service._account("account-a")], field_paths=("role", "deleting"), transaction=transaction,
     )
     reference.get.assert_not_called()
     message.get.assert_not_called()
@@ -1024,6 +1089,108 @@ def test_invalid_transaction_batch_never_writes_partial_turns(transactional_stor
                                        {"text": "Talk softly."})
     transaction.set.assert_not_called()
     transaction.update.assert_not_called()
+
+
+@pytest.mark.parametrize("unavailable", ["missing_child", "deleting_child", "missing_account", "deleting_account"])
+def test_legacy_interaction_cannot_restore_deleted_child_data(transactional_storage, unavailable):
+    service, transaction, _, children = transactional_storage
+    account = service._account("account-a")
+    if unavailable == "missing_child":
+        children.document.return_value.get.return_value.exists = False
+    elif unavailable == "deleting_child":
+        children.document.return_value.get.return_value.to_dict.return_value = {"deleting": True}
+    elif unavailable == "missing_account":
+        account.get.return_value.exists = False
+    else:
+        account.get.return_value.to_dict.return_value = {"deleting": True}
+    with pytest.raises(ValueError, match="Child profile not found"):
+        service.create_interaction("account-a", "child-1", "Private question", None,
+                                   "Private answer", [])
+    transaction.create.assert_not_called()
+
+
+def test_legacy_interaction_rechecks_account_and_child_in_the_write_transaction(transactional_storage):
+    service, transaction, _, children = transactional_storage
+    identifier = service.create_interaction("account-a", "child-1", "Question", None, "Answer", [])
+    assert identifier == "legacy-answer-1"
+    service.client.get_all.assert_called_once_with(
+        [service._account("account-a"), children.document("child-1")],
+        field_paths=("deleting",), transaction=transaction,
+    )
+    assert transaction.create.call_args.args[1]["question"] == "Question"
+
+
+@pytest.mark.parametrize("method", ["create_conversation", "save_conversation_turn", "update_child", "create_child"])
+def test_account_deletion_barrier_blocks_child_owned_writes(transactional_storage, method):
+    from datetime import date
+
+    service, transaction, _, _ = transactional_storage
+    service._account("account-a").get.return_value.to_dict.return_value = {"deleting": True}
+    if method == "create_conversation":
+        assert service.create_conversation("account-a", "child-1") is None
+    elif method == "save_conversation_turn":
+        with pytest.raises(ValueError, match="Conversation not found"):
+            service.save_conversation_turn("account-a", "chat-1", "child-1", "Question", None,
+                                           {"text": "Answer"})
+    elif method == "update_child":
+        assert service.update_child("account-a", "child-1", {"name": "Changed"}) is None
+    else:
+        with pytest.raises(ValueError, match="Account data is unavailable"):
+            service.create_child("account-a", "Example", date(2026, 5, 1), None)
+    transaction.create.assert_not_called()
+    transaction.set.assert_not_called()
+    transaction.update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_legacy_generation_finishing_after_child_deletion_cannot_recreate_private_data(transactional_storage):
+    import asyncio
+    from threading import Event
+    from types import SimpleNamespace
+    from starlette.requests import Request
+    from fastapi import HTTPException
+    from backend.api.v1.endpoints.coaching import run_coaching
+    from backend.schemas.coaching import CoachingRequest
+
+    service, transaction, _, children = transactional_storage
+    service.get_child = MagicMock(return_value={"age_months": 6, "completed_months": 6,
+                                                "age_days": 183, "in_scope": True})
+    child = children.document.return_value
+    children.where.return_value.stream.return_value = []
+    service._interactions("account-a").where.return_value.stream.return_value = []
+    service._conversations("account-a").where.return_value.stream.return_value = []
+    service.client.recursive_delete.side_effect = lambda reference: setattr(child.get.return_value, "exists", False)
+    entered, release = Event(), Event()
+
+    def generate(*args, **kwargs):
+        entered.set()
+        assert release.wait(3)
+        return CoachingResult("Point to a large picture and pause for your baby's interest.", [],
+                              answer_basis="general_information")
+
+    retrieval = MagicMock()
+    retrieval.retrieve.return_value = []
+    task = asyncio.create_task(run_coaching(
+        CoachingRequest(child_id="child-1", question="Suggest a quiet way to share a picture book."),
+        Request({"type": "http", "headers": [], "app": SimpleNamespace(state=SimpleNamespace(
+            request_admission=RequestAdmission(),
+        ))}),
+        {"uid": "account-a"}, service, retrieval, SimpleNamespace(generate=generate),
+    ))
+    try:
+        assert await asyncio.to_thread(entered.wait, 1)
+        assert service.delete_child("account-a", "child-1") is True
+        release.set()
+        with pytest.raises(HTTPException) as error:
+            await task
+        assert error.value.status_code == 404
+        transaction.create.assert_not_called()
+        transaction.set.assert_not_called()
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
 
 @pytest.mark.parametrize("question", [

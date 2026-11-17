@@ -38,6 +38,51 @@ def test_denied_private_responses_cannot_be_cached_or_framed(client, path):
     assert response.headers["Referrer-Policy"] == "no-referrer"
 
 
+def test_production_csp_supports_auth_and_audio_without_arbitrary_scripts():
+    app = FastAPI()
+    configure_http_security(app, production=True, allowed_hosts=["testserver"],
+                            firebase_project_id="test-project", auth_origins=["https://auth.example.com"])
+    with TestClient(app, base_url="https://testserver") as client:
+        response = client.get("/missing")
+        policy = dict(part.strip().split(" ", 1) for part in response.headers["Content-Security-Policy"].split(";"))
+        assert "'unsafe-inline'" not in policy["script-src"]
+        assert "'unsafe-eval'" not in policy["script-src"]
+        assert "https://apis.google.com" in policy["script-src"]
+        assert "https://test-project.firebaseapp.com" in policy["frame-src"]
+        assert "https://auth.example.com" in policy["frame-src"]
+        assert "https://identitytoolkit.googleapis.com" in policy["connect-src"]
+        assert "https://securetoken.googleapis.com" in policy["connect-src"]
+        assert "ws:" not in policy["connect-src"] and "wss:" not in policy["connect-src"]
+        assert policy["worker-src"] == "'self' blob:"
+        assert "data:" in policy["img-src"]
+        assert policy["frame-ancestors"] == "'none'"
+
+
+def test_docs_inline_script_exception_is_not_applied_to_the_app():
+    app = FastAPI()
+    configure_http_security(app, production=False, allowed_hosts=[])
+    with TestClient(app) as client:
+        docs = client.get("/docs")
+        assert docs.status_code == 200
+        assert "https://cdn.jsdelivr.net" in docs.headers["Content-Security-Policy"]
+        docs_script_policy = docs.headers["Content-Security-Policy"].split("script-src ")[1].split(";")[0]
+        assert "'unsafe-inline'" in docs_script_policy
+        for path in ("/", "/openapi.json", "/docs/not-a-document"):
+            script_policy = client.get(path).headers["Content-Security-Policy"].split("script-src ")[1].split(";")[0]
+            assert "'unsafe-inline'" not in script_policy and "cdn.jsdelivr.net" not in script_policy
+
+
+@pytest.mark.parametrize("origin", [
+    "https://*.example.com", "http://auth.example.com", "https://auth.example.com/path",
+    "https://user:password@auth.example.com", "https://auth.example.com?next=evil",
+    "https://auth.example.com;script-src *", "https://auth.example.com\n", "https://[invalid",
+])
+def test_csp_rejects_unsafe_custom_auth_origins(origin):
+    app = FastAPI()
+    with pytest.raises(ValueError, match="CSP_AUTH_ORIGINS"):
+        configure_http_security(app, production=True, allowed_hosts=["testserver"], auth_origins=[origin])
+
+
 def test_request_duration_includes_authentication_without_logging_identity_or_query(client, caplog):
     def verify(*args, **kwargs):
         time.sleep(0.02)
@@ -242,6 +287,7 @@ def test_stream_capture_includes_body_and_save_stages_after_headers(tmp_path):
     @app.post("/coach")
     async def stream(request: Request):
         async def operation(output):
+            record_request_stage("language_safety", .002)
             await output.send("delta", {"text": "PRIVATE_ANSWER"})
             await anyio.sleep(.01)
             record_request_stage("interaction_save", .001)
@@ -255,6 +301,7 @@ def test_stream_capture_includes_body_and_save_stages_after_headers(tmp_path):
     assert record["stream_outcome"] == "completed"
     assert record["total_ms"] >= 10
     assert "first_answer" in record["stages_ms"]
+    assert record["stages_ms"]["language_safety"] == 2
     assert "interaction_save" in record["stages_ms"]
     assert "interaction_save" not in response.headers["Server-Timing"]
     assert "PRIVATE" not in json.dumps(record)

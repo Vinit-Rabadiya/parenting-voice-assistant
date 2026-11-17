@@ -49,12 +49,19 @@ class CaregiverDataService:
     def __init__(self, client=None):
         self.client = client or firestore.client()
 
+    def _account(self, uid: str):
+        return self.client.collection("users").document(uid)
+
+    @staticmethod
+    def _active(snapshot) -> bool:
+        return snapshot.exists and not (snapshot.to_dict() or {}).get("deleting", False)
+
     def _children(self, uid: str):
         return self.client.collection("users").document(uid).collection("children")
 
     def get_consent(self, uid: str) -> dict:
         document = self.client.collection("users").document(uid).get()
-        return (document.to_dict() or {}) if document.exists else {}
+        return (document.to_dict() or {}) if self._active(document) else {}
 
     def save_consent(self, uid: str, version: str) -> datetime:
         document = self.client.collection("users").document(uid)
@@ -63,6 +70,8 @@ class CaregiverDataService:
         def accept(transaction):
             snapshot = document.get(transaction=transaction)
             data = (snapshot.to_dict() or {}) if snapshot.exists else {}
+            if data.get("deleting", False):
+                raise ValueError("Account data is being deleted. Please retry after deletion finishes.")
             if (data.get("consent_version") == version and data.get("consent_at") is not None
                     and data.get("caregiver_authority") is True):
                 return data["consent_at"]
@@ -111,7 +120,7 @@ class CaregiverDataService:
         if conversation_id is not None:
             references.append(self._conversations(uid).document(conversation_id))
         documents = self._documents(references)
-        return {"consent": (documents[0].to_dict() or {}) if documents[0].exists else {},
+        return {"consent": (documents[0].to_dict() or {}) if self._active(documents[0]) else {},
                 "child_snapshot": documents[1],
                 "conversation_snapshot": documents[2] if conversation_id is not None else None}
 
@@ -123,15 +132,21 @@ class CaregiverDataService:
                 "updated_at": data["updated_at"]}
 
     def create_conversation(self, uid: str, child_id: str, *, conversation_id: str | None = None) -> dict | None:
-        if self.get_child(uid, child_id) is None:
-            return None
         document = self._conversations(uid).document(conversation_id) if conversation_id else self._conversations(uid).document()
         now = datetime.now(timezone.utc)
         values = {"child_id": child_id, "title": "New conversation", "created_at": now, "updated_at": now}
-        # Create fails on a collision; never overwrite an existing conversation.
-        # Application-server time avoids reading the new document back just to get its timestamp.
-        document.create(values)
-        return {"id": document.id, **values}
+        @firestore.transactional
+        def create(transaction):
+            account, child = self._transaction_documents(
+                transaction, [self._account(uid), self._children(uid).document(child_id)], ("deleting",),
+            )
+            if not self._active(account) or not self._active(child):
+                return False
+            # A create precondition prevents collisions from overwriting a chat.
+            transaction.create(document, values)
+            return True
+
+        return {"id": document.id, **values} if create(self.client.transaction()) else None
 
     def list_conversations(self, uid: str, child_id: str, limit: int = 30,
                            before: str | None = None) -> list[dict]:
@@ -178,11 +193,12 @@ class CaregiverDataService:
 
         @firestore.transactional
         def save(transaction):
-            snapshot, child = self._transaction_documents(
-                transaction, [conversation, self._children(uid).document(child_id)],
+            snapshot, child, account = self._transaction_documents(
+                transaction, [conversation, self._children(uid).document(child_id), self._account(uid)],
                 ("child_id", "message_count", "deleting"),
             )
-            if not snapshot.exists or not child.exists or snapshot.to_dict().get("child_id") != child_id:
+            if (not self._active(account) or not snapshot.exists or not child.exists
+                    or snapshot.to_dict().get("child_id") != child_id):
                 raise ValueError("Conversation not found for the selected child.")
             data = snapshot.to_dict()
             if data.get("deleting", False) or child.to_dict().get("deleting", False):
@@ -211,10 +227,11 @@ class CaregiverDataService:
 
         @firestore.transactional
         def save(transaction):
-            parent, snapshot = self._transaction_documents(
-                transaction, [conversation, message], ("role", "deleting"),
+            parent, snapshot, account = self._transaction_documents(
+                transaction, [conversation, message, self._account(uid)], ("role", "deleting"),
             )
-            if not parent.exists or not snapshot.exists or snapshot.to_dict().get("role") != "assistant":
+            if (not self._active(account) or not parent.exists or not snapshot.exists
+                    or snapshot.to_dict().get("role") != "assistant"):
                 return None
             if parent.to_dict().get("deleting", False):
                 return None
@@ -263,7 +280,7 @@ class CaregiverDataService:
 
     def get_child(self, uid: str, child_id: str) -> dict | None:
         document = self._children(uid).document(child_id).get()
-        return self._child_response(document) if document.exists else None
+        return self._child_response(document) if self._active(document) else None
 
     def create_child(self, uid: str, name: str, date_of_birth: date, milestone_focus: str | None, milestones: list[str] | None = None,
                      *, health_details: dict | None = None, use_health_details: bool = False) -> dict:
@@ -272,18 +289,25 @@ class CaregiverDataService:
         if use_health_details and not health_context_available():
             raise ValueError("Using health details in replies is currently unavailable. You can save them privately.")
         document = self._children(uid).document()
-        document.set({"name": name.strip(), "date_of_birth": date_of_birth.isoformat(),
+        values = {"name": name.strip(), "date_of_birth": date_of_birth.isoformat(),
                       "milestone_focus": milestone_focus.strip() if milestone_focus else None,
                       "milestones": [value.strip() for value in (milestones or []) if value.strip()],
                       "health_details": notes, "use_health_details": use_health_details,
                       "health_context_revision": uuid4().hex,
-                      "created_at": firestore.SERVER_TIMESTAMP})
+                      "created_at": firestore.SERVER_TIMESTAMP}
+
+        @firestore.transactional
+        def create(transaction):
+            account = self._account(uid).get(transaction=transaction)
+            if not self._active(account):
+                raise ValueError("Account data is unavailable. Review privacy consent before retrying.")
+            transaction.create(document, values)
+
+        create(self.client.transaction())
         return self.get_child(uid, document.id)
 
     def update_child(self, uid: str, child_id: str, changes: dict) -> dict | None:
         document = self._children(uid).document(child_id)
-        if not document.get().exists:
-            return None
         update = {}
         if changes.get("name") is not None:
             update["name"] = changes["name"].strip()
@@ -304,28 +328,58 @@ class CaregiverDataService:
         if "health_details" in update or "use_health_details" in update:
             # A new revision prevents old health-tailored replies from restoring removed notes.
             update["health_context_revision"] = uuid4().hex
-        if update:
-            document.update(update)
+        @firestore.transactional
+        def save(transaction):
+            child, account = self._transaction_documents(
+                transaction, [document, self._account(uid)], ("deleting",),
+            )
+            if not self._active(account) or not self._active(child):
+                return False
+            if update:
+                transaction.update(document, update)
+            return True
+
+        if not save(self.client.transaction()):
+            return None
         return self.get_child(uid, child_id)
 
     def create_interaction(self, uid: str, child_id: str, question: str, routine: str | None, answer: str, citations: list[dict], status: str = "answered", *, vaccination_country: str | None = None, response_kind: str | None = None, answer_basis: str | None = None, reference_status: str | None = None) -> str:
         document = self._interactions(uid).document()
-        document.set({"child_id": child_id, "question": question, "routine": routine,
+        values = {"child_id": child_id, "question": question, "routine": routine,
                       "answer": answer, "citations": citations, "status": status,
                       **({"vaccination_country": vaccination_country} if vaccination_country else {}),
                       **({"response_kind": response_kind} if response_kind else {}),
                       **({"answer_basis": answer_basis, "reference_status": reference_status} if answer_basis else {}),
-                      "created_at": firestore.SERVER_TIMESTAMP})
+                      "created_at": firestore.SERVER_TIMESTAMP}
+
+        @firestore.transactional
+        def save(transaction):
+            account, child = self._transaction_documents(
+                transaction, [self._account(uid), self._children(uid).document(child_id)], ("deleting",),
+            )
+            if not self._active(account) or not self._active(child):
+                raise ValueError("Child profile not found.")
+            transaction.create(document, values)
+
+        save(self.client.transaction())
         return document.id
 
     def save_feedback(self, uid: str, interaction_id: str, helpful: bool | None, comment: str | None,
                       *, rating: int | None = None, reasons: list[str] | None = None) -> datetime | None:
         document = self._interactions(uid).document(interaction_id)
-        if not document.get().exists:
-            return None
         feedback = self._feedback_data(helpful, comment, rating=rating, reasons=reasons)
-        document.update({"feedback": feedback})
-        return feedback["recorded_at"]
+
+        @firestore.transactional
+        def save(transaction):
+            snapshot, account = self._transaction_documents(
+                transaction, [document, self._account(uid)], ("deleting",),
+            )
+            if not self._active(account) or not snapshot.exists:
+                return None
+            transaction.update(document, {"feedback": feedback})
+            return feedback["recorded_at"]
+
+        return save(self.client.transaction())
 
     @staticmethod
     def _feedback_data(helpful: bool | None, comment: str | None, *, rating: int | None = None,
@@ -355,5 +409,11 @@ class CaregiverDataService:
         return True
 
     def delete_account_data(self, uid: str) -> None:
-        # Deleting just the parent document would leave Firestore subcollections behind.
-        self.client.recursive_delete(self.client.collection("users").document(uid))
+        account = self._account(uid)
+        # Keep the barrier until every descendant deletion has completed. Passing
+        # the parent to BulkWriter recursive_delete can schedule its delete while
+        # descendant deletes are still in flight. Failure leaves a retryable marker.
+        account.set({"deleting": True}, merge=True)
+        for collection in account.collections():
+            self.client.recursive_delete(collection)
+        account.delete()

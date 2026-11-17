@@ -7,9 +7,11 @@ import logging
 import json
 from math import isfinite
 from pathlib import Path
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 import time
+import re
 from uuid import uuid4
+from urllib.parse import urlsplit
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.responses import JSONResponse
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
@@ -27,11 +29,57 @@ TIMED_ROUTES = {prefix + path for prefix in ("", "/api", "/api/v1")
 COACH_ROUTES = {prefix + "/coach" for prefix in ("", "/api", "/api/v1")}
 TIMING_STAGES = (
     "token_verification", "account_security", "consent", "coaching_documents", "caregiver_safety",
-    "profile_lookup", "conversation_context", "input_safety", "context_safety",
+    "profile_lookup", "conversation_context", "input_safety", "language_safety", "context_safety",
     "conversation_start", "retrieval", "evidence_selection",
     "generation", "generation_first_token", "first_answer", "response_safety", "interaction_save",
 )
 _request_timings = ContextVar("request_stage_timings", default=None)
+
+
+def _auth_origins(firebase_project_id: str | None, extra_origins) -> tuple[str, ...]:
+    origins = set()
+    if firebase_project_id:
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,127}", firebase_project_id, re.ASCII):
+            raise ValueError("Invalid Firebase project ID for browser security policy.")
+        origins.update((f"https://{firebase_project_id}.firebaseapp.com", f"https://{firebase_project_id}.web.app"))
+    for value in extra_origins:
+        try:
+            parsed = urlsplit(value)
+            valid = (parsed.scheme == "https" and parsed.hostname and parsed.username is None
+                     and parsed.password is None and parsed.port in (None, 443)
+                     and parsed.path in ("", "/") and not parsed.query and not parsed.fragment
+                     and re.fullmatch(r"[a-z0-9.-]+", parsed.hostname, re.ASCII)
+                     and not any(ord(char) < 33 or ord(char) == 127 or char in "\\;'\"*" for char in value))
+        except (ValueError, TypeError):
+            valid = False
+        if not valid:
+            raise ValueError("CSP_AUTH_ORIGINS must contain exact HTTPS origins without paths or wildcards.")
+        origins.add(f"https://{parsed.hostname}")
+    return tuple(sorted(origins))
+
+
+def content_security_policy(*, production: bool, auth_origins: tuple[str, ...], documentation=False) -> str:
+    """Keep the app script policy strict; isolate FastAPI's trusted docs scripts."""
+    scripts = ["'self'", "https://apis.google.com", "https://www.gstatic.com"]
+    styles = ["'self'", "'unsafe-inline'"]  # Existing popover positions use React style attributes.
+    fonts = ["'self'"]
+    connections = ["'self'", "https://identitytoolkit.googleapis.com", "https://securetoken.googleapis.com",
+                   "https://www.googleapis.com", "https://accounts.google.com", *auth_origins]
+    if not production:
+        connections += ["ws://localhost:*", "ws://127.0.0.1:*", "wss://localhost:*", "wss://127.0.0.1:*"]
+    if documentation:
+        scripts += ["https://cdn.jsdelivr.net", "'unsafe-inline'"]
+        styles += ["https://cdn.jsdelivr.net", "https://fonts.googleapis.com"]
+        fonts += ["https://fonts.gstatic.com"]
+    directives = {
+        "default-src": ["'none'"], "base-uri": ["'self'"], "object-src": ["'none'"],
+        "frame-ancestors": ["'none'"], "script-src": scripts, "style-src": styles,
+        "connect-src": connections, "frame-src": ["https://accounts.google.com", *auth_origins],
+        "img-src": ["'self'", "data:", "https://lh3.googleusercontent.com"],
+        "font-src": fonts, "worker-src": ["'self'", "blob:"], "media-src": ["'self'", "blob:"],
+        "manifest-src": ["'self'"], "form-action": ["'self'", "https://accounts.google.com", *auth_origins],
+    }
+    return "; ".join(name + " " + " ".join(values) for name, values in directives.items())
 
 
 class RequestStageTimings:
@@ -84,19 +132,25 @@ def timed_request_stage(request, stage: str):
 
 
 def configure_http_security(app, *, production: bool, allowed_hosts: list[str],
-                            development_timing_directory: Path | None = None) -> None:
+                            development_timing_directory: Path | None = None,
+                            firebase_project_id: str | None = None, auth_origins=()) -> None:
     if production:
         app.add_middleware(HTTPSRedirectMiddleware)
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
     # Apply response protections to host rejections and redirects too.
     app.add_middleware(HTTPSecurityMiddleware,
-                       timing_directory=None if production else development_timing_directory)
+                       timing_directory=None if production else development_timing_directory,
+                       production=production, auth_origins=_auth_origins(firebase_project_id, auth_origins))
 
 
 class HTTPSecurityMiddleware:
-    def __init__(self, app: ASGIApp, *, timing_directory: Path | None = None):
+    def __init__(self, app: ASGIApp, *, timing_directory: Path | None = None,
+                 production: bool = False, auth_origins=(), max_uploads: int = 16):
         self.app = app
         self._timing_directory = timing_directory
+        self._uploads = BoundedSemaphore(max_uploads)
+        self._csp = content_security_policy(production=production, auth_origins=auth_origins)
+        self._docs_csp = content_security_policy(production=production, auth_origins=auth_origins, documentation=True)
 
     def _capture_next(self, record: dict, server_port: int | None) -> None:
         # Explicit, development-only one-shot capture. Atomic flag removal lets
@@ -161,6 +215,10 @@ class HTTPSecurityMiddleware:
                 )
                 headers["X-Content-Type-Options"] = "nosniff"
                 headers["X-Frame-Options"] = "DENY"
+                headers["Content-Security-Policy"] = (
+                    self._docs_csp if scope.get("path") in {"/docs", "/redoc", "/docs/oauth2-redirect"}
+                    else self._csp
+                )
                 # Firebase browser-key restrictions need the public page's origin,
                 # while private API responses must not disclose their URL paths.
                 public_document = (
@@ -175,7 +233,8 @@ class HTTPSecurityMiddleware:
             await send(message)
 
         async def reject(status: int, detail: str):
-            await JSONResponse({"detail": detail}, status_code=status)(scope, receive, secure_send)
+            await JSONResponse({"detail": detail}, status_code=status,
+                               headers={"Retry-After": "3"} if status == 429 else None)(scope, receive, secure_send)
 
         headers = Headers(scope=scope)
         content_type = headers.get("content-type", "").split(";")[0].strip().lower()
@@ -193,7 +252,13 @@ class HTTPSecurityMiddleware:
         # Count actual bytes as well: chunked bodies and incorrect length headers
         # must not bypass the limit. The timeout covers uploads, not generation.
         body = bytearray()
+        upload_slot = False
         try:
+            if scope["method"] not in {"GET", "HEAD", "OPTIONS"} or lengths or headers.get("transfer-encoding"):
+                upload_slot = self._uploads.acquire(blocking=False)
+                if not upload_slot:
+                    await reject(429, "Too many uploads. Please try again shortly.")
+                    return
             with fail_after(BODY_TIMEOUT_SECONDS):
                 while True:
                     message = await receive()
@@ -209,6 +274,9 @@ class HTTPSecurityMiddleware:
         except TimeoutError:
             await reject(408, "Request upload timed out.")
             return
+        finally:
+            if upload_slot:
+                self._uploads.release()
 
         delivered = False
 

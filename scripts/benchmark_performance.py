@@ -34,6 +34,7 @@ from backend.api.v1.router import api_router
 from backend.core.http_security import configure_http_security
 from backend.core.frontend import mount_frontend
 from backend.core.privacy import CONSENT_VERSION
+from backend.core.request_admission import RequestAdmission
 from backend.core.security import get_account_security_service
 from backend.services.coaching import CoachingResult
 from backend.services.account_security import AccountSecurityService
@@ -71,7 +72,7 @@ class BenchmarkData:
         self.io("coaching_documents")
         return {"consent": {"consent_version": CONSENT_VERSION, "consent_at": datetime.now(timezone.utc),
                             "caregiver_authority": True},
-                "child_snapshot": SimpleNamespace(exists=True, profile=self._profiles()[0]),
+                "child_snapshot": SimpleNamespace(exists=True, profile=self._profiles()[0], to_dict=lambda: {}),
                 "conversation_snapshot": self.conversations.get(conversation_id)}
 
     @staticmethod
@@ -246,6 +247,7 @@ def run(samples, delay):
     data = BenchmarkData(delay)
     app = FastAPI()
     app.state.firebase = object()
+    app.state.request_admission = RequestAdmission(enforce_rate=False)
     configure_http_security(app, production=False, allowed_hosts=[])
     app.include_router(api_router)
 
