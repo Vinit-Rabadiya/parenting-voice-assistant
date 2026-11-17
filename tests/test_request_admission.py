@@ -245,4 +245,3 @@ async def test_disconnect_keeps_actual_provider_capacity_reserved_until_worker_f
                 await asyncio.sleep(.001)
     with admission.processing("synthetic-user"):
         pass
-

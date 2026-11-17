@@ -105,4 +105,3 @@ class RequestAdmission:
         with self._lock:
             self._closed = True
             self._buckets.clear()
-

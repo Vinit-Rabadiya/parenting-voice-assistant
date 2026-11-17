@@ -29,4 +29,3 @@ async def run_processing_worker(request, uid, operation, *args, speech=False, **
         return await run_in_threadpool(work)
     except AdmissionRejected as exc:
         raise HTTPException(status_code=429, detail=str(exc), headers={"Retry-After": "3"}) from None
-
