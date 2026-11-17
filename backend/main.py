@@ -1,10 +1,11 @@
 # this file starts the backend server, connects to firebase, and mounts all api routes.
 # it is run by uvicorn (python -m uvicorn backend.main:app) and used by tests in tests/conftest.py.
 from contextlib import asynccontextmanager
+from functools import partial
 import logging
 
 import firebase_admin
-from anyio import CancelScope, CapacityLimiter
+from anyio import CancelScope, CapacityLimiter, create_task_group, move_on_after, to_thread
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 
@@ -24,6 +25,20 @@ from backend.core.request_admission import RequestAdmission
 logger = logging.getLogger("uvicorn.error")
 
 
+async def warm_references(service: RetrievalService) -> None:
+    """Optional warmup must not delay serving requests or hold shutdown open."""
+    with move_on_after(settings.QDRANT_WARMUP_TIMEOUT_SECONDS):
+        try:
+            # Cancellation ends this wait; the worker's in-flight network request
+            # finishes under its own timeout. Service closure rejects late updates.
+            await to_thread.run_sync(partial(
+                service.warmup, timeout=settings.QDRANT_WARMUP_TIMEOUT_SECONDS,
+                retries=settings.QDRANT_WARMUP_RETRIES,
+            ), abandon_on_cancel=True)
+        except Exception as exc:
+            logger.warning("qdrant_warmup_error: %s", type(exc).__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.validate_deployment()
@@ -37,12 +52,15 @@ async def lifespan(app: FastAPI):
         # Own one wrapper per process; remote clients remain lazy until first use.
         app.state.coaching_service = ProviderFailoverService() if settings.COACHING_PROVIDER_FAILOVER else CoachingService()
         app.state.retrieval_service = RetrievalService()
-        # store one model per server process for api/dependencies.py to provide to requests.
         app.state.speech_service = await run_in_threadpool(SpeechService, settings.STT_MODEL)
-        # allow one transcription at a time for this server process.
         app.state.speech_limiter = CapacityLimiter(1)
-        # requests are served during yield; the finally block runs when the lifespan exits.
-        yield
+        async with create_task_group() as warmups:
+            if settings.QDRANT_WARMUP_ENABLED:
+                warmups.start_soon(warm_references, app.state.retrieval_service)
+            try:
+                yield
+            finally:
+                warmups.cancel_scope.cancel()
     finally:
         # Finish releasing local resources even if the lifespan was cancelled.
         with CancelScope(shield=True):

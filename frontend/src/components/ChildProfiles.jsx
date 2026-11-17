@@ -174,7 +174,7 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
     finally { setBusy(false); }
   }
 
-  if (initialLoading && !lazy) return <ChatLoading />;
+  if (initialLoading && !lazy && !selectedChild) return <ChatLoading />;
   return <div className="child-profile-control">
     <button type="button" className="child-profile-trigger" ref={triggerRef} disabled={busy || guidanceBusy}
       aria-label={triggerLabel} aria-expanded={pickerOpen} aria-controls={pickerId} aria-haspopup="dialog" onClick={togglePicker}>

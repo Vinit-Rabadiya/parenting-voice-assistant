@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { readChildSelection, saveChildSelection } from "../../frontend/src/services/childSelection";
@@ -43,6 +43,45 @@ async function openPicker() {
   fireEvent.click(trigger);
   return trigger;
 }
+
+it("waits for the authenticated profile list when no child is selected", async () => {
+  let finish;
+  listChildren.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  const onSelect = vi.fn();
+  render(<ChildProfiles userId="account-one" selectedChild={null} onSelect={onSelect} />);
+  expect(screen.getByRole("status", { name: "Loading chat" })).toBeTruthy();
+  expect(onSelect).not.toHaveBeenCalled();
+  await act(async () => { finish([child]); });
+  expect(onSelect).toHaveBeenCalledWith(child);
+  expect(screen.queryByRole("status", { name: "Loading chat" })).toBeNull();
+});
+
+it("keeps an already selected child's chat visible during a profile refresh", async () => {
+  let finish;
+  listChildren.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  render(<ChildProfiles userId="account-one" selectedChild={child} onSelect={vi.fn()} />);
+  expect(listChildren).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("status", { name: "Loading chat" })).toBeNull();
+  // Editing and selection still wait for fresh data; the rest of the chat does not.
+  expect(screen.getByRole("button", { name: /Example/ }).disabled).toBe(true);
+  await act(async () => { finish([child, otherChild]); });
+  expect(screen.getByRole("button", { name: /Example/ }).disabled).toBe(false);
+});
+
+it("reconciles a deleted selected child when refreshed profiles arrive", async () => {
+  let finish;
+  listChildren.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+  function Workspace() {
+    const [selected, select] = useState(child);
+    return <ChildProfiles userId="account-one" selectedChild={selected} onSelect={select} />;
+  }
+  render(<Workspace />);
+  expect(screen.queryByRole("status", { name: "Loading chat" })).toBeNull();
+  await act(async () => { finish([otherChild]); });
+  expect(screen.getByRole("button", { name: /Another child/ }).disabled).toBe(false);
+  expect(screen.queryByRole("button", { name: /Example/ })).toBeNull();
+  expect(readChildSelection("account-one")).toBe(otherChild.id);
+});
 
 it("uses owned startup profiles without fetching them again and updates the parent after deletion", async () => {
   const onSelect = vi.fn(), onProfilesChange = vi.fn();

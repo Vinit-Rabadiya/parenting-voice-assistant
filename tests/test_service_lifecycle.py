@@ -4,13 +4,13 @@ from threading import Barrier, Event
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from anyio import CancelScope
+from anyio import CancelScope, fail_after, to_thread
 from fastapi import FastAPI, HTTPException, Request
 import pytest
 
 from backend.api.dependencies import get_coaching_service, get_retrieval_service
 from backend.core.config import settings
-from backend.main import lifespan
+from backend.main import lifespan, warm_references
 from backend.services.coaching import CoachingService
 from backend.services.retrieval import RetrievalService
 
@@ -221,3 +221,49 @@ def test_dependencies_do_not_create_services_outside_lifespan(dependency):
         dependency(request)
     assert error.value.status_code == 503
     assert error.value.detail == "Guidance is unavailable. Please try again."
+
+
+@pytest.mark.asyncio
+async def test_optional_reference_warmup_does_not_block_startup(application, monkeypatch):
+    started, release, finished = Event(), Event(), Event()
+    monkeypatch.setattr(settings, "QDRANT_WARMUP_ENABLED", True)
+
+    def warmup(self, **kwargs):
+        started.set()
+        try:
+            assert release.wait(2)
+            return {"status": "ready"}
+        finally:
+            finished.set()
+
+    monkeypatch.setattr(RetrievalService, "warmup", warmup)
+    try:
+        with fail_after(1):
+            async with lifespan(application.app):
+                assert await to_thread.run_sync(started.wait, 0.5)
+                assert not finished.is_set()
+                release.set()
+                assert await to_thread.run_sync(finished.wait, 0.5)
+    finally:
+        release.set()
+    assert_services_released(application.app)
+
+
+@pytest.mark.asyncio
+async def test_warmup_deadline_stops_waiting_for_an_inflight_request(monkeypatch):
+    release, finished = Event(), Event()
+    monkeypatch.setattr(settings, "QDRANT_WARMUP_TIMEOUT_SECONDS", 0.02)
+
+    def warmup(**kwargs):
+        try:
+            release.wait(2)
+        finally:
+            finished.set()
+
+    try:
+        with fail_after(0.5):
+            await warm_references(SimpleNamespace(warmup=warmup))
+        assert not finished.is_set()
+    finally:
+        release.set()
+        assert await to_thread.run_sync(finished.wait, 0.5)
