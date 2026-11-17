@@ -20,7 +20,7 @@ def boolean_setting(name: str, default: str = "false") -> bool:
 class Settings:
     PROJECT_NAME: str = "Parenting Voice Assistant"
     DESCRIPTION: str = "AI-powered voice assistant and coaching system for caregivers."
-    VERSION: str = "0.2.0"
+    VERSION: str = "0.2.1"
 
     APP_ENV: str = os.getenv("APP_ENV", "development").strip().lower()
     SERVE_FRONTEND: bool = boolean_setting("SERVE_FRONTEND")
