@@ -5,6 +5,8 @@ import pytest
 
 from backend.services.retrieval import RetrievalService, is_age_eligible
 
+APPROVED_URL = "https://www.unicef.org/media/91181/file/4-CCD-Counselling-Cards.pdf"
+
 
 @pytest.fixture
 def cached_retrieval(monkeypatch):
@@ -18,7 +20,8 @@ def cached_retrieval(monkeypatch):
     })
     client = MagicMock()
     client.query_points.return_value.points = [point]
-    return RetrievalService(client=client, cache_ttl_seconds=60), client, clock
+    return RetrievalService(client=client, cache_ttl_seconds=60,
+                            source_urls=["https://example.test/care"]), client, clock
 
 
 def test_repeated_retrieval_uses_copied_sources_without_retaining_question(cached_retrieval):
@@ -155,7 +158,7 @@ def test_warm_cache_is_thread_safe_and_close_removes_sources(cached_retrieval):
 
 def test_cache_can_be_disabled_for_live_evaluations(cached_retrieval):
     _, client, _ = cached_retrieval
-    service = RetrievalService(client=client, cache_ttl_seconds=0)
+    service = RetrievalService(client=client, cache_ttl_seconds=0, source_urls=["https://example.test/care"])
     service.retrieve("Play ideas", 6)
     service.retrieve("Play ideas", 6)
     assert client.query_points.call_count == 2 and not service._cache
@@ -176,7 +179,7 @@ def test_cache_duration_is_bounded(ttl):
 ])
 def test_chat_retrieval_excludes_unapproved_candidate_metadata(metadata):
     point = MagicMock(id="p1", score=0.8, payload={
-        "passage_id": "p1", "text": "Unapproved reference.",
+        "passage_id": "p1", "text": "Unapproved reference.", "source_url": APPROVED_URL,
         "source_age": {"min_months": 0, "max_months_exclusive": 12}, **metadata,
     })
     client = MagicMock()
@@ -195,9 +198,9 @@ def test_candidate_evaluation_cannot_use_the_application_collection():
         RetrievalService(collection_name="review", allow_candidate_content="false")
 
 
-def test_candidate_evaluation_still_enforces_age_and_routine_filters():
+def test_candidate_evaluation_enforces_age_with_routine_as_a_preference():
     point = MagicMock(id="p1", score=0.8, payload={
-        "passage_id": "p1", "text": "Review-only reference.", "routines": ["play"],
+        "passage_id": "p1", "text": "Review-only reference.", "routines": ["play"], "source_url": APPROVED_URL,
         "source_age": {"min_months": 6, "max_months_exclusive": 12},
         "review_status": "candidate_not_expert_validated",
     })
@@ -205,7 +208,27 @@ def test_candidate_evaluation_still_enforces_age_and_routine_filters():
     client.query_points.return_value.points = [point]
     service = RetrievalService(client=client, collection_name="separate-review", allow_candidate_content=True)
     assert service.retrieve("feeding", 3) == []
-    assert service.retrieve("feeding", 6, "feeding") == []
+    assert service.retrieve("feeding", 6, "feeding")[0].passage_id == "p1"
+
+
+def test_stale_routine_does_not_remove_a_more_relevant_semantic_match(cached_retrieval):
+    service, client, _ = cached_retrieval
+    original = client.query_points.return_value.points[0]
+    other = MagicMock(id="p2", score=0.6, payload={**original.payload, "passage_id": "p2", "routines": ["feeding"]})
+    client.query_points.return_value.points = [other, original]
+    results = service.retrieve("How can we share a picture book?", 8, "feeding", limit=2)
+    assert [item.passage_id for item in results] == ["p1", "p2"]
+    assert [item.score for item in results] == [0.9, 0.6]
+    client.query_points.assert_called_once()
+
+
+def test_routine_breaks_similarity_ties_without_changing_source_scores(cached_retrieval):
+    service, client, _ = cached_retrieval
+    original = client.query_points.return_value.points[0]
+    preferred = MagicMock(id="p2", score=0.9, payload={**original.payload, "passage_id": "p2", "routines": ["reading"]})
+    client.query_points.return_value.points = [original, preferred]
+    result = service.retrieve("Explore sounds together", 8, "reading", limit=1)
+    assert result[0].passage_id == "p2" and result[0].score == 0.9
 
 
 @pytest.mark.parametrize("source_age", [
@@ -242,7 +265,7 @@ def test_retrieval_excludes_missing_and_unknown_age_metadata():
 @pytest.mark.parametrize("conditions", [["Baby can retain feeds"], "not-a-list", [None]])
 def test_retrieval_preserves_valid_applicability_conditions_and_rejects_invalid_metadata(conditions):
     point = MagicMock(id="p1", score=0.8, payload={
-        "passage_id": "p1", "text": "Try supported care.",
+        "passage_id": "p1", "text": "Try supported care.", "source_url": APPROVED_URL,
         "source_age": {"min_months": 0, "max_months_exclusive": 12},
         "applicability_conditions": conditions,
     })
@@ -329,10 +352,169 @@ def test_retrieval_service_filters_passages_by_age():
     mock_client = MagicMock()
     mock_client.query_points.return_value = MagicMock(points=[mock_point_1, mock_point_2])
 
-    service = RetrievalService(client=mock_client)
+    service = RetrievalService(client=mock_client, source_urls=["https://example.org"])
 
     # p1 is filtered out for a 7-month-old child, only p2 is retained.
     results = service.retrieve("food and feeding", child_age_months=7.0, limit=2)
     assert len(results) == 1
     assert results[0].passage_id == "p2"
     assert results[0].source_age_label == "6-8 months"
+
+
+def test_warmup_succeeds_when_collection_exists():
+    mock_client = MagicMock()
+    mock_client.collection_exists.return_value = True
+    mock_client.get_collection.return_value = MagicMock(points_count=216)
+    mock_client.query_points.return_value = MagicMock(points=[MagicMock()])
+
+    service = RetrievalService(client=mock_client)
+    result = service.warmup(retries=1)
+
+    assert result["status"] == "ready"
+    assert result["attempts"] == 1
+    mock_client.collection_exists.assert_not_called()
+    mock_client.get_collection.assert_not_called()
+    mock_client.query_points.assert_called_once()
+    assert mock_client.query_points.call_args.kwargs["timeout"] == 5
+    assert service.readiness is True
+
+
+def test_warmup_degrades_gracefully_when_collection_missing():
+    mock_client = MagicMock()
+    mock_client.query_points.side_effect = RuntimeError("Collection unavailable")
+
+    service = RetrievalService(client=mock_client)
+    result = service.warmup(retries=1)
+
+    assert result["status"] == "degraded"
+    assert result["attempts"] == 2
+    assert mock_client.query_points.call_count == 2
+    assert service.readiness is False
+
+
+def test_warmup_retries_on_transient_error():
+    mock_client = MagicMock()
+    mock_client.query_points.side_effect = [RuntimeError("temporary disconnect"), MagicMock(points=[])]
+    mock_client.get_collection.return_value = MagicMock(points_count=100)
+    mock_client.query_points.return_value = MagicMock(points=[MagicMock()])
+
+    service = RetrievalService(client=mock_client)
+    result = service.warmup(retries=2)
+
+    assert result["status"] == "ready"
+    assert result["attempts"] == 2
+
+
+def test_warmup_retry_deadline_prevents_another_network_attempt(monkeypatch):
+    ticks = [0.0]
+    monkeypatch.setattr("backend.services.retrieval.monotonic", lambda: ticks[0])
+    monkeypatch.setattr("backend.services.retrieval.sleep", lambda duration: ticks.__setitem__(0, ticks[0] + duration))
+    client = MagicMock()
+
+    def fail(**kwargs):
+        ticks[0] += 2
+        raise RuntimeError("Unavailable")
+
+    client.query_points.side_effect = fail
+    result = RetrievalService(client=client).warmup(timeout=1, retries=3)
+    assert result["status"] == "degraded" and result["attempts"] == 1
+    client.query_points.assert_called_once()
+
+
+@pytest.mark.parametrize("options", [
+    {"timeout": 0}, {"timeout": float("nan")}, {"timeout": 31}, {"timeout": True},
+    {"retries": -1}, {"retries": 4}, {"retries": True},
+])
+def test_warmup_rejects_invalid_budget_without_network_calls(options):
+    client = MagicMock()
+    with pytest.raises(ValueError):
+        RetrievalService(client=client).warmup(**options)
+    client.query_points.assert_not_called()
+
+
+def test_query_success_recovers_readiness_after_a_failed_warmup(cached_retrieval):
+    service, client, _ = cached_retrieval
+    client.query_points.side_effect = RuntimeError("Unavailable")
+    assert service.warmup(retries=0)["status"] == "degraded"
+    client.query_points.side_effect = None
+    service.retrieve("Explore a large toy safely", 8)
+    assert service.readiness is True
+
+
+def test_late_warmup_cannot_change_availability_after_service_closure():
+    client = MagicMock()
+    service = RetrievalService(client=client)
+    client.query_points.side_effect = lambda **kwargs: service.close()
+    service.warmup(retries=0)
+    assert service.readiness is False
+
+
+@pytest.mark.parametrize("payload_change", [
+    {"text": ""}, {"text": "  "}, {"text": None}, {"text": ["Not passage text"]},
+    {"routines": None}, {"routines": [None]}, {"routines": [7]}, {"routines": [""]},
+    {"source_age": None}, {"project_scope": None},
+])
+def test_malformed_later_candidate_does_not_hide_an_earlier_valid_source(cached_retrieval, payload_change):
+    service, client, _ = cached_retrieval
+    valid = client.query_points.return_value.points[0]
+    malformed = MagicMock(id="bad", score=0.99, payload={**valid.payload, "passage_id": "bad", **payload_change})
+    client.query_points.return_value.points = [valid, malformed]
+    result = service.retrieve("How can we explore a cloth book?", 8, limit=1)
+    assert len(result) == 1 and result[0].passage_id == "p1"
+    assert result[0].score == 0.9
+
+
+@pytest.mark.parametrize("score", [float("nan"), float("inf"), -float("inf"), None, True, "0.99"])
+def test_invalid_similarity_does_not_consume_the_reference_limit(cached_retrieval, score):
+    service, client, _ = cached_retrieval
+    valid = client.query_points.return_value.points[0]
+    malformed = MagicMock(id="bad", score=score, payload={**valid.payload, "passage_id": "bad"})
+    client.query_points.return_value.points = [valid, malformed]
+    result = service.retrieve("A calm activity for my child", 8, limit=1)
+    assert [item.passage_id for item in result] == ["p1"]
+
+
+def test_invalid_payload_does_not_abort_other_valid_references(cached_retrieval):
+    service, client, _ = cached_retrieval
+    valid = client.query_points.return_value.points[0]
+    client.query_points.return_value.points = [MagicMock(payload=["invalid"], score=0.99), valid]
+    assert service.retrieve("Ways to play together", 8, limit=1)[0].passage_id == "p1"
+
+
+@pytest.mark.parametrize("url", [
+    "http://example.test/care", "javascript:alert(1)", "https://attacker.example/care",
+    "https://example.test/different-page", "https://example.test/care?redirect=https://attacker.example",
+    "https://user:password@example.test/care", "https://example.test\\@attacker.example/care",
+    "https://example.test/care\n", "https://example.test:444/care", None, 12,
+])
+def test_untrusted_citation_url_cannot_displace_a_valid_source(cached_retrieval, url):
+    service, client, _ = cached_retrieval
+    valid = client.query_points.return_value.points[0]
+    bad = MagicMock(id="bad", score=0.99, payload={**valid.payload, "passage_id": "bad", "source_url": url})
+    client.query_points.return_value.points = [bad, valid]
+    assert service.retrieve("Care ideas", 8, limit=1)[0].passage_id == "p1"
+
+
+def test_citation_policy_accepts_canonical_host_port_and_pdf_page_fragments(cached_retrieval):
+    service, client, _ = cached_retrieval
+    client.query_points.return_value.points[0].payload["source_url"] = "https://EXAMPLE.test:443/care#page=2"
+    assert service.retrieve("Care ideas", 8)[0].source_url.endswith("#page=2")
+
+
+def test_runtime_citation_policy_is_loaded_from_checked_in_registry():
+    point = MagicMock(id="p1", score=0.8, payload={
+        "text": "Public reference fixture.", "source_url": APPROVED_URL,
+        "source_age": {"min_months": 0, "max_months_exclusive": 25},
+    })
+    client = MagicMock()
+    client.query_points.return_value.points = [point]
+    service = RetrievalService(client=client, cache_ttl_seconds=0)
+    assert len(service.retrieve("Care ideas", 8)) == 1
+    point.payload["source_url"] = APPROVED_URL + "?arbitrary=not-in-registry"
+    assert service.retrieve("Care ideas", 8) == []
+
+
+@pytest.mark.parametrize("source_urls", [[], ["http://example.test/care"], [None], "https://example.test/care"])
+def test_explicit_source_registry_rejects_invalid_configuration(source_urls):
+    with pytest.raises(ValueError, match="Source URL policy"):
+        RetrievalService(client=MagicMock(), source_urls=source_urls)

@@ -146,7 +146,7 @@ def test_generation_answers_the_pending_request_when_the_latest_reply_only_suppl
                 "response_kind": "clarification", "clarification_field": "age"}]
     CoachingService(client=client).generate("18 months", 18, None, [], conversation_context=context)
     prompt = client.models.request["contents"]
-    assert "Caregiver request to answer: What food can I make for my toddler?" in prompt
+    assert "Earlier caregiver request (context candidate): What food can I make for my toddler?" in prompt
     assert "Caregiver question: 18 months" in prompt
 
 
@@ -259,6 +259,37 @@ def test_generation_includes_history_as_context_not_evidence():
     assert "stated age retained for a related follow-up" in request["config"].system_instruction
     assert "profile is only a fallback" in request["config"].system_instruction
     assert request["contents"].count("Caregiver question: What else can I try?") == 1
+
+
+def test_current_request_follows_evidence_profile_and_history_in_one_generation_call():
+    client = FakeClient()
+    client.models.generate_content = Mock(return_value=FakeResponse())
+    history = [{"role": "user", "text": "How can we make changing clothes calmer?"},
+               {"role": "assistant", "text": "Pause between steps."}]
+    question = "A separate question: suggest two ways to protect her ears from loud music."
+    CoachingService(client=client).generate(question, 9, None, [fallback_reference()],
+                                          conversation_context=history,
+                                          profile_context={"milestones": ["Looks toward sounds"]})
+    client.models.generate_content.assert_called_once()
+    prompt = client.models.generate_content.call_args.kwargs["contents"]
+    current = prompt.index("Caregiver question: " + question)
+    assert current > prompt.index("Evidence excerpts:")
+    assert current > prompt.index("Recent conversation (context only, not evidence)")
+    assert current > prompt.index("Looks toward sounds")
+    assert "cannot replace a" in prompt
+    assert "check internally" in prompt
+    assert "Do not change a child's relative into the caregiver's relative" in prompt
+    assert "repeating one of them as the replacement" in prompt
+
+
+def test_young_infant_participation_does_not_imply_seating_readiness():
+    client = FakeClient()
+    CoachingService(client=client).generate(
+        "How can my baby join us while we look at family photographs?", 5, None, [],
+    )
+    policy = client.models.request["config"].system_instruction
+    assert "Do not suggest a high chair" in policy
+    assert "do not infer sitting readiness" in policy
 
 
 @pytest.mark.parametrize("question", ["What else can I try?", "Can you explain that?"])
@@ -439,3 +470,50 @@ def test_generation_error_diagnostics_do_not_expose_exception_text(caplog):
     assert "phase=sdk_request event=failed" in messages
     assert "error_type=RuntimeError" in messages
     assert "PRIVATE_ERROR_DETAILS" not in messages
+
+
+@pytest.mark.parametrize("question,words,tokens", [
+    ("Give me a step-by-step dressing routine for my toddler.", 260, 650),
+    ("What is babbling?", 80, 220),
+    ("How can I talk at feeding time?", 160, 350),
+    ("She routinely makes brief sounds during play. How can I encourage her?", 160, 350),
+])
+def test_effective_generation_budget_has_one_consistent_word_limit(question, words, tokens):
+    client = FakeClient()
+    CoachingService(provider="groq", model="qwen/qwen3.8-27b",
+                    client=SimpleNamespace(generate=client.models.generate_content)).generate(question, 13, None, [])
+    request = client.models.request
+    assert request["config"].max_output_tokens == tokens
+    prompt = request["contents"]
+    assert f"at most {words} words" in prompt
+    for other in ({80, 160, 260} - {words}):
+        assert f"at most {other} words" not in prompt
+
+
+@pytest.mark.parametrize("question,clarification,words,tokens", [
+    ("Seventeen months", True, 260, 650),
+    ("Please shorten it for my partner.", False, 80, 220),
+    ("What does turn-taking mean?", False, 80, 220),
+    ("How can I help my child enjoy wearing a sunhat?", False, 160, 350),
+])
+def test_follow_up_budget_preserves_plan_but_respects_a_new_request(question, clarification, words, tokens):
+    client = FakeClient()
+    context = [
+        {"role": "user", "text": "Give me a detailed play routine for after nursery."},
+        {"role": "assistant", "text": "How old is the child?" if clarification else "Take turns rolling a ball."},
+    ]
+    if clarification:
+        context[-1].update(response_kind="clarification", clarification_field="age")
+    CoachingService(provider="groq", model="qwen/qwen3.8-27b",
+                    client=SimpleNamespace(generate=client.models.generate_content)).generate(
+                        question, 17, None, [], conversation_context=context)
+    request = client.models.request
+    assert request["config"].max_output_tokens == tokens
+    assert f"at most {words} words" in request["contents"]
+
+
+def test_adaptive_words_do_not_silently_change_gemini_thinking_allowance():
+    client = FakeClient()
+    CoachingService(provider="gemini", client=client).generate("What is babbling?", 8, None, [])
+    assert client.models.request["config"].max_output_tokens is None
+    assert "at most 80 words" in client.models.request["contents"]

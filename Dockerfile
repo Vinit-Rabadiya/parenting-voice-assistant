@@ -36,7 +36,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends tini \
     && rm -rf /var/lib/apt/lists/*
 COPY backend ./backend
-COPY data/common-care-guidance.json ./data/common-care-guidance.json
+COPY data/sources.json data/common-care-guidance.json data/reference-expansion.json data/health-reference-expansion.json data/pdf-health-reference-expansion.json data/everyday-care-reference-expansion.json data/activity-safety-reference-expansion.json data/practical-care-reference-expansion.json ./data/
 COPY shared/kenya-contacts.json ./shared/kenya-contacts.json
 COPY --from=frontend /build/frontend/dist ./frontend/dist
 RUN useradd --create-home --uid 10001 appuser \
@@ -48,4 +48,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=90s --retries=3 \
 # Forward stop signals and normalize the expected SIGTERM exit.
 ENTRYPOINT ["/usr/bin/tini", "-e", "143", "--"]
 # One worker owns one speech model. Access logs otherwise include profile IDs in query strings.
-CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log"]
+CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--limit-concurrency", "64", "--timeout-keep-alive", "5", "--no-access-log"]

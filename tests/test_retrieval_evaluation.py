@@ -23,7 +23,8 @@ def test_fixture_corpus_has_zero_age_leaks_in_current_evaluator():
     try:
         local.create_collection("fixture", vectors_config=VectorParams(size=2, distance=Distance.COSINE))
         local.upsert("fixture", points=[PointStruct(id=i, vector=[1.0, 0.0], payload={
-            "passage_id": pid, "text": "Age-scoped fixture.", "source_age": {**age, "label": pid},
+            "passage_id": pid, "text": "Age-scoped fixture.", "source_url": "https://example.test/fixture",
+            "source_age": {**age, "label": pid},
             "routines": [], "project_scope": {"max_months_inclusive": 24}})
             for i, (pid, age) in enumerate(bands)])
 
@@ -31,7 +32,7 @@ def test_fixture_corpus_has_zero_age_leaks_in_current_evaluator():
             def query_points(self, **kwargs):
                 return local.query_points(**{**kwargs, "query": [1.0, 0.0]})
 
-        service = RetrievalService(client=LocalInference(), collection_name="fixture")
+        service = RetrievalService(client=LocalInference(), collection_name="fixture", source_urls=["https://example.test/fixture"])
         results, queries = [], []
         for dob, expected in [("2026-10-30", "newborn"), ("2026-10-23", "young"),
                               ("2026-04-30", "older"), ("2024-10-30", "toddler")]:

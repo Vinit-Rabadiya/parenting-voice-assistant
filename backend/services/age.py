@@ -52,6 +52,9 @@ def normalize_age_expressions(message: str) -> str:
 
     message = re.sub(r"[\u2010-\u2014\u2212]", "-", message)
     normalized = AGE_QUANTITY.sub(replace, message)
+    normalized = re.sub(r"\b(he|she)['\u2019]s\s+", r"\1 is ", normalized, flags=re.I)
+    normalized = re.sub(r"\bi['\u2019]m\s+", "I am ", normalized, flags=re.I)
+    normalized = re.sub(r"\b(we|they)['\u2019]re\s+", r"\1 are ", normalized, flags=re.I)
 
     def compound(match):
         quantities = AGE_QUANTITY.findall(match.group())
@@ -65,14 +68,56 @@ def normalize_age_expressions(message: str) -> str:
     return _COMPOUND_AGE.sub(compound, normalized)
 
 
+CHILD_SUBJECT = r"(?:baby|child|infant|toddler|daughter|son|little (?:girl|boy|one))"
+AGE_STATE = r"(?:(?:is|are)(?:\s+(?:now|just|already))?|aged?|turning|(?:(?:has|have)\s+)?(?:(?:just|recently)\s+)?turned)"
 MESSAGE_AGE = re.compile(
-    r"\b(?:(?:(?:(?:my|our|the|a)\s+)?(?:baby|child|infant|toddler|daughter|son)"
+    rf"\b(?:(?:(?:(?:my|our|the|a)\s+)?{CHILD_SUBJECT}"
     r"(?:\s+(?:(?:named|called)\s+)?[^\W\d_][\w'’-]*(?:\s+[^\W\d_][\w'’-]*){0,2}?(?=\s+(?:is|aged?|turning)\s))?"
-    r"\s+(?:is\s+|aged?\s+|turning\s+|turned\s+)?|"
-    r"(?:he|she|they|another)\s+(?:is|are|aged?|turning|turned)\s+|"
+    rf"\s+(?:{AGE_STATE}\s+)?|"
+    rf"(?:he|she|they|another)\s+{AGE_STATE}\s+|"
     r"(?:aged?|at)\s+)(\d+(?:\.\d+)?)\s*[- ]?(days?|weeks?|months?|years?)\b|"
     r"(\d+(?:\.\d+)?)\s*[- ]?(days?|weeks?|months?|years?)\s*[- ]old\b)", re.I,
 )
+
+
+def age_correction_months(message: str) -> float | None:
+    """Read a complete correction, excluding the explicitly rejected old age."""
+    quantity = r"\d+(?:\.\d+)?\s*[- ]?(?:days?|weeks?|months?|years?)(?:[- ]old)?"
+    match = re.fullmatch(
+        rf"(?:(?:no|sorry)[, ]+)*(?:i meant|actually|correction)[, ]*"
+        rf"(?:(?:he|she|they|(?:my|our|the) {CHILD_SUBJECT}) (?:is|are) )?"
+        rf"(?P<age>{quantity})(?:,?\s+not\s+{quantity})?",
+        normalize_age_expressions(message).strip().rstrip(".!?"), re.I,
+    )
+    if match:
+        number, unit = AGE_QUANTITY.search(match["age"]).groups()
+        months = float(number) * _AGE_SCALE[unit.lower().rstrip("s")]
+        return months if isfinite(months) else None
+    return None
+
+
+def _noncurrent_age(message: str, start: int) -> bool:
+    # Attribute an age to its clause: a reported example or past/future age is
+    # not the child's current age. Contrast clauses can state the actual age.
+    prefix = re.split(r"(?<!\d)\.(?!\d)|[!?;\n]|\b(?:but|whereas)\b", message[:start], flags=re.I)[-1]
+    return bool(re.search(
+        r"\b(?:not|isn['\u2019]t|aren['\u2019]t)\s+(?:an?\s+)?$|"
+        r"\b(?:was|were)\s+(?:an?\s+)?$|"
+        r"\b(?:leaflet|handout|article|book|guide|website|video|example)\b[^.!?;]*"
+        r"\b(?:says?|said|describes?|mentions?|shows?|suggests?|for|about)\b|"
+        r"\b(?:will be|will turn|used to be|when (?:he|she|they|my child) (?:was|were))\b",
+        prefix, re.I,
+    ))
+
+
+def _adult_age(message: str, start: int, end: int) -> bool:
+    """Exclude an age explicitly attached to a caregiver rather than the child."""
+    prefix = re.split(r"[.!?;\n]", message[:start])[-1]
+    adult = r"(?:mother|father|mum|mom|dad|parent|partner|husband|wife|grandmother|grandfather|aunt|uncle|caregiver)"
+    return bool(re.search(
+        rf"\b(?:i\s+am|we\s+are|(?:my|our|the|his|her|their|your)\s+{adult}\s+(?:is|was|aged?))"
+        r"\s+(?:(?:now|currently|already)\s+)?(?:an?\s+)?$", prefix, re.I,
+    ) or re.match(rf"\s+{adult}\b", message[end:], re.I))
 
 
 def message_age_months(message: str) -> float | None:
@@ -80,27 +125,35 @@ def message_age_months(message: str) -> float | None:
     ages = set()
     subject_ages = set()
     message = normalize_age_expressions(message)
-    message = re.sub(r"\b(he|she)['\u2019]s\s+", r"\1 is ", message, flags=re.I)
+    correction = age_correction_months(message)
+    if correction is not None:
+        return correction
     for match in MESSAGE_AGE.finditer(message):
+        if (_noncurrent_age(message, match.start())
+                or match.group(3) and _adult_age(message, match.start(), match.end())):
+            continue
         number, unit = (match.group(1), match.group(2)) if match.group(1) else (match.group(3), match.group(4))
         scale = _AGE_SCALE[unit.lower().rstrip("s")]
         months = float(number) * scale
         if isfinite(months):
             ages.add(months)
             prefix = message[max(0, match.start() - 12):match.start()]
-            if (match.group(1) and re.search(r"\b(?:baby|child|infant|toddler|daughter|son|he|she|they|another)\b", match.group(), re.I)
+            if (match.group(1) and re.search(rf"\b(?:{CHILD_SUBJECT}|he|she|they|another)\b", match.group(), re.I)
                     or re.search(r"\b(?:my|our|your)\s*$", prefix, re.I)):
                 subject_ages.add(months)
     # Attribute forms such as "my one-day baby" do not need the word "old".
     for match in re.finditer(r"\b(\d+(?:\.\d+)?)\s+(days?|weeks?|months?|years?)[ -]+(?:baby|child|infant|toddler|daughter|son)\b", message, re.I):
+        if _noncurrent_age(message, match.start()):
+            continue
         number, unit = match.groups()
         months = float(number) * {"day": 1 / 30.4375, "week": 7 / 30.4375, "month": 1, "year": 12}[unit.lower().rstrip("s")]
         if isfinite(months):
             ages.add(months)
             subject_ages.add(months)
-    if re.search(r"\b(?:my|our|the|a|your)\s+new[ -]?born(?:\s+(?:baby|child|infant))?\b", message, re.I):
-        ages.add(0)
-        subject_ages.add(0)
+    for match in re.finditer(r"\b(?:my|our|the|a|your)\s+new[ -]?born(?:\s+(?:baby|child|infant))?\b", message, re.I):
+        if not _noncurrent_age(message, match.start()):
+            ages.add(0)
+            subject_ages.add(0)
     selected = subject_ages or ages
     return selected.pop() if len(selected) == 1 else None
 

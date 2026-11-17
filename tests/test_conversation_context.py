@@ -4,6 +4,7 @@ from backend.services.conversation_context import (
     MAX_CONTEXT_CHARACTERS, MAX_CONTEXT_MESSAGES, contextual_retrieval_query,
     contextual_age_months, is_follow_up, needs_topic_clarification, select_conversation_context,
     caregiver_request,
+    semantic_retrieval_query,
 )
 
 
@@ -21,7 +22,7 @@ def test_recognizes_explicit_follow_ups(question):
     "That didn't help.", "It is not working", "Is that safe?", "How often?",
     "For how long?", "She still won\u2019t take it.",
     "How many times a day?", "What about at night?", "Is that suitable for her?",
-    "She refuses it.", "She feels feverish.", "Yes please.",
+    "She refuses it.", "Yes please.",
 ])
 def test_short_follow_ups_keep_the_latest_caregiver_topic(question):
     context = select_conversation_context(pair("I am feeding my baby.", "Talk gently."))
@@ -34,7 +35,8 @@ def test_short_follow_up_uses_new_topic_instead_of_an_older_activity():
     assert contextual_retrieval_query("That didn't help.", []) == "That didn't help."
 
 
-@pytest.mark.parametrize("question", ["I am feeding my baby", "How do I fix a car?", "My baby cannot breathe", "What is the weather?"])
+@pytest.mark.parametrize("question", ["I am feeding my baby", "How do I fix a car?", "My baby cannot breathe", "What is the weather?",
+                                      "What if my child refuses a toothbrush?", "What if a baby has trouble swallowing?"])
 def test_new_topics_and_danger_reports_are_not_generic_follow_ups(question):
     assert not is_follow_up(question)
 
@@ -305,3 +307,118 @@ def test_explicit_topic_change_replaces_context_age_and_request():
     question = "Now a different question: my eight-week-old wakes when I transfer him into the cot. Give two settling ideas."
     assert caregiver_request(question, context) == question
     assert contextual_age_months(question, context) == pytest.approx(56 / 30.4375)
+
+
+@pytest.mark.parametrize("reply", [
+    "Could you adapt the advice for a child who cannot walk yet?",
+    "What if the crying begins before we arrive?",
+    "Please change the plan so her grandmother can follow it.",
+    "Instead of that, give me two things her grandfather can do while I finish eating.",
+    "No, I meant seventeen months, not seven months.",
+    "Actually she's seventeen months.",
+])
+def test_context_references_keep_the_request_across_different_sentence_forms(reply):
+    original = "My daughter is fourteen months. How can I support her when I leave her with her grandmother?"
+    messages = pair(original, "Use a short goodbye and a familiar routine.")
+    messages[-1]["subject_age_override"] = 14
+    context = select_conversation_context(messages)
+    assert caregiver_request(reply, context) == original
+    assert contextual_age_months(reply, context) == (17 if reply.startswith(("No,", "Actually")) else 14)
+
+
+@pytest.mark.parametrize("reply", [
+    "She has a red patch around her neck now. What should I watch for?",
+    "She feels feverish.",
+    "He wakes with a blocked nose. How can I keep him comfortable?",
+    "Her neck gets red after wearing this bib. What should I watch for?",
+])
+def test_new_child_report_keeps_subject_age_without_reusing_previous_activity(reply):
+    messages = pair("My baby is ten months. How can I help during a long bus journey?")
+    messages[-1]["subject_age_override"] = 10
+    context = select_conversation_context(messages)
+    assert caregiver_request(reply, context) == reply
+    assert contextual_retrieval_query(reply, context) == reply
+    assert contextual_age_months(reply, context) == 10
+    assert not needs_topic_clarification(reply, context)
+
+
+def test_explicit_new_topic_overrides_incidental_references_to_old_advice():
+    context = select_conversation_context(pair("Suggest a quiet game for my baby."))
+    question = "A different question, unrelated to your advice: how do I wash reusable nappies?"
+    assert caregiver_request(question, context) == question
+
+
+def test_same_child_age_from_older_history_does_not_carry_the_old_topic_or_assistant_claim():
+    context = select_conversation_context(pair(
+        "Our little boy has just turned two months. Suggest a gentle way to share a story.",
+        "Your child is ten months. Try a cloth book.",
+    ))
+    question = "He feels feverish."
+    assert caregiver_request(question, context) == question
+    assert contextual_age_months(question, context) == 2
+
+
+def test_semantic_search_prioritizes_current_message_and_keeps_intermediate_constraints():
+    original = "Suggest a simple sorting activity for my nineteen-month-old."
+    refinement = "Keep the same activity, but without paper or loose small objects."
+    messages = pair(original, "UNVERIFIED_SUGGESTION") + pair(refinement, "UNVERIFIED_REPLACEMENT")
+    context = select_conversation_context(messages)
+    current = "Could you adapt that for the bus journey tomorrow?"
+    query = semantic_retrieval_query(current, context)
+    assert query.startswith(current + "\n")
+    assert original in query and refinement in query
+    assert "UNVERIFIED" not in query
+
+
+def test_semantic_search_uses_new_topic_without_borrowing_old_constraints():
+    context = select_conversation_context(pair("My child dislikes having her hair washed."))
+    current = "What should I put in the bag before a nursery visit?"
+    assert semantic_retrieval_query(current, context) == current
+
+
+def test_long_search_context_keeps_the_current_request_before_a_bounded_anchor():
+    original = "My son is sixteen months. " + "Our previous routine was quite different. " * 24 + "Suggest a quiet activity."
+    context = select_conversation_context(pair(original, "A previous answer."))
+    current = "Instead of that, suggest something we can do without buying anything."
+    query = semantic_retrieval_query(current, context)
+    assert query.startswith(current)
+    assert "My son is sixteen months." in query
+    assert "Suggest a quiet activity." in query
+    assert len(query) < len(current) + 450
+
+
+def test_semantic_search_retains_refinements_when_original_turn_leaves_the_window():
+    original = "Suggest a large-object sorting activity for my twenty-month-old."
+    refinements = [
+        "Keep the same activity but without paper or small parts.",
+        "Please shorten that for the grandmother.",
+        "What about the second option?",
+        "Make that suitable for a short bus journey.",
+    ]
+    messages = pair(original)
+    for text in refinements:
+        turn = pair(text)
+        turn[-1]["caregiver_request"] = original
+        messages += turn
+    context = select_conversation_context(messages)
+    assert len(context) == MAX_CONTEXT_MESSAGES
+    assert all(message["text"] != original for message in context)
+    query = semantic_retrieval_query("Can you simplify that?", context)
+    assert original in query
+    assert all(refinement in query for refinement in refinements)
+    assert sum(len(m["text"]) + len(m.get("caregiver_request", "")) for m in context) <= MAX_CONTEXT_CHARACTERS
+
+
+def test_carried_refinements_do_not_cross_a_topic_change_within_the_window():
+    first = "Suggest a sorting activity for my twenty-month-old."
+    old_refinement = "Keep the same activity but without paper or small parts."
+    second = "How can I make hair washing calmer?"
+    new_refinement = "Could you adapt that so her father can do it?"
+    old_turn = pair(old_refinement)
+    old_turn[-1]["caregiver_request"] = first
+    new_turn = pair(new_refinement)
+    new_turn[-1]["caregiver_request"] = second
+    context = select_conversation_context(pair(first) + old_turn + pair(second) + new_turn)
+    query = semantic_retrieval_query("Can you simplify that?", context)
+    assert second in query and new_refinement in query
+    assert first not in query and old_refinement not in query

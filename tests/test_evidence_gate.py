@@ -342,7 +342,7 @@ def test_short_follow_up_keeps_subject_age_context_and_original_saved_message(cl
         retrieval.retrieve.assert_not_called()
         assert coaching.generate.call_args.args[3][0].source_age_label == "0-6 months (upper bound excluded)"
     else:
-        assert retrieval.retrieve.call_args.args[:2] == (f"{topic}\nFollow-up: {question}", 0)
+        assert retrieval.retrieve.call_args.args[:2] == (f"{question}\nEarlier caregiver request: {topic}", 0)
         assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 15
     coaching.generate.assert_called_once()
     assert coaching.generate.call_args.args[0] == question

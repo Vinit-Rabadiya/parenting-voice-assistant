@@ -35,7 +35,7 @@ from backend.services.kenya_contacts import emergency_resources
 from backend.services.vaccination import inspect_vaccination
 from backend.services.conversation_context import (
     MAX_CONTEXT_MESSAGES, contextual_age_months, contextual_retrieval_query,
-    caregiver_request, needs_topic_clarification, select_conversation_context,
+    caregiver_request, needs_topic_clarification, select_conversation_context, semantic_retrieval_query,
 )
 from backend.core.config import settings
 from backend.core.http_security import record_request_stage
@@ -330,7 +330,7 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
             else:
                 try:
                     passages = await run_in_threadpool(
-                        retrieval_service.retrieve, retrieval_query, completed_months,
+                        retrieval_service.retrieve, semantic_retrieval_query(payload.question, context), completed_months,
                         payload.routine, 3, child_age_days=age_days,
                     )
                 except Exception as exc:

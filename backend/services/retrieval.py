@@ -1,14 +1,17 @@
 from dataclasses import dataclass, field as dataclass_field
 from collections import OrderedDict
 from copy import deepcopy
+from functools import lru_cache
 import hmac
 import json
 import logging
-from math import isfinite
+from math import ceil, isfinite
+from pathlib import Path
 from secrets import token_bytes
 from threading import Lock
-from time import monotonic
+from time import monotonic, sleep
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -18,6 +21,43 @@ from qdrant_client.models import (
 from backend.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+SOURCE_MANIFESTS = (
+    "sources.json", "common-care-guidance.json", "reference-expansion.json",
+    "health-reference-expansion.json", "pdf-health-reference-expansion.json",
+    "everyday-care-reference-expansion.json", "activity-safety-reference-expansion.json",
+    "practical-care-reference-expansion.json",
+)
+
+
+def _canonical_source_url(value: str) -> str | None:
+    """Normalize citation identity without accepting another publisher or path."""
+    if not isinstance(value, str) or not value or any(ord(char) < 33 or ord(char) == 127 or char == "\\" for char in value):
+        return None
+    try:
+        parsed = urlsplit(value)
+        if (parsed.scheme != "https" or not parsed.hostname or parsed.username is not None
+                or parsed.password is not None or parsed.port not in (None, 443)):
+            return None
+        return urlunsplit(("https", parsed.hostname.lower(), parsed.path or "/", parsed.query, ""))
+    except ValueError:
+        return None
+
+
+@lru_cache(maxsize=1)
+def _approved_source_urls() -> frozenset[str]:
+    """Use the versioned local source registry, never destinations from Qdrant."""
+    urls = set()
+    directory = Path(__file__).resolve().parents[2] / "data"
+    for name in SOURCE_MANIFESTS:
+        sources = json.loads((directory / name).read_text(encoding="utf-8"))["sources"]
+        records = sources.values() if isinstance(sources, dict) else sources
+        for record in records:
+            url = _canonical_source_url(record.get("source_url") or record.get("url"))
+            if url is None:
+                raise ValueError("The checked-in source registry contains an invalid citation URL.")
+            urls.add(url)
+    return frozenset(urls)
 
 
 @dataclass
@@ -140,6 +180,7 @@ class RetrievalService:
         allow_candidate_content: bool = False,
         cache_ttl_seconds: float | None = None,
         corpus_revision: str | None = None,
+        source_urls=None,
     ):
         self.url = (url or settings.QDRANT_URL or "").strip()
         self.api_key = (api_key or settings.QDRANT_API_KEY or "").strip()
@@ -162,6 +203,23 @@ class RetrievalService:
         self._owns_client = client is None
         self._client_lock = Lock()
         self._closed = False
+        if isinstance(source_urls, str):
+            raise ValueError("Source URL policy must be a collection of approved HTTPS URLs.")
+        self._source_urls = None if source_urls is None else frozenset(_canonical_source_url(value) for value in source_urls)
+        if self._source_urls is not None and (not self._source_urls or None in self._source_urls):
+            raise ValueError("Source URL policy must contain approved HTTPS URLs.")
+        self._ready: bool | None = None
+
+    @property
+    def readiness(self) -> bool | None:
+        """Last observed reference-service availability, without a network call."""
+        with self._client_lock:
+            return self._ready
+
+    def _record_availability(self, ready: bool) -> None:
+        with self._client_lock:
+            if not self._closed:
+                self._ready = ready
 
     @property
     def client(self) -> QdrantClient:
@@ -199,6 +257,63 @@ class RetrievalService:
             self._cache.clear()
             self._cache_epoch += 1
 
+    def warmup(self, *, timeout: float = 5.0, retries: int = 2) -> dict[str, Any]:
+        """Warm inference with one query per attempt and a shared retry deadline."""
+        if type(timeout) not in (int, float) or not isfinite(timeout) or not 0 < timeout <= 30:
+            raise ValueError("Warmup timeout must be greater than zero and at most 30 seconds.")
+        if type(retries) is not int or not 0 <= retries <= 3:
+            raise ValueError("Warmup retries must be an integer from zero to three.")
+        started = monotonic()
+        deadline = started + timeout
+        last_error = None
+        attempts = 0
+        self._record_availability(False)
+        for _ in range(retries + 1):
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                break
+            attempts += 1
+            try:
+                # Successful inference also proves the collection exists.
+                # Avoid metadata round trips that do not warm the encoder.
+                self.client.query_points(
+                    collection_name=self.collection_name,
+                    query=Document(text="baby care guidance", model="sentence-transformers/all-minilm-l6-v2"),
+                    limit=1, with_payload=False, with_vectors=False,
+                    timeout=max(1, ceil(remaining)),
+                )
+                self._record_availability(True)
+                duration = monotonic() - started
+                logger.info(
+                    "qdrant_warmup status=ready duration_seconds=%.3f attempts=%d", duration, attempts,
+                )
+                return {
+                    "status": "ready",
+                    "duration_seconds": round(duration, 3),
+                    "attempts": attempts,
+                }
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "qdrant_warmup_attempt_failed attempt=%d error_type=%s",
+                    attempts, type(exc).__name__,
+                )
+                remaining = deadline - monotonic()
+                if attempts <= retries and remaining > 0:
+                    sleep(min(0.25, remaining))
+
+        duration = monotonic() - started
+        logger.error(
+            "qdrant_warmup_failed duration_seconds=%.3f error_type=%s",
+            duration, type(last_error).__name__,
+        )
+        return {
+            "status": "degraded",
+            "error": type(last_error).__name__,
+            "duration_seconds": round(duration, 3),
+            "attempts": attempts,
+        }
+
     def retrieve(
         self,
         query: str,
@@ -216,7 +331,8 @@ class RetrievalService:
         if child_age_months is not None:
             age_filter = build_age_filter(child_age_months, child_age_days=child_age_days)
 
-        # Age filtering happens before ranking; retain extra candidates for routines.
+        # Age eligibility is mandatory. Routine is only a preference: a stale
+        # selection must not hide a semantically relevant source for a new topic.
         if candidate_limit is None:
             candidate_limit = max(limit * 5, 15)
         elif type(candidate_limit) is not int or candidate_limit < limit or candidate_limit < 1:
@@ -250,14 +366,36 @@ class RetrievalService:
                 limit=candidate_limit,
                 query_filter=age_filter,
             )
+            self._record_availability(True)
         except Exception as exc:
+            self._record_availability(False)
             logger.error("error querying qdrant: %s", type(exc).__name__)
             raise
 
         filtered: list[RetrievedPassage] = []
 
         for point in results.points:
-            payload = point.payload or {}
+            payload = point.payload
+            if not isinstance(payload, dict):
+                continue
+            text, score = payload.get("text"), point.score
+            source_url = payload.get("source_url")
+            routines = payload.get("routines", [])
+            source_age = payload.get("source_age", {})
+            project_scope = payload.get("project_scope", {})
+            # One malformed result must not abort the search or occupy a slot
+            # ahead of a valid source when ranking the full candidate pool.
+            if (not isinstance(text, str) or not text.strip()
+                    or type(score) not in (int, float) or not isfinite(score)
+                    or not isinstance(routines, list)
+                    or any(not isinstance(value, str) or not value.strip() for value in routines)
+                    or not isinstance(source_age, dict) or not isinstance(project_scope, dict)):
+                continue
+            # The collection can supply excerpts, not arbitrary destinations.
+            # An approved URL does not itself prove that an excerpt is accurate.
+            approved_urls = self._source_urls if self._source_urls is not None else _approved_source_urls()
+            if _canonical_source_url(source_url) not in approved_urls:
+                continue
             # A collection configuration change must not silently publish review-only
             # candidates. Only explicit evaluation instances may inspect these records.
             if not self.allow_candidate_content and (
@@ -267,8 +405,7 @@ class RetrievalService:
                     and payload.get("clinical_review_required") is not False)
             ):
                 continue
-            source_age = payload.get("source_age", {})
-            project_maximum = payload.get("project_scope", {}).get("max_months_inclusive")
+            project_maximum = project_scope.get("max_months_inclusive")
             if child_age_months is not None and isinstance(project_maximum, (int, float)) and child_age_months > project_maximum:
                 continue
 
@@ -276,10 +413,7 @@ class RetrievalService:
             if child_age_months is not None and not is_age_eligible(source_age, child_age_months, child_age_days=child_age_days):
                 continue
 
-            # exclude passages when a specific routine is requested and tags do not match.
-            point_routines = [r.lower() for r in payload.get("routines", [])]
-            if normalized_routine and point_routines and normalized_routine not in point_routines:
-                continue
+            point_routines = [value.strip().lower() for value in routines]
 
             conditions = payload.get("applicability_conditions", [])
             if not isinstance(conditions, list) or any(not isinstance(value, str) or not value.strip() for value in conditions):
@@ -287,20 +421,22 @@ class RetrievalService:
             filtered.append(
                 RetrievedPassage(
                     passage_id=payload.get("passage_id", str(point.id)),
-                    text=payload.get("text", ""),
+                    text=text,
                     title=payload.get("title", ""),
                     source_title=payload.get("source_title", "Parenting Reference"),
                     pdf_page=payload.get("pdf_page", 1),
-                    source_url=payload.get("source_url", ""),
-                    score=float(point.score or 0.0),
+                    source_url=source_url,
+                    score=float(score),
                     source_age_label=source_age.get("label", "0-24 months"),
                     routines=point_routines,
                     applicability_conditions=conditions,
                 )
             )
 
-            if len(filtered) >= limit:
-                break
+        # Prefer semantic score; use the routine to break equal-score ties only.
+        # Preserve original scores for the evidence cutoff and provenance checks.
+        filtered.sort(key=lambda passage: (passage.score, normalized_routine in passage.routines), reverse=True)
+        filtered = filtered[:limit]
 
         # Cache only successful, nonempty, filtered public source passages.
         # Never cache provider errors, model replies or caregiver/profile records.

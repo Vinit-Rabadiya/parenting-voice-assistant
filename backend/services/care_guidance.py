@@ -42,6 +42,12 @@ TOPICS = {
     "occupied_play": r"\bkeep (?:him|her|them|(?:my|our|the) (?:child|baby|toddler)) (?:busy|occupied|entertained)\b",
 }
 HEALTH_TOPICS = {"reflux", "nappy_rash", "stomach_upset", "fever", "cough_cold", "teething", "teething_illness", "stools", "jaundice", "development_concern", "cradle_cap"}
+_DENIED_SYMPTOM_PREFIX = re.compile(
+    r"\b(?:no|not|without|isn['\u2019]t|aren['\u2019]t|doesn['\u2019]t|don['\u2019]t|hasn['\u2019]t|haven['\u2019]t)"
+    r"(?:\s+(?:have|has|had|having|show|shows|showing|a|an|any|current|new|longer|signs?|of))*\s+"
+    r"(?:(?:fevers?|cough\w*|cold|vomit\w*|diarrh[oe]+a|pain|jaundice|rash)"
+    r"(?:\s*,\s*|\s+(?:or|and|nor)\s+))*$", re.I,
+)
 INTERACTION = re.compile(r"\b(?:talk|talking|communicat\w*|language|sing|singing|bond|bonding|pretend|teddy|doll)\b", re.I)
 FOOD_IDEAS = re.compile(r"\b(?:(?:what|which) (?:(?:soft|first|finger|family|healthy) )?foods?|meal ideas?|food ideas?|recipes?|cook|cooking|prepare|make for|serve)\b", re.I)
 SCHEDULE_REQUEST = re.compile(r"\b(?:how often|how many (?:times|meals|feeds|snacks)|schedule|timetable|frequency|times (?:a|per) day)\b", re.I)
@@ -229,7 +235,14 @@ def get_care_guidance(question: str, age_months: float, context: list[dict] | No
         return None
     request = caregiver_request(question, context or [])
     text = request if question == request else request + " " + question
-    matched = [topic for topic, pattern in TOPICS.items() if re.search(pattern, text, re.I)]
+    # A denied symptom cannot establish the topic for a basic-care shortcut.
+    # This only selects references; independent input triage still runs first.
+    matched = [
+        topic for topic, pattern in TOPICS.items()
+        if any(topic not in HEALTH_TOPICS or not _DENIED_SYMPTOM_PREFIX.search(
+            text[max(0, match.start() - 120):match.start()],
+        ) for match in re.finditer(pattern, text, re.I))
+    ]
     # Feeding is often mentioned in reflux or sleep reports; it must not replace
     # the concern. Multiple distinct concerns stay with the general care pipeline.
     concerns = [topic for topic in matched if topic in HEALTH_TOPICS]
@@ -238,6 +251,12 @@ def get_care_guidance(question: str, age_months: float, context: list[dict] | No
     if len(concerns) > 1:
         return None
     topic = concerns[0] if concerns else "food_flavours" if "food_flavours" in matched else "sleep" if "sleep" in matched else next((topic for topic in reversed(TOPICS) if topic in matched), None)
+    if (topic in {"sleep", "soothing"}
+            and re.search(r"\b(?:games?|activities|play|stories|books?|songs?)\b", text, re.I)):
+        # A background care word cannot establish that this basic-care pack
+        # answers the requested activity. Let semantic retrieval select support;
+        # input triage still runs first, independently of this source shortcut.
+        return None
     food_ideas = bool(FOOD_IDEAS.search(text))
     if re.search(r"\b(?:for myself|for me|what (?:should|can) i (?:eat|drink)|my (?:sleep|insomnia))\b|\bi (?:cannot|can't|am not|don't) sleep\b|\bi have (?:a )?(?:reflux|heartburn|rash)\b", text, re.I):
         return None
