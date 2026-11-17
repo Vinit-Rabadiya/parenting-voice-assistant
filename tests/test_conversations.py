@@ -283,7 +283,7 @@ def test_cached_sources_still_reload_profile_and_generate_each_answer(client, co
         "source_title": "Care reference", "source_url": "https://example.test/book", "pdf_page": 2,
         "source_age": {"min_months": 0, "max_months_exclusive": 25}, "routines": ["reading"],
     })]
-    retrieval = RetrievalService(client=source_client, cache_ttl_seconds=60)
+    retrieval = RetrievalService(client=source_client, cache_ttl_seconds=60, source_urls=["https://example.test/book"])
     app.dependency_overrides[get_retrieval_service] = lambda: retrieval
     monkeypatch.setattr("backend.api.v1.endpoints.coaching.select_care_references", lambda *args: [])
     coaching.generate.side_effect = lambda question, age, routine, passages, **kwargs: CoachingResult(
@@ -720,7 +720,7 @@ def test_named_clarification_retrieves_definitions_using_permitted_caregiver_con
     assert response.json()["status"] == "answered"
     assert response.json()["answer"] == reference.text
     assert response.json()["citations"][0]["passage_id"] == "definition"
-    assert retrieval.retrieve.call_args.args[0] == "I am bathing my baby.\nFollow-up: " + question
+    assert retrieval.retrieve.call_args.args[0] == question + "\nEarlier caregiver request: I am bathing my baby."
     assert retrieval.retrieve.call_args.kwargs["child_age_days"] == 14
     assert coaching.generate.call_args.args[0] == question
     data.save_conversation_turn.assert_called_once()
