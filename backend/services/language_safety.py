@@ -48,8 +48,7 @@ def english_detector():
     return LanguageDetectorBuilder.from_languages(Language.ENGLISH).build()
 
 
-def _language(detector, text: str):
-    values = detector.compute_language_confidence_values(text)
+def _language(values, text: str):
     # Relative separation handles short English messages without interpreting a
     # language likelihood as a safety confidence or requiring long sentences.
     if len(values) < 2 or values[0].value <= 0:
@@ -82,7 +81,20 @@ def supports_english(question: str) -> bool:
         return False
     try:
         detector = language_detector()
-        if _language(detector, text) != Language.ENGLISH:
+        # Whole-message, clause and mixed-span checks can inspect the same
+        # fragment. Reuse its inference only within this request; no caregiver
+        # text or language decisions survive the call.
+        confidences = {}
+
+        def confidence_values(fragment):
+            if fragment not in confidences:
+                confidences[fragment] = detector.compute_language_confidence_values(fragment)
+            return confidences[fragment]
+
+        def language(fragment):
+            return _language(confidence_values(fragment), fragment)
+
+        if language(text) != Language.ENGLISH:
             return False
         # Do not let a long English introduction hide a non-English sentence.
         for clause in re.split(r"[.!?;\n]+", text):
@@ -90,11 +102,11 @@ def supports_english(question: str) -> bool:
             key = " ".join(clause.lower().split())
             if not WORDS.search(clause) or key in SHORT_ENGLISH or AGE_ONLY.fullmatch(key):
                 continue
-            if _language(detector, clause) != Language.ENGLISH:
+            if language(clause) != Language.ENGLISH:
                 # A confident whole English message can contain a short
                 # ambiguous clause (e.g. technical terms). Refuse if English
                 # is not also a near-tied interpretation of that clause.
-                values = detector.compute_language_confidence_values(clause)
+                values = confidence_values(clause)
                 english = next((value.value for value in values if value.language == Language.ENGLISH), 0)
                 if not values or values[0].value <= 0 or english < values[0].value * 0.9:
                     return False
@@ -104,14 +116,14 @@ def supports_english(question: str) -> bool:
         for span in detector.detect_multiple_languages_of(text):
             fragment = text[span.start_index:span.end_index]
             if span.language != Language.ENGLISH and len(WORDS.findall(fragment)) >= 3:
-                values = detector.compute_language_confidence_values(fragment)
-                if _language(detector, fragment) == span.language:
+                values = confidence_values(fragment)
+                if language(fragment) == span.language:
                     # Experimental spans can split fluent English into phrases
                     # resembling another language. Corroborate an ambiguous span
                     # with its full clause, while keeping clear foreign spans blocked.
                     clause = next((part for part in re.finditer(r"[^.!?;\n]+", text)
                                    if part.start() <= span.start_index < part.end()), None)
-                    clause_values = detector.compute_language_confidence_values(clause.group()) if clause else []
+                    clause_values = confidence_values(clause.group()) if clause else []
                     strong_english = (len(clause_values) >= 2
                                       and clause_values[0].language == Language.ENGLISH
                                       and clause_values[0].value >= clause_values[1].value * 2)

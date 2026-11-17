@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from lingua import Language
 
 from backend.api.dependencies import get_caregiver_data_service, get_coaching_service, get_retrieval_service
 from backend.core.security import require_authenticated_user
@@ -24,6 +25,30 @@ def test_language_development_cases(case):
 def test_language_gate_fails_closed_when_detector_is_unavailable(monkeypatch):
     monkeypatch.setattr("backend.services.language_safety.language_detector", Mock(side_effect=RuntimeError("unavailable")))
     assert not supports_english("How can I encourage babbling?")
+
+
+def test_language_checks_reuse_identical_fragments_only_within_each_request(monkeypatch):
+    question = "My child enjoys watching people fold clothes"
+    detector = Mock()
+    detector.compute_language_confidence_values.return_value = [
+        SimpleNamespace(language=Language.ENGLISH, value=0.9),
+        SimpleNamespace(language=Language.GERMAN, value=0.1),
+    ]
+    # Experimental spans can label part of an English message incorrectly.
+    # All independent checks must still run, using one inference per fragment.
+    detector.detect_multiple_languages_of.return_value = [
+        SimpleNamespace(language=Language.GERMAN, start_index=0, end_index=len(question)),
+    ]
+    monkeypatch.setattr("backend.services.language_safety.language_detector", lambda: detector)
+    monkeypatch.setattr("backend.services.language_safety.english_detector", lambda: SimpleNamespace(
+        detect_language_of=lambda text: Language.ENGLISH,
+    ))
+
+    for expected_calls in (1, 2):
+        assert supports_english(question)
+        assert detector.compute_language_confidence_values.call_count == expected_calls
+        assert detector.detect_multiple_languages_of.call_count == expected_calls
+    assert all(call.args == (question,) for call in detector.compute_language_confidence_values.call_args_list)
 
 
 def test_experimental_language_spans_do_not_reject_fluent_english():
