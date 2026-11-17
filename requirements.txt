@@ -9,7 +9,7 @@ httpx==0.28.1
 # Patched transitive dependencies used by HTTPS, model downloads and tracing.
 certifi==2026.10.23
 filelock==4.2.4
-opentelemetry-api==1.45.1
+opentelemetry-api==1.45.2
 firebase-admin==7.7.0
 faster-whisper==1.2.1
 av==18.1.0
