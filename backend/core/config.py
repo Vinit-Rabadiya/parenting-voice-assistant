@@ -25,6 +25,8 @@ class Settings:
     APP_ENV: str = os.getenv("APP_ENV", "development").strip().lower()
     SERVE_FRONTEND: bool = boolean_setting("SERVE_FRONTEND")
     ALLOWED_HOSTS: list[str] = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "").split(",") if host.strip()]
+    # Custom Firebase browser auth domains; default project domains are derived automatically.
+    CSP_AUTH_ORIGINS: list[str] = [origin.strip() for origin in os.getenv("CSP_AUTH_ORIGINS", "").split(",") if origin.strip()]
     # An operator confirms the provider account terms; this is not a billing API check.
     GEMINI_PAID_SERVICES_CONFIRMED: bool = boolean_setting("GEMINI_PAID_SERVICES_CONFIRMED")
     # An operator confirms that free-tier model requests contain only non-personal test material.
@@ -43,6 +45,9 @@ class Settings:
     QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "caregiver_guidance_everyday_v4")
     QDRANT_CORPUS_REVISION: str = os.getenv("QDRANT_CORPUS_REVISION", "")
     RETRIEVAL_CACHE_TTL_SECONDS: float = float(os.getenv("RETRIEVAL_CACHE_TTL_SECONDS", "60"))
+    QDRANT_WARMUP_ENABLED: bool = boolean_setting("QDRANT_WARMUP_ENABLED", "false")
+    QDRANT_WARMUP_TIMEOUT_SECONDS: float = float(os.getenv("QDRANT_WARMUP_TIMEOUT_SECONDS", "5.0"))
+    QDRANT_WARMUP_RETRIES: int = int(os.getenv("QDRANT_WARMUP_RETRIES", "2"))
     # Provisional cutoff from recorded development examples; not a confidence percentage.
     RETRIEVAL_MIN_SCORE: float = float(os.getenv("RETRIEVAL_MIN_SCORE", "0.50"))
     KENYA_VACCINATION_SCHEDULE_ENABLED: bool = boolean_setting("KENYA_VACCINATION_SCHEDULE_ENABLED", "true")
@@ -59,10 +64,6 @@ class Settings:
     GROQ_FALLBACK_MODEL: str = os.getenv("GROQ_FALLBACK_MODEL", "")
     GROQ_DATA_TERMS_CONFIRMED: bool = boolean_setting("GROQ_DATA_TERMS_CONFIRMED")
     GROQ_NONPERSONAL_TESTING_CONFIRMED: bool = boolean_setting("GROQ_NONPERSONAL_TESTING_CONFIRMED")
-
-    @property
-    def coaching_api_key(self):
-        return self.GROQ_API_KEY if self.COACHING_PROVIDER == "groq" else self.GEMINI_API_KEY
 
     @property
     def coaching_model(self):
@@ -112,6 +113,11 @@ class Settings:
 
     def validate_coaching(self) -> None:
         """Check local generation settings without contacting the provider."""
+        if (type(self.QDRANT_WARMUP_TIMEOUT_SECONDS) not in (int, float)
+                or not 0 < self.QDRANT_WARMUP_TIMEOUT_SECONDS <= 30):
+            raise ValueError("QDRANT_WARMUP_TIMEOUT_SECONDS must be greater than zero and at most 30.")
+        if type(self.QDRANT_WARMUP_RETRIES) is not int or not 0 <= self.QDRANT_WARMUP_RETRIES <= 3:
+            raise ValueError("QDRANT_WARMUP_RETRIES must be an integer from zero to three.")
         if self.COACHING_PROVIDER not in {"gemini", "groq"}:
             raise ValueError("COACHING_PROVIDER must be gemini or groq.")
         if (type(self.COACHING_PROVIDER_COOLDOWN_SECONDS) is not int

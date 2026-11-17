@@ -63,6 +63,25 @@ def test_fever_age_boundary_uses_completed_calendar_months():
     assert not inspect_input("My baby has a fever.", 3).escalate
 
 
+@pytest.mark.parametrize("question", [
+    "My nine-day-old baby has become floppy and will not wake enough to feed.",
+    "My nine-day-old has become floppy and will not wake enough to feed.",
+    "My child has gone limp.",
+    "My infant seems unusually floppy.",
+])
+def test_reported_loss_of_responsiveness_routes_to_urgent_support(question):
+    decision = inspect_input(question, 0.3)
+    assert decision.escalate and decision.citations
+
+
+@pytest.mark.parametrize("question", [
+    "My baby has a floppy toy. Can we play with it?",
+    "My baby has not become floppy. What signs should I watch for?",
+])
+def test_floppy_toys_and_negated_reports_do_not_become_urgent_incidents(question):
+    assert not inspect_input(question, 4).escalate
+
+
 def test_smart_apostrophes_and_capitalization():
     assert inspect_input("MY BABY WON\u2019T FEED", 6).escalate
 

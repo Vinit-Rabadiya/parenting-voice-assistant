@@ -166,6 +166,52 @@
       "applicability": "General support after starting age-appropriate solid foods; no reassurance about individual growth or diagnoses.",
       "source_reviewed_on": "2023-11-13",
       "source_next_review_due": "2026-11-13"
+    },
+    "fsa-picnic": {
+      "publisher": "Food Standards Agency",
+      "title": "Keeping food safe on a picnic",
+      "url": "https://www.gov.uk/government/publications/keeping-food-safe-on-a-picnic/keeping-food-safe-on-a-picnic",
+      "checked_on": "2026-11-16",
+      "applicability": "General hygiene and cold storage principles, not UK contact numbers, clinical protocols or unqualified local time/temperature limits."
+    },
+    "nhs-drinking-cups": {
+      "publisher": "NHS",
+      "title": "Drinks and cups for babies and young children",
+      "url": "https://www.nhs.uk/baby/weaning-and-feeding/drinks-and-cups-for-babies-and-young-children/",
+      "checked_on": "2026-11-16",
+      "applicability": "Cup practice from around six months; overseas service arrangements and bottle-weaning schedules are excluded."
+    },
+    "nhs-cradle-cap": {
+      "publisher": "NHS",
+      "title": "Cradle cap",
+      "url": "https://www.nhs.uk/conditions/cradle-cap/",
+      "checked_on": "2026-11-16",
+      "applicability": "Gentle scalp care and assessment signs. No diagnosis, medicine selection, doses or overseas service contacts.",
+      "source_reviewed_on": "2025-10-03",
+      "source_next_review_due": "2028-10-03"
+    },
+    "unicef-household-safety": {
+      "publisher": "UNICEF",
+      "title": "How to babyproof your home",
+      "url": "https://www.unicef.org/parenting/safety/how-to-babyproof-your-home",
+      "checked_on": "2026-11-16",
+      "applicability": "General household cord precautions only; no installation methods, product guarantees or clinical triage."
+    },
+    "nhs-play": {
+      "publisher": "NHS",
+      "title": "Baby and toddler play ideas",
+      "url": "https://www.nhs.uk/baby/babys-development/play-and-learning/baby-and-toddler-play-ideas/",
+      "checked_on": "2026-11-16",
+      "source_reviewed_on": "2024-08-27",
+      "source_next_review_due": "2027-08-27",
+      "applicability": "Baby books and toy age warnings. Overseas safety certification requirements, emergency contacts and older-child activities excluded."
+    },
+    "unicef-learning-play": {
+      "publisher": "UNICEF",
+      "title": "21 learning activities for babies and toddlers",
+      "url": "https://www.unicef.org/parenting/child-care/21-learning-activities-babies-and-toddlers",
+      "checked_on": "2026-11-16",
+      "applicability": "In and out activity for 18 months and older. Water, beads, marbles, shells and pebbles were not selected."
     }
   },
   "entries": [
@@ -556,6 +602,81 @@
           "source": "nhs-fussy-eaters",
           "section": "Tips for parents of fussy eaters",
           "text": "For a child already eating solids, keep mealtimes relaxed and offer small portions of varied, age-appropriate family foods. Eat together when possible and model enjoying the food. If a food is refused, stay calm rather than forcing, bribing or using sweets as a reward; offer it again on another occasion. Food preferences vary, but this cannot confirm adequate nutrition or growth. Discuss persistent refusal, weight concerns, pain or difficulty eating with a health professional. Refusing milk or fluids, fewer wet nappies or becoming unwell needs prompt assessment."
+        }
+      ]
+    },
+    {
+      "id": "food-transport",
+      "topic": "food_storage",
+      "min_months": 6,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "fsa-picnic",
+          "section": "Chilling food while travelling",
+          "text": "Keep cooked foods and pre-cut fruit or vegetables cold, including during travel in an insulated bag with ice packs. Do not keep these foods overnight in an ordinary bag or at room temperature; sealing a container does not replace cooling."
+        },
+        {
+          "source": "nhs-first-foods",
+          "section": "Soft fruit and safe feeding",
+          "text": "For a child already managing solids, soft ripe banana or avocado are options without added sugar. Wash whole fruit and prepare it just before serving if cooling is unavailable. Avoid raw hard apple or carrot pieces. Have the child sit upright for eating with an adult supervising."
+        }
+      ]
+    },
+    {
+      "id": "cup-practice",
+      "topic": "cup_drinking",
+      "min_months": 6,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-drinking-cups",
+          "section": "Learning to sip",
+          "text": "From around six months, offer small sips of safe drinking water with meals using a clean open cup or a cup without a valve. Help hold the cup while your child learns. Be patient with spills, let your child set the pace and do not force drinking."
+        }
+      ]
+    },
+    {
+      "id": "gentle-scalp-care",
+      "topic": "cradle_cap",
+      "min_months": 0,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "nhs-cradle-cap",
+          "section": "Scalp care and when to seek assessment",
+          "text": "For cradle-cap-like scales, try gentle brushing with a soft brush followed by baby shampoo. Do not pick crusts or use adult shampoo, perfumed products, olive oil or peanut oil. Ask a pharmacist about suitable unperfumed products. A health professional should assess bleeding, leaking fluid, swelling, widespread scales or a patch that is not improving; a chat cannot confirm the cause."
+        }
+      ]
+    },
+    {
+      "id": "household-cords",
+      "topic": "cord_safety",
+      "min_months": 0,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "unicef-household-safety",
+          "section": "Choking, strangulation and suffocation",
+          "text": "Keep curtain and blind cords secured out of your child's reach, and prevent access to dangling cords or loops. Keep cots and climbing furniture away from the window area. Supervision alone does not remove the hazard; check the surroundings for access as your child becomes more mobile."
+        }
+      ]
+    },
+    {
+      "id": "nearby-toddler-play",
+      "topic": "occupied_play",
+      "min_months": 18,
+      "max_months_exclusive": 25,
+      "references": [
+        {
+          "source": "unicef-learning-play",
+          "section": "18 months: In and out",
+          "text": "For a toddler interested in putting things into containers, offer a dry, empty box and large age-suitable toys to put in and take out. Keep the activity beside you, watch your child, and pause your task whenever they need help."
+        },
+        {
+          "source": "nhs-play",
+          "section": "Reading; toy safety",
+          "text": "A sturdy baby book is another quiet choice to explore together. Check toys and books for damage, sharp edges or small loose parts, and follow their age warnings. These activities do not replace adult supervision."
         }
       ]
     }

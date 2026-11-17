@@ -324,3 +324,142 @@ def test_specific_crying_trigger_uses_retrieval_instead_of_generic_soothing_pack
 
 def test_ordinary_crying_still_has_local_comfort_references():
     assert get_care_guidance("My baby is crying. How can I comfort her?", 5).topic == "soothing"
+
+
+@pytest.mark.parametrize("question", [
+    "Suggest two quiet games for my child while someone sleeps in our room.",
+    "What books can we share after bedtime? I want book ideas, not a sleep routine.",
+    "My baby cries when the singing ends. Can you suggest other songs and ways to play together?",
+])
+def test_background_sleep_and_crying_do_not_replace_a_requested_activity(question):
+    assert get_care_guidance(question, 16) is None
+
+
+@pytest.mark.parametrize("question", [
+    "My child has no fever, but keeps rubbing her ear. What should I watch for?",
+    "My child is not vomiting. What should I pack for a nursery visit?",
+    "My baby has no signs of jaundice. How can I play with her on the floor?",
+])
+def test_denied_symptoms_do_not_select_an_unrelated_illness_pack(question):
+    assert get_care_guidance(question, 8) is None
+
+
+def test_denial_of_one_symptom_does_not_hide_a_different_present_concern():
+    guidance = get_care_guidance("My child has no fever but is vomiting. What should I watch for?", 8)
+    assert guidance.topic == "stomach_upset"
+
+
+@pytest.mark.parametrize("question", [
+    "My baby does not have a fever. What book can we share?",
+    "My daughter does not have a cold. How can we play together?",
+    "My daughter doesn't have a fever. Suggest a quiet game.",
+    "My child has no cough or fever. How can I encourage pointing?",
+    "My child has no fever, cough or vomiting. How can I encourage pointing?",
+    "My baby isn't showing any signs of jaundice. What book can we share?",
+])
+def test_negative_predicates_and_coordinated_denials_do_not_establish_a_health_topic(question):
+    assert get_care_guidance(question, 2) is None
+
+
+@pytest.mark.parametrize("question,topic", [
+    ("My child does not have a fever but is vomiting. What should I watch for?", "stomach_upset"),
+    ("My child has no cough or fever but is vomiting. What should I watch for?", "stomach_upset"),
+    ("My child has no appetite and is vomiting. What should I watch for?", "stomach_upset"),
+    ("My child is not just vomiting; she has a fever too. What should I watch for?", None),
+    ("My child is not sleeping. How can I help her settle?", "sleep"),
+    ("My child is not eating. What foods can I offer?", "feeding"),
+])
+def test_negation_does_not_hide_a_positive_report_or_an_activity_difficulty(question, topic):
+    guidance = get_care_guidance(question, 8)
+    assert (guidance.topic if guidance else None) == topic
+
+
+@pytest.mark.parametrize("question,age,topic,answer,reason", [
+    ("Can I pack my baby's cut fruit the night before without a refrigerator?", 11, "food_storage",
+     "Yes, put the cut fruit in an airtight container in your bag overnight.", "missing_food_cooling_precaution"),
+    ("Can I pack my baby's cut fruit the night before without a refrigerator?", 11, "food_storage",
+     "Refrigerate at first, then leave the sealed container in your bag overnight.", "missing_overnight_storage_boundary"),
+    ("My eight-month-old is learning to drink from an open cup.", 8, "cup_drinking",
+     "Practise scooping bath water and pouring it between cups in the tub.", "unrelated_bath_activity"),
+    ("My ten-week-old has cradle cap. What changes need a clinic visit?", 2.3, "cradle_cap",
+     "Massage olive oil into the scales. Consult a doctor for swelling.", "individual_scalp_product_selection"),
+])
+def test_fresh_audit_failures_use_relevant_checked_fallback(question, age, topic, answer, reason):
+    guidance = get_care_guidance(question, age)
+    assert guidance.topic == topic
+    reviewed, decision = review_coaching_result(CoachingResult(answer, guidance.references), guidance.references, age, question)
+    assert reason in decision.reasons
+    assert decision.replaced_with_basic_care
+    assert reviewed.answer == guidance.fallback
+    assert reviewed.passages == guidance.references
+
+
+def test_storage_constraints_survive_an_indirect_follow_up():
+    request = "For my eleven-month-old, suggest two portable snack ideas. We have no refrigerator."
+    context = [{"role": "user", "text": request},
+               {"role": "assistant", "text": "Soft fruit.", "caregiver_request": request}]
+    guidance = get_care_guidance("Can I pack it the night before and keep it in my bag?", 11, context)
+    assert guidance.topic == "food_storage"
+    assert not guidance.findings(guidance.fallback)
+    assert "ordinary bag" in guidance.fallback
+
+
+def test_drinking_cup_support_does_not_offer_water_to_a_young_infant():
+    assert get_care_guidance("Can my baby drink from an open cup?", 2) is None
+
+
+@pytest.mark.parametrize("answer", [
+    "Offer a smooth stone and a paper bag for texture play.",
+    "Fill a zip-lock bag with water and let your child squeeze it.",
+])
+def test_unsuitable_play_materials_are_withheld_before_delivery(answer):
+    _, decision = review_coaching_result(CoachingResult(answer, []), [], 17, "Suggest screen-free texture play.")
+    assert decision.blocked and "unsuitable_child_play_material" in decision.reasons
+
+
+def test_bag_warning_or_hygiene_use_is_not_an_unsafe_play_suggestion():
+    for question, answer in [
+        ("Suggest texture play.", "Avoid offering stones or paper bags. Use a soft cloth."),
+        ("Suggest texture play.", "Use a soft cloth instead of plastic bags."),
+        ("Suggest texture play.", "Provide a sensory toy without loose stones."),
+        ("How do I dispose of dirty nappies?", "Use a plastic bag to contain waste, kept away from children."),
+    ]:
+        _, decision = review_coaching_result(CoachingResult(answer, []), [], 17, question)
+        assert not decision.blocked
+
+
+def test_cot_settling_does_not_allow_heating_or_invented_sleep_timings():
+    question = "My eight-week-old wakes when I transfer him into the cot."
+    guidance = get_care_guidance(question, 2)
+    assert guidance.topic == "sleep"
+    assert "sleep_surface_heating_instruction" in guidance.findings("Warm the cot with a heating pad; sleep flat on the back.")
+
+
+@pytest.mark.parametrize("answer", [
+    "Let her play with toys in a shallow basin of water beside you.",
+    "Provide paper to tear into small pieces and glue into a collage.",
+])
+def test_busy_caregiver_activity_requires_appropriate_materials_and_supervision(answer):
+    question = "How can I keep her busy while I fold towels?"
+    guidance = get_care_guidance(question, 19)
+    reviewed, decision = review_coaching_result(CoachingResult(answer, guidance.references), guidance.references, 19, question)
+    assert decision.replaced_with_basic_care
+    assert "activity_exceeds_available_supervision" in decision.reasons
+    assert reviewed.answer == guidance.fallback
+
+
+
+def test_one_handed_follow_up_does_not_transfer_the_constraint_to_the_child():
+    original = "I need two ways to keep her busy while I fold towels."
+    context = [{"role": "user", "text": original},
+               {"role": "assistant", "text": "Sort large toys and look at a book.", "caregiver_request": original}]
+    question = "Could you keep the first idea and make the other easier to do one-handed?"
+    guidance = get_care_guidance(question, 19, context)
+    assert guidance.caregiver_one_handed
+    assert "child's hands" in guidance.instructions
+    reviewed, decision = review_coaching_result(
+        CoachingResult("Let her use a book while you fold with both hands.", guidance.references),
+        guidance.references, 19, question, context)
+    assert decision.replaced_with_basic_care
+    assert "conflicting_caregiver_hand_constraint" in decision.reasons
+    assert reviewed.answer == guidance.fallback

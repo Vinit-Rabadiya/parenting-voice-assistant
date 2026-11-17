@@ -3,22 +3,47 @@
 import re
 from math import isfinite
 
-from backend.services.age import message_age_months
+from backend.services.age import age_correction_months, message_age_months, normalize_age_expressions
 from backend.services.profile_context import health_context_available
 from backend.services.care_response import AGE_CLARIFICATION_MESSAGES
 
 MAX_CONTEXT_MESSAGES = 8
 MAX_CONTEXT_CHARACTERS = 4000
+CONTEXT_REFERENCE = re.compile(
+    r"\b(?:the (?:first|second|third|fourth|last|other|earlier|previous) (?:choice|option|suggestion|idea|step|example|point)|"
+    r"(?:the )?same (?:task|activity|game|age|starting age|food|snack|routine)|"
+    r"your (?:last |previous )?(?:answer|reply|response|suggestions|instructions)|"
+    r"(?:adapt|revise|rewrite|shorten|simplify|change|explain|adjust) (?:the |your )"
+    r"(?:advice|plan|list|steps|answer|routine|suggestions)|"
+    r"(?:instead of|rather than|apart from|in place of) (?:that|this|it|them|those|these)|"
+    r"(?:rewrite|shorten|summari[sz]e|simplify|rephrase|explain|repeat|adapt|replace|swap|make|turn|change) "
+    r"(?:only )?(?:that|this|it|them|those)(?:\b| one))\b", re.I,
+)
+REFERENTIAL_QUESTION = re.compile(
+    r"\b(?:can|could|should|would|may) (?:i|we)\b[^.!?\n]{0,45}\b(?:it|them)\b", re.I,
+)
 
 
 def is_follow_up(question: str) -> bool:
     normalized = " ".join(question.lower().replace("\u2019", "'").split()).rstrip("?.!")
+    if re.search(r"\b(?:different|new|unrelated|separate) (?:question|topic|issue|subject)\b", normalized):
+        return False
+    if CONTEXT_REFERENCE.search(normalized):
+        return True
+    reference = REFERENTIAL_QUESTION.search(normalized)
+    if reference and not re.search(r"\b(?:baby|child|infant|toddler|food|book|toy)\b", reference.group(), re.I):
+        return True
     return re.fullmatch(
         r"(?:what else(?: can i (?:try|do))?|(?:any )?more (?:ideas|suggestions|examples)|"
         r"(?:can|could) you (?:give|suggest) (?:me )?(?:another|more) (?:idea|ideas|activity|activities|example|examples)|"
         r"(?:can|could) you explain (?:that|this)|how (?:do|can) i do (?:that|this)|"
         r"(?:another|one more) (?:idea|activity|example)(?: please)?|something else|"
-        r"tell me more|anything else(?: i can (?:try|do))?|please explain (?:that|this)|"
+        r"tell me more|why|why not|what about (?:the )?(?:first|second|third|last|other) (?:one|idea|suggestion|option)|"
+        r"(?:what about |(?:and |also )?(?:for |over )?)(?:the )?next .{1,35}\b(?:days?|weeks?|months?|years?)|"
+        r"(?:(?:also|and|please) )*(?:include|add)\b.{1,120}|"
+        r"(?:can|could|should|would|may) (?:i|we) (?:do|try|use|repeat|continue|stop|start|give|offer) "
+        r"(?:it|that|this|them|those|these)(?: (?:before|after|during|at|in|with|without|instead|again|too|as well)\b.{0,100})?|"
+        r"anything else(?: i can (?:try|do))?|please explain (?:that|this)|"
         r"you (?:did not|didn't|have not|haven't) (?:answer|respond to|address) (?:my |the )?(?:question|message|request)|"
         r"(?:that|this) (?:is not|isn't|was not|wasn't) what i (?:asked|meant)|you misunderstood(?: (?:me|my question))?|"
         r"what (?:does|do) (?:that|this|it|they) mean|"
@@ -30,7 +55,9 @@ def is_follow_up(question: str) -> bool:
         r"(?:yes|no)(?: please| thank you| thanks)?|"
         r"(?:is|are|was|were|can|could|should|will|would|does|do) "
         r"(?:that|this|it|they|those|these)\b.{0,100}|"
-        r"(?:he|she|they)\b.{1,160}|"
+        r"(?:he|she|they)\b[^.!?\n]{0,120}\b(?:it|that|this|them|those|these)\b[^.!?\n]{0,40}|"
+        r"(?:and |but )?what if (?!(?:(?:my|our|the|a|another) )?"
+        r"(?:baby|child|infant|toddler|son|daughter)\b).{1,180}|"
         r"(?:that|this|it) (?:did not|didn't|does not|doesn't) (?:help|work)|"
         r"(?:that|this|it) (?:is not|isn't|still isn't) (?:helping|working)|"
         r"(?:he|she|they|my baby) still (?:won't|will not|doesn't|does not) "
@@ -69,7 +96,7 @@ def select_conversation_context(messages: list[dict], *, health_context_revision
         if not isinstance(question, str) or not isinstance(answer, str) or not question.strip() or not answer.strip():
             break
         request = assistant.get("caregiver_request")
-        keep_request = (not selected and isinstance(request, str)
+        keep_request = (isinstance(request, str)
                         and 2 <= len(request.strip()) <= 1200 and request.strip() != question.strip())
         pair_size = len(question) + len(answer) + (len(request.strip()) if keep_request else 0)
         if characters + pair_size > MAX_CONTEXT_CHARACTERS or len(selected) + 2 > MAX_CONTEXT_MESSAGES:
@@ -111,7 +138,7 @@ def caregiver_request(question: str, context: list[dict]) -> str:
                 return context[-2]["text"]
         return question
     clarification = clarifies_recent_answer(question, context)
-    if is_follow_up(question) or clarification:
+    if is_follow_up(question) or clarification or _is_age_correction(question):
         if context and context[-1].get("caregiver_request"):
             request = context[-1]["caregiver_request"]
             if not is_follow_up(request) and _age_reply_months(request) is None:
@@ -126,9 +153,53 @@ def caregiver_request(question: str, context: list[dict]) -> str:
 
 
 def contextual_retrieval_query(question: str, context: list[dict]) -> str:
-    """Use the caregiver's request for search, keeping the current reply intact."""
+    """Keep topic context for fixed-response routing and stated-age resolution."""
     request = caregiver_request(question, context)
     return f"{request[:600]}\nFollow-up: {question}" if request != question else question
+
+
+def semantic_retrieval_query(question: str, context: list[dict]) -> str:
+    """Put the current ask before bounded caregiver context in the short encoder."""
+    request = caregiver_request(question, context)
+    if request == question:
+        return question
+
+    def excerpt(text: str, budget: int) -> str:
+        if len(text) <= budget:
+            return text
+        # Retain both the opening subject and the final requested help. Only
+        # search context is shortened; generation receives the complete turns.
+        half = (budget - 5) // 2
+        return text[:half].rsplit(" ", 1)[0] + " ... " + text[-half:].split(" ", 1)[-1]
+
+    lines = [question, "Earlier caregiver request: " + excerpt(request, 400)]
+    remaining = 400
+    updates = []
+    for index in range(len(context) - 1, -1, -1):
+        message = context[index]
+        if message["role"] != "user":
+            continue
+        text = message["text"]
+        if text == request:
+            break
+        # Do not add an unrelated topic, generated claims, or older instructions
+        # from before this request. Recent caregiver refinements matter most.
+        recorded_request = context[index + 1].get("caregiver_request") if index + 1 < len(context) else None
+        if recorded_request is not None:
+            if recorded_request != request:
+                break
+        elif caregiver_request(text, context[:index]) != request:
+            break
+        if text == question:
+            continue
+        snippet = excerpt(text, min(200, remaining))
+        updates.append(snippet)
+        remaining -= len(snippet)
+        if remaining < 40:
+            break
+    if updates:
+        lines.append("Caregiver refinements: " + " | ".join(reversed(updates)))
+    return "\n".join(lines)
 
 
 def contextual_age_months(question: str, context: list[dict]) -> float | None:
@@ -140,7 +211,10 @@ def contextual_age_months(question: str, context: list[dict]) -> float | None:
     if clarified is not None:
         return clarified
     query = contextual_retrieval_query(question, context)
-    if query != question or (context and is_follow_up(question)
+    # A new concern can still concern the same child. Carry the subject's age,
+    # independently of whether the old activity is relevant to retrieval.
+    same_subject = re.match(r"\s*(?:he|she|they|his|her|their)\b", question, re.I) is not None
+    if query != question or (context and (is_follow_up(question) or same_subject)
                              and context[-1].get("response_kind") != "clarification"):
         stored_age = context[-1].get("subject_age_months")
         if stored_age is not None:
@@ -148,6 +222,11 @@ def contextual_age_months(question: str, context: list[dict]) -> float | None:
         explicit = message_age_months(query)
         if explicit is not None:
             return explicit
+        if same_subject and len(context) >= 2:
+            # Older saved turns may not have structured subject-age metadata.
+            # Read the last caregiver statement, never an assistant age claim.
+            previous = context[-1].get("caregiver_request") or context[-2]["text"]
+            return message_age_months(previous)
     return None
 
 
@@ -162,18 +241,27 @@ def needs_topic_clarification(question: str, context: list[dict]) -> bool:
 
 
 def _clarified_age_months(question: str, context: list[dict]) -> float | None:
-    if context and context[-1].get("response_kind") in {"clarification", "age_out_of_scope"}:
+    if context and (context[-1].get("response_kind") in {"clarification", "age_out_of_scope"}
+                    or _is_age_correction(question)):
         return _age_reply_months(question)
     return None
 
 
+def _is_age_correction(question: str) -> bool:
+    """A complete age correction can resume a topic; an unexplained number cannot."""
+    return age_correction_months(question) is not None
+
+
 def _age_reply_months(question: str) -> float | None:
     """Recognise a short age clarification/correction without inventing a topic."""
+    correction = age_correction_months(question)
+    if correction is not None:
+        return correction
     match = re.fullmatch(
         r"(?:sorry[ ,]*\s*)?(?:(?:i meant|actually|correction)[ ,]*\s*)?"
         r"(?:(?:he|she|they|(?:my|our|the) (?:baby|child|infant|toddler)) (?:is|are) )?"
         r"(?P<age>\d+(?:\.\d+)?\s*[- ]?(?:days?|weeks?|months?|years?))"
-        r"(?:[- ]old)?(?: please)?", question.strip().rstrip(".!?"), re.I,
+        r"(?:[- ]old)?(?: please)?", normalize_age_expressions(question).strip().rstrip(".!?"), re.I,
     )
     return message_age_months(f"My baby is {match['age']}") if match else None
 

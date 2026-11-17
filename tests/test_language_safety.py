@@ -26,6 +26,12 @@ def test_language_gate_fails_closed_when_detector_is_unavailable(monkeypatch):
     assert not supports_english("How can I encourage babbling?")
 
 
+def test_experimental_language_spans_do_not_reject_fluent_english():
+    assert supports_english("Now a different question: my eight-week-old wakes when I transfer him into the cot. Give two settling ideas.")
+    assert not supports_english("My baby ne respire pas")
+    assert not supports_english("I have a question about my baby: necesito ayuda ahora")
+
+
 def test_language_gate_does_not_allow_non_english_appended_to_short_exceptions():
     assert not supports_english("Hello, mtoto wangu ana homa")
     assert not supports_english("18 months mtoto wangu")

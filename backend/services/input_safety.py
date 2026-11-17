@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 import re
 
+from backend.services.age import message_age_months
+
 
 ESCALATION_MESSAGE = (
     "Your message may describe a danger sign. Seek urgent medical care now at the "
@@ -54,7 +56,7 @@ URGENT_ILLNESS = {
     "source_title": "NHS: When to get urgent medical help for babies and children under 5",
     "pdf_page": None,
     "source_url": "https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/",
-    "title": "Immediate assessment: blue or grey lips and a rash that does not fade under pressure",
+    "title": "Immediate assessment: responsiveness, blue or grey lips and non-fading rash",
 }
 ANAPHYLAXIS = {
     "passage_id": "safety-who-allergic-airway-swelling",
@@ -115,7 +117,8 @@ RULES = (
     ("breathing", r"\b(?:can(?:not|'t) breathe|not breathing(?!\s+fast\b)|stopped breathing|struggling to breathe|difficulty breathing|difficult breathing|breathing (?:very )?fast|fast breathing|gasping)\b", KENYA),
     ("not_feeding", r"\b(?:(?:cannot|can't|unable to|will not|won't|not able to) (?:drink|feed|breastfeed)|not (?:feeding|drinking|breastfeeding)(?!\s+poorly\b)|(?:feeding|drinking|breastfeeding) poorly)\b", KENYA),
     ("convulsions", r"\b(?:convuls(?:ion|ions|ing)|seizures?)\b", WHO),
-    ("unresponsive", r"\b(?:unconscious|unresponsive|lethargic|hard to wake|difficult to wake|cannot wake|can't wake|won't wake)\b", WHO),
+    ("unresponsive", r"\b(?:unconscious|unresponsive|lethargic|hard to wake|difficult to wake|cannot wake|can't wake|won't wake|will not wake)\b", WHO),
+    ("floppy", r"\b(?:is|are|seems?|became|become|gone|going)\s+(?:very\s+|unusually\s+)?(?:floppy|limp)\b", URGENT_ILLNESS),
     ("dehydration", r"\b(?:dehydrated|dehydration|no wet (?:nappies|diapers)|hasn't (?:peed|urinated)|has not (?:peed|urinated))\b", WHO),
     ("choking", r"\b(?:choking|chokes|choked)\b", WHO),
     ("injury", r"\b(?:(?:fell|fallen) (?:off|from|down)|(?:hit|hurt|injured) (?:his|her|their|the) head|head injury)\b", INJURY),
@@ -150,7 +153,9 @@ def inspect_input(question: str, completed_months: int, *, child_age_days: int |
     text = re.sub(r"\s+", " ", text)
     reasons, citations = [], {}
     if not CHILD_CONTEXT.search(text):
-        return InputSafetyDecision((), ())
+        stated_age = message_age_months(text)
+        if stated_age is None or not 0 <= stated_age <= 24:
+            return InputSafetyDecision((), ())
     rules = list(RULES)
     if child_age_days == 0:
         rules.append(("first_day_yellowing", r"\b(?:has jaundice|(?:skin|eyes) (?:(?:are|look|looks|appear|appears|seem|seems) )?yellow)\b", JAUNDICE))

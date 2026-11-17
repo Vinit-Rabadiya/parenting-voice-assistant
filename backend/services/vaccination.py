@@ -5,7 +5,7 @@ from datetime import date
 import re
 
 from backend.core.config import settings
-from backend.services.age import current_date
+from backend.services.age import current_date, message_age_months, normalize_age_expressions
 
 
 GENERAL_CHECKED_ON = date(2026, 10, 28)
@@ -51,6 +51,10 @@ EFFECTS = VaccinationSource(
 WARNINGS = VaccinationSource(
     "vaccine-warnings", "WHO: Anaphylaxis as an adverse event following immunization",
     "https://cdn.who.int/media/docs/default-source/medicines/pharmacovigilance/anaphylaxis-aefi.pdf", 2,
+)
+COMFORT = VaccinationSource(
+    "vaccine-comfort", "WHO: Five tips for preparing children for vaccination",
+    "https://www.who.int/news-room/feature-stories/detail/five-tips-for-preparing-children-for-vaccination",
 )
 
 # Programme ages, not a calculator for an individual child's remaining doses.
@@ -102,13 +106,12 @@ GENERAL_PURPOSE = re.compile(
     r"why (?:should|do) (?:i|we) vaccinate|tell me about (?:vaccination|immuni[sz]ation))\b", re.I)
 GENERAL_EFFECTS = re.compile(r"\b(?:side[ -]?effects?|expected effects)\b", re.I)
 SCHEDULE = re.compile(
-    r"\b(?:schedule|due|which vaccines|what vaccines|when|at birth|newborn|weeks?|months?|years?|"
+    r"\b(?:schedule|due|which vaccines|what vaccines|when|at birth|newborn|days?|weeks?|months?|years?|"
     r"appointments?|next|how many|doses?)\b", re.I)
-NUMBERS = {"one": 1, "two": 2, "six": 6, "seven": 7, "nine": 9, "ten": 10,
-           "fourteen": 14, "eighteen": 18, "twenty four": 24}
-REQUESTED_AGE = re.compile(
-    r"\b(\d+(?:\.\d+)?|one|two|six|seven|nine|ten|fourteen|eighteen|twenty[ -]four)"
-    r"[ -]*(days?|weeks?|months?|years?)\b", re.I)
+REQUESTED_AGE = re.compile(r"\b(\d+(?:\.\d+)?)\s*(days?|weeks?|months?|years?)\b", re.I)
+PLANNING_PERIOD = re.compile(r"\b(?:next|coming|following|cover|covers|covering)\s+(?:the\s+)?(\d+(?:\.\d+)?)\s*(days?|weeks?|months?|years?)\b", re.I)
+OPTIONAL_REQUEST = re.compile(r"\b(?:optional|additional|private|hepatitis[ -]?b|hep[ -]?b)\b", re.I)
+COMFORT_REQUEST = re.compile(r"\b(?:baby[ -]friendly|alternatives?|less painful|gentler|comfort)\b", re.I)
 
 # Purpose descriptions come from the policy's antigen chapters, not model output.
 VACCINES = (
@@ -131,31 +134,76 @@ def _current(checked_on: date) -> bool:
     return 0 <= (current_date() - checked_on).days <= GENERAL_REVIEW_DAYS
 
 
-def _schedule_answer(question: str, child_age_months: float | None) -> str:
+def _quantity_months(match) -> float:
+    number, unit = match.groups()
+    return float(number) * {"day": 1 / 30.4375, "week": 7 / 30.4375,
+                            "month": 1, "year": 12}[unit.lower().rstrip("s")]
+
+
+def _additional_information(question: str) -> tuple[str, tuple[VaccinationSource, ...]]:
+    notes, sources = [], []
+    if OPTIONAL_REQUEST.search(question):
+        notes.append("Additional vaccines: The routine pentavalent vaccine includes hepatitis B protection. "
+                     "This schedule is not an exhaustive list of additional vaccines available privately or for travel. "
+                     "Ask your vaccination clinic about additional options appropriate to your child's age, "
+                     "health and travel plans; this chat cannot confirm a personalised optional-vaccine schedule.")
+        sources.extend((POLICY, PURPOSE))
+    if COMFORT_REQUEST.search(question):
+        notes.append("For a gentler vaccination visit, hold your baby close and, if breastfeeding, "
+                     "ask about breastfeeding during vaccination. These comfort measures do not replace vaccines. "
+                     "Ask the clinic before changing vaccine products or timing.")
+        sources.extend((COMFORT, PURPOSE))
+    return "\n\n".join(notes), tuple(dict.fromkeys(sources))
+
+
+def _schedule_answer(question: str, child_age_months: float | None, *, topic: str | None = None) -> str:
     """Use the profile age by default; programme ages never establish due doses."""
-    match = REQUESTED_AGE.search(question)
-    requested_age = None
+    normalized = normalize_age_expressions(question)
+    contextual = normalize_age_expressions(topic or question)
+    period = PLANNING_PERIOD.search(normalized) or PLANNING_PERIOD.search(contextual)
+    # An elapsed planning interval is not the child's age or a single visit age.
+    age_text = PLANNING_PERIOD.sub("", normalized)
+    requested_age = message_age_months(age_text)
+    if requested_age is None:
+        quantities = list(REQUESTED_AGE.finditer(age_text))
+        if len(quantities) == 1:
+            requested_age = _quantity_months(quantities[0])
+    planning_age = requested_age if requested_age is not None else child_age_months
+    if planning_age is None:
+        planning_age = message_age_months(PLANNING_PERIOD.sub("", contextual))
     overview = re.search(r"\b(?:full|complete|entire|overview|from|through|between)\b|\b(?:0|birth)\s*(?:-|to)", question, re.I)
     if overview:
-        pass
-    elif re.search(r"\b(?:birth|newborn)\b", question, re.I):
+        requested_age = None
+    elif re.search(r"\b(?:birth|new[ -]?born)\b", question, re.I):
         requested_age = 0
-    elif match:
-        raw, unit = match.groups()
-        number = NUMBERS.get(raw.lower().replace("-", " "))
-        number = float(raw) if number is None else number
-        requested_age = number * {"day": 1 / 30.4375, "week": 7 / 30.4375,
-                                  "month": 1, "year": 12}[unit.lower().rstrip("s")]
     named = [pattern for pattern, _ in VACCINES if re.search(pattern, question, re.I)]
     visits = [visit for visit in VISITS if requested_age is not None and abs(visit[1] - requested_age) < 0.01]
     heading = "Kenya's routine vaccination visits from birth through the second birthday:"
     if not visits:
-        visits = VISITS
+        if requested_age is not None and not overview:
+            earlier = [visit for visit in VISITS if visit[1] <= requested_age]
+            later = [visit for visit in VISITS if visit[1] > requested_age]
+            visits = earlier[-1:] + later[:1]
+            heading = "Kenya's routine visits around the age you asked about:"
+        else:
+            visits = VISITS
     elif requested_age == 0:
         heading = "Kenya's routine birth vaccines are:"
     else:
         heading = "For the age you asked about, Kenya's routine schedule lists:"
-    if requested_age is None and child_age_months is not None and not overview and not named:
+    if period:
+        if planning_age is None:
+            return "How old is the baby you are planning for? I need their age to show the visits in that period."
+        end_age = min(24, planning_age + _quantity_months(period))
+        visits = [visit for visit in VISITS if planning_age - 0.01 <= visit[1] <= end_age + 0.01]
+        age_days = planning_age * 30.4375
+        age_label = ("birth" if planning_age == 0
+                     else f"{age_days:g} {'day' if abs(age_days - 1) < 0.0001 else 'days'}" if planning_age < 1
+                     else f"{planning_age:g} {'month' if planning_age == 1 else 'months'}")
+        heading = f"Routine vaccination visits over the next {period[1]} {period[2].lower()}, starting from {age_label}:"
+        if planning_age + _quantity_months(period) > 24:
+            heading += " This list stops at the second birthday."
+    elif requested_age is None and child_age_months is not None and not overview and not named:
         # Show surrounding programme visits, not a claim that the earlier doses
         # were received or that the next dose is due. Age alone cannot tell that.
         earlier = [visit for visit in VISITS if visit[1] <= child_age_months]
@@ -168,15 +216,17 @@ def _schedule_answer(question: str, child_age_months: float | None) -> str:
         named = [r"\bopv\b|oral polio"]
     if named and not overview:
         selected = [visit for visit in visits if any(re.search(pattern, visit[2], re.I) for pattern in named)]
-        if selected:
+        if selected or period:
             visits = selected
-        else:
+        elif not period:
             visits = [visit for visit in VISITS if any(re.search(pattern, visit[2], re.I) for pattern in named)]
             heading = "Kenya's routine timing for the vaccine you asked about:"
     age_note = ""
-    if requested_age is None and child_age_months is not None:
+    if requested_age is None and child_age_months is not None and not period:
         age_note = f"Your child's recorded age is {child_age_months:.1f} months. "
     lines = "\n".join(f"- {label}: {vaccines}" for label, _, vaccines in visits)
+    if not visits:
+        lines = "No routine visit ages in the reference schedule fall within this period. Check the vaccination record with the clinic for individual appointments."
     return f"{age_note}{heading}\n{lines}\n\n{REGIONAL_NOTE}\n\n{RECORD_NOTE}"
 
 
@@ -202,7 +252,9 @@ def inspect_vaccination(question: str, child_age_months: float | None = None, *,
             "A symptom happening after vaccination does not by itself show that the vaccine caused it.",
             "general_expected_effects", (EFFECTS, WARNINGS, POLICY),
         )
-    if SCHEDULE.search(question):
+    if SCHEDULE.search(question) or (topic and SCHEDULE.search(topic) and (
+        OPTIONAL_REQUEST.search(question) or COMFORT_REQUEST.search(question)
+    )):
         if not settings.KENYA_VACCINATION_SCHEDULE_ENABLED or not _current(SCHEDULE_CHECKED_ON):
             return VaccinationDecision(UNAVAILABLE_ANSWER, "schedule_unavailable")
         if re.search(r"\brotarix\b", question, re.I):
@@ -212,7 +264,10 @@ def inspect_vaccination(question: str, child_age_months: float | None = None, *,
                 "The clinic must check the vaccine product and previous doses in your child's record "
                 "before advising what they need next.", "vaccine_purpose", (POLICY, SCHEDULER),
             )
-        return VaccinationDecision(_schedule_answer(question, child_age_months), "routine_schedule", (SCHEDULER, UPDATES))
+        additional, sources = _additional_information(question)
+        answer = _schedule_answer(question, child_age_months, topic=topic)
+        return VaccinationDecision(answer + ("\n\n" + additional if additional else ""),
+                                   "routine_schedule", tuple(dict.fromkeys((SCHEDULER, UPDATES, *sources))))
     named_topic = question if TOPIC.search(question) else topic or question
     named = [text for pattern, text in VACCINES if re.search(pattern, named_topic, re.I)]
     if named:

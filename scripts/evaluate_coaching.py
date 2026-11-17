@@ -14,14 +14,14 @@ from types import SimpleNamespace
 
 from backend.core.config import PROJECT_ROOT, settings
 from backend.services.age import add_months, age_details, current_date, message_age_months, within_project_scope
-from backend.services.coaching import CoachingService, PROMPT_VERSION, PROMPT_SHA256
+from backend.services.coaching import CoachingService, PROMPT_VERSION, PROMPT_SHA256, determine_answer_budget
 from backend.services.evidence import select_evidence
 from backend.services.care_guidance import select_care_references
 from backend.services.care_response import conversation_boundary_response
 from backend.services.vaccination import inspect_vaccination
 from backend.services.conversation_context import (
     caregiver_request, contextual_age_months, contextual_retrieval_query,
-    needs_topic_clarification, select_conversation_context,
+    needs_topic_clarification, select_conversation_context, semantic_retrieval_query,
 )
 from backend.services.care_response import professional_assessment_response
 from scripts.evaluate_retrieval import load_queries, query_age_context
@@ -165,6 +165,7 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         "timings_seconds": {}, "ratings": None, "audio_playback": "not_checked",
         "limitations": "Direct service evaluation: excludes authentication, Firestore, ASR and TTS.",
         "conversation_context": context,
+        "requested_word_limit": determine_answer_budget(case["question"], context).word_limit,
         "caregiver_request": caregiver_request(case["question"], context),
     }
     started = time.perf_counter()
@@ -225,7 +226,8 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
             return record
         stage = "retrieval"
         tick = time.perf_counter()
-        search_text = keyword_search_text(query) if keyword_search else query
+        semantic_query = semantic_retrieval_query(case["question"], context)
+        search_text = keyword_search_text(semantic_query) if keyword_search else semantic_query
         record["search_query"] = search_text
         reference_status = "no_match"
         # Retrieval experiments retain their vector query; ordinary answer capture
@@ -276,7 +278,7 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         if decision.blocked:
             record.update(outcome="safety_blocked", answer=result.answer if result.blocked else SAFE_RESPONSE)
         record["answer_word_count"] = len(record["answer"].split())
-        record["within_requested_word_limit"] = record["answer_word_count"] <= 160
+        record["within_requested_word_limit"] = record["answer_word_count"] <= record["requested_word_limit"]
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
     except Exception as exc:
         record.update(outcome="error", error_stage=stage, error_type=type(exc).__name__)

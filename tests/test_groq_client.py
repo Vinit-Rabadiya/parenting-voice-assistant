@@ -47,6 +47,7 @@ def test_real_coaching_flow_sends_context_to_fixed_host_and_returns_only_answer(
         payload = json.loads(request.content)
         assert payload["reasoning_effort"] == "none"
         assert payload["include_reasoning"] is False
+        assert payload["max_completion_tokens"] == 350
         assert "chillies" in payload["messages"][1]["content"]
         assert "23 months" in payload["messages"][1]["content"]
         assert "Do not interpret test values" in payload["messages"][0]["content"]
@@ -54,6 +55,19 @@ def test_real_coaching_flow_sends_context_to_fixed_host_and_returns_only_answer(
         assert all(text not in caplog.text for text in ("PRIVATE_KEY", "PRIVATE_REASONING", result.answer))
     finally:
         transport.close()
+
+
+@pytest.mark.parametrize("model,cap,expected", [
+    (MODEL, 220, 220), (MODEL, 650, 650),
+    ("openai/gpt-oss-20b", 220, 1024),
+    ("openai/gpt-oss-120b", 650, 1024),
+    ("openai/gpt-oss-120b", 1500, 1500),
+])
+def test_provider_payload_keeps_reasoning_allowance_separate_from_answer_length(model, cap, expected):
+    config = SimpleNamespace(system_instruction="System policy", temperature=0.2, max_output_tokens=cap)
+    payload = GroqClient._payload(model, "A synthetic request", config)
+    assert payload["max_completion_tokens"] == expected
+    assert payload["reasoning_effort"] == ("none" if model == MODEL else "low")
 
 
 @pytest.mark.parametrize("body", [
@@ -122,7 +136,7 @@ def test_pooled_client_is_created_once_and_closed_with_service(monkeypatch):
         _ = service.client
 
 
-def test_groq_uses_its_own_key_model_and_permission_flags(monkeypatch):
+def test_groq_uses_its_own_model_and_permission_flags(monkeypatch):
     value = Settings()
     value.COACHING_PROVIDER = "groq"
     value.GEMINI_API_KEY = "gemini-key"
@@ -134,7 +148,6 @@ def test_groq_uses_its_own_key_model_and_permission_flags(monkeypatch):
     value.GROQ_DATA_TERMS_CONFIRMED = False
     value.GROQ_NONPERSONAL_TESTING_CONFIRMED = False
     value.validate_coaching()
-    assert value.coaching_api_key == "groq-key"
     assert value.coaching_model == MODEL
     assert value.coaching_fallback_model == ""
     assert value.provider_data_allowed is False

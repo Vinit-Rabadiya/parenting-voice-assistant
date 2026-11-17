@@ -134,6 +134,11 @@ a clinical checklist from one milestone page.
 
 ## Vaccination and Kenya programme updates
 
+Supplement checked 16 November 2026: [WHO: Five tips for preparing children for vaccination](https://www.who.int/news-room/feature-stories/detail/five-tips-for-preparing-children-for-vaccination).
+The vaccination response links this article when comfort measures are requested:
+holding close and breastfeeding during vaccination when applicable. These measures
+are not vaccine substitutes. This supplement is separate from the original 71-entry collection.
+
 | ID | Original source | Topics and limitations |
 | --- | --- | --- |
 | C56 | [UNICEF: Vaccines for children, questions answered](https://www.unicef.org/parenting/health/parents-frequently-asked-questions-vaccines) | General caregiver explanations and concerns. Correct health-section URL opened; not a national schedule. |
@@ -209,3 +214,23 @@ No website HTML was saved. These selections remain candidate content.
 | C69 | [UNICEF: 21 learning activities for babies and toddlers](https://www.unicef.org/parenting/child-care/21-learning-activities-babies-and-toddlers) | Words, words, words!; Make believe; Household helper; with separate age bands |
 | C70 | [HSE: Sharing books with babies and young children](https://www2.hse.ie/babies-children/checks-milestones/communication-development/reading-with-your-baby/) | Newborn, six-month-plus and toddler story-sharing sections; Irish services and older-child sections excluded |
 | C71 | [South Australia Department for Education: Splish splash, I'm having a bath](https://www.education.sa.gov.au/parents-and-families/curriculum-and-learning/early-years/learning-with-your-child-greatstart/getting-ready/splish-splash-im-having-bath) | Body-part naming and language to use; water experiments, local services and helping wash another baby excluded |
+
+
+## Content-processing audit source checks (16 November 2026)
+
+The following narrow selections support the runtime basic-care pack. They are
+source checks, not clinical approval. General safety principles are used without
+foreign emergency numbers, service arrangements, treatment choices or vaccine schedules.
+No website HTML was saved.
+
+| Source | Selected scope |
+| --- | --- |
+| [Food Standards Agency: Keeping food safe on a picnic](https://www.gov.uk/government/publications/keeping-food-safe-on-a-picnic/keeping-food-safe-on-a-picnic) | Cold storage for cooked food and pre-cut fruit/vegetables, insulated transport with ice packs; no invented overnight room-temperature safety claim |
+| [NHS: Your baby's first solid foods](https://www.nhs.uk/baby/weaning-and-feeding/babys-first-solid-foods/) | Soft fruit, avoiding hard raw pieces, upright supervised eating; supplements the existing source selection |
+| [NHS: Drinks and cups](https://www.nhs.uk/baby/weaning-and-feeding/drinks-and-cups-for-babies-and-young-children/) | Patient cup practice from around six months; no transfer of bath activities into drinking advice |
+| [NHS: Cradle cap](https://www.nhs.uk/conditions/cradle-cap/) | Gentle scalp care and assessment signs; no individual diagnosis, oils, creams or medicine selection |
+| [NHS: Urgent medical help](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/) | Loss of responsiveness, limpness and difficulty waking; existing Kenya contact directory remains separate |
+| [NHS: Safer sleep](https://www.nhs.uk/baby/caring-for-a-newborn/sudden-infant-death-syndrome-sids/) | Back, firm flat surface, clear cot and overheating precautions; supplements existing sleep facts |
+| [UNICEF: Babyproofing](https://www.unicef.org/parenting/safety/how-to-babyproof-your-home) | Cord access, small objects and supervision; existing C50, with a runtime cord-safety selection |
+| [NHS: Play ideas](https://www.nhs.uk/baby/babys-development/play-and-learning/baby-and-toddler-play-ideas/) | Baby books and toy age warnings; foreign certification rules and older-child activities excluded |
+| [UNICEF: Learning activities](https://www.unicef.org/parenting/child-care/21-learning-activities-babies-and-toddlers) | Existing C69; the 18-month in-and-out activity using large age-suitable objects. Water, beads, marbles, shells and pebbles are excluded from this selection |

@@ -60,6 +60,11 @@ class GroqClient:
     def _payload(model, contents, config):
         if model not in GROQ_MODELS:
             raise ValueError("Unsupported Groq generation model.")
+        max_tokens = getattr(config, "max_output_tokens", None) or 1024
+        # Preserve the original reasoning allowance for GPT-OSS. Its completion
+        # budget also needs room for internal reasoning, unlike the Qwen mode.
+        if not model.startswith("qwen/"):
+            max_tokens = max(1024, max_tokens)
         return {
             "model": model,
             "messages": [{"role": "system", "content": config.system_instruction},
@@ -67,7 +72,7 @@ class GroqClient:
             "temperature": config.temperature,
             "reasoning_effort": "none" if model.startswith("qwen/") else "low",
             "include_reasoning": False,
-            "max_completion_tokens": 1024,
+            "max_completion_tokens": max_tokens,
         }
 
     def generate_stream(self, *, model: str, contents: str, config):

@@ -31,6 +31,25 @@ def setup_case(score=0.9):
     return case, reference, retrieval, coaching, models
 
 
+@pytest.mark.parametrize("age_reply", [False, True])
+def test_capture_uses_the_same_detailed_word_allowance_as_generation(age_reply):
+    case, _, retrieval, coaching, models = setup_case()
+    original = "Give me a detailed routine for sharing picture books and quiet play."
+    case["question"] = "18 months" if age_reply else original
+    case["routine"] = None
+    messages = ([{"role": "user", "text": original},
+                 {"role": "assistant", "text": "How old is the child?", "status": "no_evidence",
+                  "response_kind": "clarification", "clarification_field": "age"}]
+                if age_reply else [])
+    answer = "Choose large washable toys and follow your child's interest. " * 22
+    models.generate_content.return_value.text = answer
+    record = capture_case(case, profile_dates(date(2026, 11, 17), 18), retrieval, coaching, messages=messages)
+    assert record["outcome"] == "answered"
+    assert 160 < record["answer_word_count"] <= 260
+    assert record["requested_word_limit"] == 260
+    assert record["within_requested_word_limit"] is True
+
+
 def test_versioned_cases_and_calendar_profiles_without_git_history(monkeypatch):
     def no_git(*args):
         raise AssertionError("Loading evaluation cases must not call Git.")
@@ -238,7 +257,8 @@ def test_capture_uses_the_same_age_clarification_route_as_the_application():
     assert record["subject_age"]["age_months"] == 18
     retrieval.retrieve.assert_not_called()
     assert record["supplied_evidence"][0]["source_age_label"] == "12-25 months (upper bound excluded)"
-    assert record["search_query"].startswith("What food can I make for my toddler?")
+    assert record["search_query"].startswith("18 months\n")
+    assert "Earlier caregiver request: What food can I make for my toddler?" in record["search_query"]
     assert record["caregiver_request"] == "What food can I make for my toddler?"
 
 
