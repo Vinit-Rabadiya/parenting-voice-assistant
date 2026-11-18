@@ -1,6 +1,7 @@
 """Calendar-based child age calculations shared by profiles and retrieval."""
 
 from calendar import monthrange
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 import re
 from math import isfinite
@@ -55,6 +56,26 @@ def normalize_age_expressions(message: str) -> str:
     normalized = re.sub(r"\b(he|she)['\u2019]s\s+", r"\1 is ", normalized, flags=re.I)
     normalized = re.sub(r"\bi['\u2019]m\s+", "I am ", normalized, flags=re.I)
     normalized = re.sub(r"\b(we|they)['\u2019]re\s+", r"\1 are ", normalized, flags=re.I)
+
+    def singular_age(match):
+        prefix, suffix = normalized[:match.start()], normalized[match.end():]
+        # English singular age modifiers imply one unit: "my month-old baby".
+        # Restrict this to child descriptions so a month-old toy is not an age.
+        if re.search(r"\b\d+(?:\.\d+)?[ -]*$|\b(?:few|several|many|some)[ -]*$|[?_]\s*$", prefix, re.I):
+            return match.group()
+        child_after = re.match(rf"[ -]+{CHILD_SUBJECT}\b", suffix, re.I)
+        child_before = re.search(
+            rf"\b(?:{CHILD_SUBJECT}|he|she|they)\s+(?:{AGE_STATE}\s+)?"
+            r"(?:(?:about|around|roughly|approximately|almost|nearly)\s+)?$", prefix, re.I,
+        )
+        standalone = not suffix.strip(" .!?,;:") and (
+            not prefix.strip() or re.search(r"\b(?:my|our|your|his|her|their)\s*$", prefix, re.I)
+        )
+        if child_after or child_before or standalone:
+            return "1 " + match.group()
+        return match.group()
+
+    normalized = re.sub(r"\b(day|week|month|year)[ -]+old\b", singular_age, normalized, flags=re.I)
 
     def compound(match):
         quantities = AGE_QUANTITY.findall(match.group())
@@ -120,14 +141,43 @@ def _adult_age(message: str, start: int, end: int) -> bool:
     ) or re.match(rf"\s+{adult}\b", message[end:], re.I))
 
 
-def message_age_months(message: str) -> float | None:
-    """Use a single explicit child age; leave ambiguous ages to clarification."""
+@dataclass(frozen=True)
+class MessageAge:
+    months: float | None = None
+    needs_clarification: bool = False
+    incomplete: bool = False
+
+
+def _incomplete_child_age(message: str) -> bool:
+    """Recognise an age-shaped child phrase with its quantity missing."""
+    pattern = rf"\b(?:days?|weeks?|months?|years?)[ -]+(?:(?:old[ -]+)?(?P<child>{CHILD_SUBJECT})\b|old\b)"
+    for match in re.finditer(pattern, message, re.I):
+        prefix = message[:match.start()]
+        # Complete word quantities have already been normalised to digits.
+        if re.search(r"\b\d+(?:\.\d+)?[ -]*$", prefix):
+            continue
+        if _noncurrent_age(message, match.start()) or _adult_age(message, match.start(), match.end()):
+            continue
+        predicate = re.search(
+            rf"\b(?:{CHILD_SUBJECT}(?:\s+(?:named|called)\s+[^\W\d_][\w'-]*)?|he|she|they)"
+            rf"\s+(?:{AGE_STATE}\s+)?"
+            r"(?:(?:about|around|roughly|approximately|almost|nearly)\s+)?$", prefix, re.I,
+        )
+        if match["child"] or predicate or (not prefix.strip() and not message[match.end():].strip(" .!?")):
+            return True
+    return False
+
+
+def inspect_message_age(message: str) -> MessageAge:
+    """Distinguish a missing age from an incomplete or conflicting child age."""
     ages = set()
     subject_ages = set()
     message = normalize_age_expressions(message)
     correction = age_correction_months(message)
     if correction is not None:
-        return correction
+        return MessageAge(correction)
+    if _incomplete_child_age(message):
+        return MessageAge(needs_clarification=True, incomplete=True)
     for match in MESSAGE_AGE.finditer(message):
         if (_noncurrent_age(message, match.start())
                 or match.group(3) and _adult_age(message, match.start(), match.end())):
@@ -139,6 +189,7 @@ def message_age_months(message: str) -> float | None:
             ages.add(months)
             prefix = message[max(0, match.start() - 12):match.start()]
             if (match.group(1) and re.search(rf"\b(?:{CHILD_SUBJECT}|he|she|they|another)\b", match.group(), re.I)
+                    or match.group(3) and re.match(rf"[ -]+{CHILD_SUBJECT}\b", message[match.end():], re.I)
                     or re.search(r"\b(?:my|our|your)\s*$", prefix, re.I)):
                 subject_ages.add(months)
     # Attribute forms such as "my one-day baby" do not need the word "old".
@@ -155,7 +206,25 @@ def message_age_months(message: str) -> float | None:
             ages.add(0)
             subject_ages.add(0)
     selected = subject_ages or ages
-    return selected.pop() if len(selected) == 1 else None
+    if len(selected) == 1:
+        return MessageAge(selected.pop())
+    return MessageAge(needs_clarification=len(selected) > 1)
+
+
+def message_age_months(message: str) -> float | None:
+    """Return a single resolved age for callers that do not choose a response."""
+    return inspect_message_age(message).months
+
+
+def age_from_user_quote(quote: str, message: str) -> float | None:
+    """Validate an exact quote in its original clause, excluding reported ages."""
+    if not quote or quote not in message:
+        return None
+    normalized, normalized_quote = normalize_age_expressions(message), normalize_age_expressions(quote)
+    start = normalized.find(normalized_quote)
+    if start < 0 or _noncurrent_age(normalized, start) or _adult_age(normalized, start, start + len(normalized_quote)):
+        return None
+    return message_age_months(quote)
 
 
 def current_date() -> date:

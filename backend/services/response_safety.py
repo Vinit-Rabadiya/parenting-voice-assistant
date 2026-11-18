@@ -26,7 +26,7 @@ MEDICATION = re.compile(
     INSTRUCTION_VERB
     # Stop before a second instruction verb. Otherwise a negated first clause
     # could hide a positive instruction later in the same sentence.
-    + rf"(?:(?!{INSTRUCTION_VERB})[^.!?\n]){{0,80}}?"
+    + rf"(?:(?!{INSTRUCTION_VERB}|\b(?:ask|consult|contact|discuss|speak|check|seek)\b)[^.!?;\n]){{0,80}}?"
     r"\b(?:medicin\w*|medication\w*|drug\w*|antibiotic\w*|paracetamol|acetaminophen|ibuprofen|aspirin|amoxicillin)\b",
     re.I,
 )

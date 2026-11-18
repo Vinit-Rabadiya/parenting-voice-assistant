@@ -65,17 +65,26 @@ class GroqClient:
         # budget also needs room for internal reasoning, unlike the Qwen mode.
         if not model.startswith("qwen/"):
             max_tokens = max(1024, max_tokens)
-        return {
+        messages = ([{"role": "user", "content": contents}] if isinstance(contents, str) else contents)
+        if (not isinstance(messages, list) or not messages
+                or any(not isinstance(item, dict) or item.get("role") not in {"user", "assistant"}
+                       or not isinstance(item.get("content"), str) or not item["content"].strip()
+                       for item in messages)
+                or messages[-1]["role"] != "user"):
+            raise ValueError("Invalid generation conversation.")
+        payload = {
             "model": model,
-            "messages": [{"role": "system", "content": config.system_instruction},
-                         {"role": "user", "content": contents}],
+            "messages": [{"role": "system", "content": config.system_instruction}, *messages],
             "temperature": config.temperature,
             "reasoning_effort": "none" if model.startswith("qwen/") else "low",
             "include_reasoning": False,
             "max_completion_tokens": max_tokens,
         }
+        if getattr(config, "response_mime_type", None) == "application/json":
+            payload["response_format"] = {"type": "json_object"}
+        return payload
 
-    def generate_stream(self, *, model: str, contents: str, config):
+    def generate_stream(self, *, model: str, contents: str | list[dict], config):
         """Yield real provider deltas; reject truncation and close HTTP on cancellation."""
         payload = {**self._payload(model, contents, config), "stream": True}
         started, characters = time.monotonic(), 0
@@ -141,10 +150,11 @@ class GroqClient:
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):
             raise GenerationProviderError(kind="malformed") from None
 
-    def generate(self, *, model: str, contents: str, config) -> GenerationReply:
+    def generate(self, *, model: str, contents: str | list[dict], config, timeout_seconds: float | None = None) -> GenerationReply:
         payload = self._payload(model, contents, config)
         try:
-            response = self._http.post("chat/completions", json=payload)
+            response = self._http.post("chat/completions", json=payload,
+                                       **({"timeout": timeout_seconds} if timeout_seconds is not None else {}))
         except httpx.HTTPError:
             raise GenerationProviderError(kind="transport") from None
         if response.status_code != 200:

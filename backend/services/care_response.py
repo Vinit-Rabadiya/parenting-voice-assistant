@@ -110,8 +110,11 @@ def professional_assessment_response(message: str) -> CareResponse | None:
 
 def conversation_boundary_response(message: str, *, unresolved_follow_up: bool = False,
                                    child_age_months: float | None = None,
-                                   outside_age_range: bool = False) -> CareResponse | None:
+                                   outside_age_range: bool = False,
+                                   unclear_message_age: bool = False) -> CareResponse | None:
     """Apply age/topic boundaries or clarify a missing topic; otherwise generate."""
+    if unclear_message_age and not clearly_unrelated(message):
+        return CareResponse("clarification", "How old is the baby you mean, in days, weeks or months?", clarification_field="age")
     if outside_age_range or (child_age_months is not None and child_age_months > 24):
         return CareResponse("age_out_of_scope", AGE_SCOPE_MESSAGE)
     # A real verb suggesting harm is not a safe automatic spelling correction.
