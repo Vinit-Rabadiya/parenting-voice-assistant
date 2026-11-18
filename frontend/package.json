@@ -4,15 +4,17 @@
   "version": "0.2.1",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node ../scripts/disable-picomatch-extglobs.cjs && vite",
+    "build": "node ../scripts/disable-picomatch-extglobs.cjs && vite build",
     "lint": "eslint .",
-    "test": "npm run test:audio && npm run test:ui",
+    "test": "npm run test:dependencies && npm run test:audio && npm run test:ui",
     "test:audio": "node --test ../tests/frontend/audio.test.mjs",
-    "test:ui": "vitest run --config vitest.config.js",
-    "test:workflow": "vitest run --config vitest.config.js tests/frontend/ConversationWorkflow.test.jsx",
-    "preview": "vite preview",
-    "check": "npm run lint && npm run test && npm run build"
+    "test:ui": "node ../scripts/disable-picomatch-extglobs.cjs && vitest run --config vitest.config.js",
+    "test:workflow": "node ../scripts/disable-picomatch-extglobs.cjs && vitest run --config vitest.config.js tests/frontend/ConversationWorkflow.test.jsx",
+    "preview": "node ../scripts/disable-picomatch-extglobs.cjs && vite preview",
+    "check": "npm run lint && npm run test && npm run build",
+    "postinstall": "node ../scripts/disable-picomatch-extglobs.cjs",
+    "test:dependencies": "node --test ../tests/frontend/picomatch-policy.test.mjs"
   },
   "dependencies": {
     "firebase": "^12.19.0",

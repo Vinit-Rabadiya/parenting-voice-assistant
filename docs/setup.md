@@ -43,6 +43,15 @@ packages, use `npm ci` with the checked-in root and frontend lockfiles.
 The root `glob` and frontend `minimatch` overrides retain patched indirect
 dependencies while their parent packages still request older major versions.
 
+Vite and Vitest retain Picomatch for file matching. A local policy disables its
+extended glob patterns and regex quantifiers in every locked 4.0.7 parser, including
+caller attempts to re-enable them. Standard wildcard and brace patterns remain
+available. Installation and frontend commands verify the reviewed parser source
+and apply the policy; Docker explicitly applies it after installing with scripts
+disabled. A different version or unexpected source stops those commands for review.
+This mitigates the affected feature; version-based dependency alerts can remain
+until an upstream fixed version is released and adopted.
+
 ## 2. Configure environment files
 
 For a fresh checkout, copy the templates:
