@@ -488,11 +488,12 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
       {accountAccess?.verified && !administrator && <section className="account-playback" aria-label="Spoken replies">
         <label className="account-playback-setting">
           <span>Read replies automatically</span>
-          <input type="checkbox" role="switch" checked={automatic} onChange={(event) => {
+          <input type="checkbox" role="switch" aria-describedby="automatic-replies-description" checked={automatic} onChange={(event) => {
             const saved = setAutomatic(event.target.checked);
             setPlaybackMessage(saved ? "" : "Your choice applies to this tab. This browser could not save it for future visits.");
           }} />
         </label>
+        <p id="automatic-replies-description" className="account-playback-description">Reads new replies aloud automatically. Turn off to use Listen manually.</p>
         {playbackMessage && <p role="status">{playbackMessage}</p>}
       </section>}
       {accountAccess?.verified && !administrator && <AccountConsent key={String(dataDeleted)} />}
