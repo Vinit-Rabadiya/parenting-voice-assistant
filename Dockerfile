@@ -2,7 +2,9 @@
 FROM node:22-bookworm-slim AS frontend
 WORKDIR /build/frontend
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY scripts/disable-picomatch-extglobs.cjs /build/scripts/disable-picomatch-extglobs.cjs
+RUN npm ci --ignore-scripts --no-audit --no-fund \
+    && node ../scripts/disable-picomatch-extglobs.cjs
 COPY frontend/index.html frontend/vite.config.js ./
 COPY frontend/src ./src
 COPY frontend/public ./public
