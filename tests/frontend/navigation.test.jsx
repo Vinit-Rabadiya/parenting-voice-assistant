@@ -355,6 +355,6 @@ it("shows the name, verified badge and account action in the header across scree
   fireEvent.click(header.getByRole("button", { name: "My Account" }));
   fireEvent.click(header.getByRole("button", { name: "Settings" }));
   expect(within(screen.getByRole("banner")).getByText("Vinit")).toBeTruthy();
-  fireEvent.click(header.getByRole("button", { name: "Parenting Voice Assistant" }));
+  fireEvent.click(header.getByRole("button", { name: "LittleCare" }));
   expect(screen.getByRole("button", { name: "Start recording" })).toBeTruthy();
 });
