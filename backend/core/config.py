@@ -18,7 +18,7 @@ def boolean_setting(name: str, default: str = "false") -> bool:
 
 
 class Settings:
-    PROJECT_NAME: str = "Parenting Voice Assistant"
+    PROJECT_NAME: str = "LittleCare"
     DESCRIPTION: str = "AI-powered voice assistant and coaching system for caregivers."
     VERSION: str = "0.2.1"
 

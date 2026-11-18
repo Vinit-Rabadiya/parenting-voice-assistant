@@ -1,4 +1,4 @@
-# LittleCare: Parenting Voice Assistant
+# LittleCare
 
 Voice and text guidance for caregivers of children from birth through the second
 birthday, with Kenya-focused information, source references and optional spoken

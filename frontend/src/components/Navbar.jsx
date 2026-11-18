@@ -36,7 +36,7 @@ export function Navbar({ isAuthenticated, displayName, accountAccess, onLogin, o
   }
   return (
     <header className={`site-navbar${accountAccess?.role === "administrator" ? " site-navbar--admin" : ""}`}>
-      <button type="button" className="site-brand" onClick={onHome}>Parenting Voice Assistant</button>
+      <button type="button" className="site-brand" onClick={onHome}>LittleCare</button>
       <nav aria-label="Account">
         <EmergencyContacts onOpenChange={onEmergencyChange} />
         {isAuthenticated ? (
