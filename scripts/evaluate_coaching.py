@@ -13,12 +13,13 @@ import time
 from types import SimpleNamespace
 
 from backend.core.config import PROJECT_ROOT, settings
-from backend.services.age import add_months, age_details, current_date, message_age_months, within_project_scope
-from backend.services.coaching import CoachingService, PROMPT_VERSION, PROMPT_SHA256, determine_answer_budget
+from backend.services.age import add_months, age_details, current_date, inspect_message_age, within_project_scope
+from backend.services.coaching import (ADDITIONAL_CARE_SCOPE, CoachingService, PROMPT_VERSION, PROMPT_SHA256,
+                                       determine_answer_budget, no_additional_care)
 from backend.services.evidence import select_evidence
 from backend.services.care_guidance import select_care_references
-from backend.services.care_response import conversation_boundary_response
-from backend.services.vaccination import inspect_vaccination
+from backend.services.care_response import CareResponse, clearly_unrelated, conversation_boundary_response
+from backend.services.vaccination import vaccination_for_request
 from backend.services.conversation_context import (
     caregiver_request, contextual_age_months, contextual_retrieval_query,
     needs_topic_clarification, select_conversation_context, semantic_retrieval_query,
@@ -26,7 +27,8 @@ from backend.services.conversation_context import (
 from backend.services.care_response import professional_assessment_response
 from scripts.evaluate_retrieval import load_queries, query_age_context
 from backend.services.retrieval import RetrievalService
-from backend.services.response_safety import SAFE_RESPONSE, review_coaching_result
+from backend.services.response_safety import SAFE_RESPONSE, SafetyDecision, review_coaching_result
+from backend.services.request_understanding import ambiguous_profile_fallback
 from backend.services.input_safety import inspect_input
 from backend.services.crisis_safety import inspect_crisis
 
@@ -128,8 +130,12 @@ class CaptureModels:
         self.attempts = []
 
     def generate_content(self, **kwargs):
+        contents = kwargs["contents"]
         attempt = {
-            "model": kwargs["model"], "prompt": kwargs["contents"],
+            "model": kwargs["model"],
+            "stage": "request_understanding" if kwargs["config"].response_mime_type == "application/json" else "generation",
+            "prompt": contents if isinstance(contents, str) else
+                      contents[-1]["content"] if isinstance(contents[-1], dict) else contents[-1].parts[0].text,
             "generation_config": kwargs["config"].model_dump(mode="json", exclude_none=True),
             "outcome": "started",
         }
@@ -155,6 +161,18 @@ class CaptureModels:
             attempt["seconds"] = round(time.perf_counter() - started, 3)
 
 
+def observed_coaching_service(coaching):
+    """Observe the configured provider, including its interpretation request."""
+    models = (coaching.client.models if coaching.provider == "gemini"
+              else SimpleNamespace(generate_content=coaching.client.generate))
+    observer = CaptureModels(models)
+    client = (SimpleNamespace(models=observer) if coaching.provider == "gemini"
+              else SimpleNamespace(generate=observer.generate_content))
+    service = CoachingService(provider=coaching.provider, model=coaching.model,
+                              fallback_model=coaching.fallback_model, client=client)
+    return service, observer
+
+
 def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval_only=False,
                  keyword_search=False):
     context = select_conversation_context(messages or [])
@@ -169,8 +187,9 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         "caregiver_request": caregiver_request(case["question"], context),
     }
     started = time.perf_counter()
-    explicit_age = message_age_months(case["question"])
-    age_source = "message" if explicit_age is not None else "profile"
+    message_age = inspect_message_age(case["question"])
+    explicit_age = message_age.months
+    age_source = "unresolved" if message_age.needs_clarification else "message" if explicit_age is not None else "profile"
     outside_age_range = not within_project_scope(date.fromisoformat(profile["date_of_birth"]),
                                                  date.fromisoformat(profile["evaluation_date"]))
     if explicit_age is not None:
@@ -179,9 +198,13 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
                    "age_days": round(explicit_age * 30.4375)}
     stage = "retrieval"
     observer = None
+    service = None
+    understanding = None
+    interpretation_attempted = False
+    unresolved_age = message_age.needs_clarification
     try:
         query = contextual_retrieval_query(case["question"], context)
-        if explicit_age is None:
+        if explicit_age is None and not message_age.needs_clarification:
             context_age = contextual_age_months(case["question"], context)
             if context_age is not None:
                 age_source = "conversation"
@@ -190,11 +213,14 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
                            "age_days": round(context_age * 30.4375)}
         record["subject_age"] = {key: profile[key] for key in ("age_months", "completed_months", "age_days")}
         record["subject_age"]["source"] = age_source
-        record["subject_age"]["override"] = profile["age_months"] if age_source != "profile" else None
+        record["subject_age"]["override"] = profile["age_months"] if age_source in {"message", "conversation"} else None
         tick = time.perf_counter()
         stage = "input_safety"
         crisis = inspect_crisis(case["question"])
-        triage = inspect_input(case["question"], profile["completed_months"], child_age_days=profile["age_days"])
+        triage = inspect_input(
+            case["question"], 0 if message_age.needs_clarification else profile["completed_months"],
+            child_age_days=0 if message_age.needs_clarification else profile["age_days"],
+        )
         record["caregiver_safety"] = {"kind": crisis.kind, "reasons": list(crisis.reasons)}
         record["input_safety"] = {"escalate": triage.escalate, "reasons": list(triage.reasons)}
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
@@ -203,39 +229,84 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
                           answer=triage.answer if triage.escalate else crisis.answer,
                           referral_sources=list(triage.citations))
             return record
-        unresolved_follow_up = needs_topic_clarification(case["question"], context)
+        if (not retrieval_only and getattr(coaching, "supports_request_understanding", False) is True
+                and not clearly_unrelated(case["question"])
+                and not (explicit_age is not None and explicit_age > 24)
+                and professional_assessment_response(case["question"]) is None):
+            service, observer = observed_coaching_service(coaching)
+            interpretation_attempted = True
+            tick = time.perf_counter()
+            understanding = service.interpret_request(case["question"], record["profile"]["age_months"], context)
+            record["timings_seconds"]["request_understanding"] = round(time.perf_counter() - tick, 3)
+            if (understanding and explicit_age is not None and understanding.age_months is not None
+                    and abs(explicit_age - understanding.age_months) > .001):
+                understanding = None
+            if understanding:
+                record["request_understanding"] = understanding.model_dump(mode="json")
+                query = understanding.request
+                interpreted_age = (understanding.age_months if not message_age.incomplete
+                                   or understanding.age_quote is not None and understanding.age_quote in case["question"] else None)
+                if explicit_age is None and interpreted_age is not None:
+                    unresolved_age = False
+                    outside_age_range = False
+                    profile = {**profile, "age_months": interpreted_age, "completed_months": int(interpreted_age),
+                               "age_days": round(interpreted_age * 30.4375)}
+                    record["subject_age"] = {key: profile[key] for key in ("age_months", "completed_months", "age_days")}
+                    record["subject_age"].update(source="conversation", override=interpreted_age)
+                    triage = inspect_input(case["question"], int(interpreted_age), child_age_days=profile["age_days"])
+                    record["input_safety"] = {"escalate": triage.escalate, "reasons": list(triage.reasons)}
+                    if triage.escalate:
+                        record.update(outcome="escalated", answer=triage.answer, referral_sources=list(triage.citations))
+                        return record
+        if (interpretation_attempted and understanding is None and explicit_age is None
+                and ambiguous_profile_fallback(case["question"], record["profile"]["age_months"], context)):
+            unresolved_age = True
+        unresolved_follow_up = needs_topic_clarification(case["question"], context) if understanding is None else False
         boundary = conversation_boundary_response(
             case["question"], child_age_months=profile["age_months"],
             outside_age_range=outside_age_range, unresolved_follow_up=unresolved_follow_up,
+            unclear_message_age=unresolved_age,
         )
+        if understanding and understanding.clarify and boundary is None:
+            boundary = CareResponse("clarification", understanding.clarify, clarification_field=understanding.clarification_field)
         if boundary is not None:
             record.update(outcome="no_evidence", answer=boundary.answer, response_kind=boundary.kind,
                           clarification_field=boundary.clarification_field)
             return record
-        vaccination = inspect_vaccination(case["question"], profile["age_months"], topic=query)
+        vaccination = vaccination_for_request(case["question"], profile["age_months"], topic=query,
+                                               requested_topics=understanding.vaccination_topics if understanding else None)
+        vaccination_information = (vaccination.supporting_information or vaccination.answer if vaccination is not None
+                                   and vaccination.reason not in {"individual_assessment", "schedule_unavailable"} else None)
+        other_care_request = (understanding.other_care_request if understanding and vaccination_information else
+                              ADDITIONAL_CARE_SCOPE if interpretation_attempted and vaccination_information else None)
         if vaccination is not None:
-            record.update(outcome="vaccination_notice", answer=vaccination.answer, vaccination_country="KE")
             record["reference_sources"] = [
                 {"title": source.title, "url": source.url, "pdf_page": source.pdf_page}
                 for source in vaccination.sources
             ]
-            return record
+            if not other_care_request:
+                record.update(outcome="vaccination_notice", answer=vaccination_information or vaccination.answer, vaccination_country="KE")
+                return record
+            record["supporting_information"] = vaccination_information
         assessment = professional_assessment_response(case["question"])
         if assessment is not None:
             record.update(outcome="no_evidence", answer=assessment.answer, response_kind=assessment.kind)
             return record
         stage = "retrieval"
         tick = time.perf_counter()
-        semantic_query = semantic_retrieval_query(case["question"], context)
+        care_question = other_care_request or case["question"]
+        semantic_query = other_care_request or (understanding.request if understanding else semantic_retrieval_query(case["question"], context))
         search_text = keyword_search_text(semantic_query) if keyword_search else semantic_query
         record["search_query"] = search_text
         reference_status = "no_match"
         # Retrieval experiments retain their vector query; ordinary answer capture
         # follows the API's local-reference path without an unused cloud search.
-        local_references = (select_care_references(case["question"], profile["age_months"], context, [])
+        local_references = (select_care_references(care_question, profile["age_months"], context, [])
                             if not retrieval_only and not keyword_search else [])
+        if other_care_request == ADDITIONAL_CARE_SCOPE:
+            local_references = []
         try:
-            passages = [] if local_references else retrieval.retrieve(
+            passages = [] if local_references or other_care_request == ADDITIONAL_CARE_SCOPE else retrieval.retrieve(
                 search_text, profile["completed_months"], case["routine"], 3,
                 child_age_days=profile["age_days"],
             )
@@ -250,7 +321,7 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
         evidence = select_evidence(passages, settings.RETRIEVAL_MIN_SCORE)
         record["vector_evidence"] = [asdict(p) for p in evidence]
         if not retrieval_only:
-            evidence = local_references or select_care_references(case["question"], profile["age_months"], context, evidence)
+            evidence = local_references or select_care_references(care_question, profile["age_months"], context, evidence)
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
         record["supplied_evidence"] = [asdict(p) for p in evidence]
         record["reference_status"] = "matched" if evidence and reference_status != "unavailable" else reference_status
@@ -259,19 +330,30 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
             return record
         stage = "generation"
         tick = time.perf_counter()
-        observer = CaptureModels(coaching.client.models)
-        service = CoachingService(
-            model=coaching.model, fallback_model=coaching.fallback_model,
-            client=SimpleNamespace(models=observer),
-        )
+        if service is None:
+            service, observer = observed_coaching_service(coaching)
         result = service.generate(case["question"], profile["age_months"], case["routine"], evidence,
+                                  **({"request_understanding": understanding} if understanding else {}),
+                                  **({"response_scope": other_care_request} if other_care_request else {}),
                                   **({"conversation_context": context} if context else {}))
         record["timings_seconds"][stage] = round(time.perf_counter() - tick, 3)
         record["selected_model"] = observer.attempts[-1]["model"]
         stage = "response_safety"
         tick = time.perf_counter()
-        result, decision = review_coaching_result(result, evidence, profile["age_months"], case["question"], context)
+        only_checked_information = bool(vaccination_information) and no_additional_care(result)
+        if only_checked_information:
+            if other_care_request != ADDITIONAL_CARE_SCOPE:
+                raise ValueError("A requested care task was omitted.")
+            result = type(result)(answer=vaccination_information, passages=[])
+            decision = SafetyDecision(False, ())
+        else:
+            result, decision = review_coaching_result(result, evidence, profile["age_months"], care_question, context)
+        if vaccination_information and not decision.blocked and not only_checked_information:
+            result = type(result)(answer=vaccination_information + "\n\n" + result.answer,
+                                  passages=result.passages, answer_basis="reference_assisted")
         record.update(outcome="answered", answer=result.answer, answer_basis=result.answer_basis)
+        if only_checked_information:
+            record.update(outcome="vaccination_notice", vaccination_country="KE")
         record["safety"] = {"blocked": decision.blocked, "reasons": list(decision.reasons),
                             "replaced_with_basic_care": decision.replaced_with_basic_care}
         record["delivered_references"] = [asdict(p) for p in result.passages]
@@ -288,7 +370,7 @@ def capture_case(case, profile, retrieval, coaching, *, messages=None, retrieval
     finally:
         if observer is not None:
             record["attempts"] = observer.attempts
-            record["fallback_used"] = len(observer.attempts) > 1
+            record["fallback_used"] = sum(attempt["stage"] == "generation" for attempt in observer.attempts) > 1
         record["timings_seconds"]["service_total"] = round(time.perf_counter() - started, 3)
     return record
 

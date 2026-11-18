@@ -15,6 +15,7 @@ from backend.services.answer_stream import AnswerStreamGuard
 from backend.services.coaching import CoachingResult, CoachingService, PROVIDER_BLOCK_MESSAGE
 from backend.services.groq_client import GroqClient, GenerationProviderError
 from backend.services.response_safety import SAFE_RESPONSE
+from backend.services.request_understanding import RequestUnderstanding
 
 
 def sse(*items):
@@ -167,6 +168,58 @@ def test_stream_delivers_checked_text_before_ready_and_completion_after_storage(
     assert kinds.index("delta") < kinds.index("ready") < kinds.index("done")
     assert events[-1][1]["response"]["message_id"] == "answer-1"
     assert "first_answer" in events[-1][1]["timings_ms"]
+    c.data.save_conversation_turn.assert_called_once()
+
+
+def test_stream_asks_for_missing_child_age_instead_of_sending_a_profile_schedule(stream_api):
+    response, events = post_stream(stream_api, question="Plan vaccines for my months-old baby for the next six months.")
+    assert response.status_code == 200
+    body = events[-1][1]["response"]
+    assert body["response_kind"] == "clarification"
+    assert body["clarification_field"] == "age"
+    assert body["subject_age_override"] is None
+    assert "How old" in body["answer"]
+    assert [data["response"]["answer"] for kind, data in events if kind == "ready"] == [body["answer"]]
+    stream_api.coaching.generate.assert_not_called()
+    stream_api.data.save_conversation_turn.assert_called_once()
+
+
+def test_stream_uses_singular_month_old_age_for_the_complete_vaccine_plan(stream_api):
+    stream_api.data.get_child.return_value.update(age_months=3.3, completed_months=3, age_days=100)
+    question = ("Please provide a summary of vaccines required for my month old baby for the next 6 months "
+                "for planning. Include optional vaccines and baby friendly alternatives.")
+    response, events = post_stream(stream_api, question=question)
+    assert response.status_code == 200
+    body = events[-1][1]["response"]
+    assert body["child_age_months"] == 1
+    assert body["subject_age_override"] == 1
+    assert body["clarification_field"] is None
+    assert "6 weeks:" in body["answer"] and "7 months:" in body["answer"]
+    assert "9 months:" not in body["answer"]
+    assert "Additional vaccines:" in body["answer"] and "do not replace vaccines" in body["answer"]
+    assert body["citations"]
+    assert stream_api.data.save_conversation_turn.call_args.args[3] == question
+    stream_api.coaching.generate.assert_not_called()
+
+
+def test_combined_vaccine_reply_streams_the_checked_table_with_the_other_requested_help(stream_api):
+    c = stream_api
+    question = "Plan vaccine visits over the next four months for my seven-month-old and suggest one waiting-room activity."
+    scope = "Suggest one calm waiting-room activity for a seven-month-old."
+    c.coaching.supports_request_understanding = True
+    c.coaching.interpret_request.return_value = RequestUnderstanding(
+        request=question, age_months=7, age_quote="seven-month-old", other_care_request=scope,
+        vaccination_topics=["schedule"],
+    )
+    response, events = post_stream(c, question=question)
+    assert response.status_code == 200
+    body = events[-1][1]["response"]
+    assert "9 months:" in body["answer"]
+    assert "18 months:" not in body["answer"] and "24 months" not in body["answer"]
+    assert body["answer"].endswith("Talk gently. Pause and listen.")
+    assert all(kind != "delta" for kind, _ in events)
+    assert c.coaching.generate.call_args.kwargs["response_scope"] == scope
+    assert "on_delta" not in c.coaching.generate.call_args.kwargs
     c.data.save_conversation_turn.assert_called_once()
 
 

@@ -1,6 +1,6 @@
 """Source-checked Kenya vaccination education, separate from clinical decisions."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 import re
 
@@ -26,6 +26,7 @@ class VaccinationDecision:
     answer: str
     reason: str
     sources: tuple[VaccinationSource, ...] = ()
+    supporting_information: str | None = None
 
 
 SCHEDULER = VaccinationSource(
@@ -110,6 +111,11 @@ SCHEDULE = re.compile(
     r"appointments?|next|how many|doses?)\b", re.I)
 REQUESTED_AGE = re.compile(r"\b(\d+(?:\.\d+)?)\s*(days?|weeks?|months?|years?)\b", re.I)
 PLANNING_PERIOD = re.compile(r"\b(?:next|coming|following|cover|covers|covering)\s+(?:the\s+)?(\d+(?:\.\d+)?)\s*(days?|weeks?|months?|years?)\b", re.I)
+PLAN_LENGTH = re.compile(
+    r"\b(\d+(?:\.\d+)?)\s*(days?|weeks?|months?|years?)[ -]+"
+    r"(?!(?:old|baby|child|infant|toddler|daughter|son)\b)"
+    r"(?:\w+[ -]+){0,2}?(?:plan(?:ning)?|schedule|overview|summary|outlook|window|period)\b", re.I,
+)
 OPTIONAL_REQUEST = re.compile(r"\b(?:optional|additional|private|hepatitis[ -]?b|hep[ -]?b)\b", re.I)
 COMFORT_REQUEST = re.compile(r"\b(?:baby[ -]friendly|alternatives?|less painful|gentler|comfort)\b", re.I)
 
@@ -160,9 +166,10 @@ def _schedule_answer(question: str, child_age_months: float | None, *, topic: st
     """Use the profile age by default; programme ages never establish due doses."""
     normalized = normalize_age_expressions(question)
     contextual = normalize_age_expressions(topic or question)
-    period = PLANNING_PERIOD.search(normalized) or PLANNING_PERIOD.search(contextual)
+    period = (PLANNING_PERIOD.search(normalized) or PLAN_LENGTH.search(normalized)
+              or PLANNING_PERIOD.search(contextual) or PLAN_LENGTH.search(contextual))
     # An elapsed planning interval is not the child's age or a single visit age.
-    age_text = PLANNING_PERIOD.sub("", normalized)
+    age_text = PLAN_LENGTH.sub("", PLANNING_PERIOD.sub("", normalized))
     requested_age = message_age_months(age_text)
     if requested_age is None:
         quantities = list(REQUESTED_AGE.finditer(age_text))
@@ -170,8 +177,8 @@ def _schedule_answer(question: str, child_age_months: float | None, *, topic: st
             requested_age = _quantity_months(quantities[0])
     planning_age = requested_age if requested_age is not None else child_age_months
     if planning_age is None:
-        planning_age = message_age_months(PLANNING_PERIOD.sub("", contextual))
-    overview = re.search(r"\b(?:full|complete|entire|overview|from|through|between)\b|\b(?:0|birth)\s*(?:-|to)", question, re.I)
+        planning_age = message_age_months(PLAN_LENGTH.sub("", PLANNING_PERIOD.sub("", contextual)))
+    overview = re.search(r"\b(?:full|complete|entire)\b|\b(?:0|birth)\s*(?:-|to|through)", question, re.I)
     if overview:
         requested_age = None
     elif re.search(r"\b(?:birth|new[ -]?born)\b", question, re.I):
@@ -200,7 +207,8 @@ def _schedule_answer(question: str, child_age_months: float | None, *, topic: st
         age_label = ("birth" if planning_age == 0
                      else f"{age_days:g} {'day' if abs(age_days - 1) < 0.0001 else 'days'}" if planning_age < 1
                      else f"{planning_age:g} {'month' if planning_age == 1 else 'months'}")
-        heading = f"Routine vaccination visits over the next {period[1]} {period[2].lower()}, starting from {age_label}:"
+        period_unit = period[2].lower().rstrip("s") + ("s" if float(period[1]) != 1 else "")
+        heading = f"Routine vaccination visits over the next {period[1]} {period_unit}, starting from {age_label}:"
         if planning_age + _quantity_months(period) > 24:
             heading += " This list stops at the second birthday."
     elif requested_age is None and child_age_months is not None and not overview and not named:
@@ -210,6 +218,10 @@ def _schedule_answer(question: str, child_age_months: float | None, *, topic: st
         later = [visit for visit in VISITS if visit[1] > child_age_months]
         visits = earlier[-1:] + later[:1]
         heading = "Kenya's routine visits around your child's age:"
+    if (not period and planning_age is not None
+            and re.search(r"\b(?:next|upcoming|future|forthcoming)\b", normalized, re.I)):
+        visits = [visit for visit in VISITS if visit[1] >= planning_age - .01]
+        heading = "Upcoming routine programme visit ages; the clinic must confirm individual appointments:"
     if re.search(r"\bipv\b", question, re.I) and not re.search(r"\bopv\b", question, re.I):
         named = [r"\bipv\b|inactivated polio"]
     elif re.search(r"\bopv\b", question, re.I) and not re.search(r"\bipv\b", question, re.I):
@@ -232,7 +244,7 @@ def _schedule_answer(question: str, child_age_months: float | None, *, topic: st
 
 def inspect_vaccination(question: str, child_age_months: float | None = None, *,
                         topic: str | None = None) -> VaccinationDecision | None:
-    """Use current wording for intent/symptoms; context only supplies the topic."""
+    """Use current wording for symptoms and retain the caregiver's planning details."""
     if not TOPIC.search(question) and not (topic and TOPIC.search(topic)):
         return None
     question = question.replace("\u2019", "'")
@@ -264,7 +276,7 @@ def inspect_vaccination(question: str, child_age_months: float | None = None, *,
                 "The clinic must check the vaccine product and previous doses in your child's record "
                 "before advising what they need next.", "vaccine_purpose", (POLICY, SCHEDULER),
             )
-        additional, sources = _additional_information(question)
+        additional, sources = _additional_information(f"{topic or ''}\n{question}")
         answer = _schedule_answer(question, child_age_months, topic=topic)
         return VaccinationDecision(answer + ("\n\n" + additional if additional else ""),
                                    "routine_schedule", tuple(dict.fromkeys((SCHEDULER, UPDATES, *sources))))
@@ -286,3 +298,66 @@ def inspect_vaccination(question: str, child_age_months: float | None = None, *,
         )
     # Other education uses the existing contextual generation path, not extra model calls.
     return None
+
+
+def vaccination_context(decision: VaccinationDecision | None, request: str,
+                        child_age_months: float | None = None, *, question: str | None = None,
+                        topics: list[str] | None = None) -> VaccinationDecision | None:
+    """Assemble checked factual parts, keeping current intent and planning scope."""
+    if decision is None or decision.reason in {"individual_assessment", "schedule_unavailable"}:
+        return decision
+    active_request = question or request
+    if topics is None:
+        # Legacy callers retain their direct intent; old tasks are not extra asks.
+        primary = {"routine_schedule": "schedule", "general_expected_effects": "effects",
+                   "general_purpose": "purpose", "vaccine_purpose": "named"}
+        topics = [primary[decision.reason]] if decision.reason in primary else []
+        if (re.search(r"\b(?:schedule|due|which vaccines|what vaccines|when|appointments?|visits?|next|planning|doses?)\b", active_request, re.I)
+                or PLAN_LENGTH.search(normalize_age_expressions(active_request))):
+            topics.append("schedule")
+        if GENERAL_EFFECTS.search(active_request):
+            topics.append("effects")
+        if GENERAL_PURPOSE.search(active_request):
+            topics.append("purpose")
+        additions = request if decision.reason == "routine_schedule" else active_request
+        if COMFORT_REQUEST.search(additions):
+            topics.append("comfort")
+        if OPTIONAL_REQUEST.search(additions):
+            topics.append("additional")
+    facts, sources = [], []
+
+    def include(text, references):
+        if text and text not in facts:
+            facts.append(text)
+        sources.extend(references)
+
+    for topic in dict.fromkeys(topics):
+        if topic == "schedule":
+            if settings.KENYA_VACCINATION_SCHEDULE_ENABLED and _current(SCHEDULE_CHECKED_ON):
+                include(_schedule_answer(active_request, child_age_months, topic=request), (SCHEDULER, UPDATES))
+            else:
+                include(UNAVAILABLE_ANSWER, ())
+        elif topic in {"effects", "purpose"} and _current(GENERAL_CHECKED_ON):
+            lookup = "What side effects can vaccines cause?" if topic == "effects" else "How do vaccines work?"
+            checked = inspect_vaccination(lookup)
+            include(checked.answer, checked.sources)
+        elif topic in {"comfort", "additional"}:
+            note, references = _additional_information("comfort" if topic == "comfort" else "optional")
+            include(note, references)
+        elif topic == "named":
+            include(decision.answer, decision.sources)
+    if not facts:
+        return None
+    return replace(decision, supporting_information="\n\n".join(facts), sources=tuple(dict.fromkeys(sources)))
+
+
+def vaccination_for_request(question: str, child_age_months: float, *, topic: str,
+                            requested_topics: list[str] | None = None) -> VaccinationDecision | None:
+    """Use a semantic tool selection while retaining fixed medical boundaries."""
+    decision = inspect_vaccination(question, child_age_months, topic=topic)
+    if requested_topics is not None:
+        if not requested_topics and (decision is None or decision.reason != "individual_assessment"):
+            return None
+        if requested_topics and decision is None:
+            decision = inspect_vaccination("Vaccination: " + question, child_age_months, topic=topic)
+    return vaccination_context(decision, topic, child_age_months, question=question, topics=requested_topics)

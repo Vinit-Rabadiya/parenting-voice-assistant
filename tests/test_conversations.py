@@ -12,9 +12,10 @@ from backend.core.security import require_authenticated_user
 from backend.core.request_admission import RequestAdmission
 from backend.main import app
 from backend.services.caregiver_data import CaregiverDataService
-from backend.services.coaching import CoachingResult
+from backend.services.coaching import ADDITIONAL_CARE_SCOPE, CoachingResult, NO_ADDITIONAL_CARE
 from backend.services.retrieval import RetrievalService, RetrievedPassage
 from backend.services.response_safety import SAFE_RESPONSE
+from backend.services.request_understanding import RequestUnderstanding
 
 
 @pytest.fixture
@@ -500,7 +501,7 @@ def test_activity_request_with_incidental_sleep_uses_semantic_retrieval(client, 
     coaching.generate.assert_called_once()
 
 
-@pytest.mark.parametrize("age", ["one-month-old", "1-month-old"])
+@pytest.mark.parametrize("age", ["one-month-old", "1-month-old", "month old", "month-old"])
 def test_new_chat_vaccine_plan_uses_stated_age_and_full_period_without_generation(client, coaching_dependencies, age):
     data, retrieval, coaching = coaching_dependencies
     data.get_child.return_value.update(age_months=18, completed_months=18, age_days=548)
@@ -520,6 +521,86 @@ def test_new_chat_vaccine_plan_uses_stated_age_and_full_period_without_generatio
     data.save_conversation_turn.assert_called_once()
     assert data.save_conversation_turn.call_args.args[3] == question
     assert data.get_child.return_value["age_months"] == 18
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+@pytest.mark.parametrize("reply", ["one month", "1 month"])
+@pytest.mark.parametrize("profile_age", [3.3, 30])
+def test_incomplete_age_clarifies_then_resumes_the_entire_vaccine_request(
+    client, coaching_dependencies, reply, profile_age,
+):
+    data, retrieval, coaching = coaching_dependencies
+    data.get_child.return_value.update(age_months=profile_age, completed_months=int(profile_age),
+                                       age_days=round(profile_age * 30.4375), in_scope=profile_age <= 24)
+    question = ("Please provide a summary of vaccines required for my months old baby for the next 6 months "
+                "for planning. Include optional vaccines and baby friendly alternatives.")
+    first = client.post("/coach", json=coaching_payload(question))
+    assert first.status_code == 200
+    body = first.json()
+    assert body["response_kind"] == "clarification"
+    assert body["clarification_field"] == "age"
+    assert body["subject_age_override"] is None
+    assert "How old" in body["answer"]
+    assert str(profile_age) not in body["answer"]
+    saved = data.save_conversation_turn.call_args.args
+    assert saved[3] == question
+    assert saved[5]["caregiver_request"] == question
+    data.get_conversation.return_value = {**conversation(), "messages": [
+        {"role": "user", "text": question},
+        {"role": "assistant", "text": body["answer"], **saved[5]},
+    ]}
+    second = client.post("/coach", json=coaching_payload(reply))
+    assert second.status_code == 200
+    body = second.json()
+    assert body["status"] == "vaccination_notice"
+    assert body["child_age_months"] == 1
+    assert body["subject_age_override"] == 1
+    assert "6 weeks:" in body["answer"] and "7 months:" in body["answer"]
+    assert "Additional vaccines:" in body["answer"] and "do not replace vaccines" in body["answer"]
+    assert body["citations"]
+    assert data.save_conversation_turn.call_args.args[5]["caregiver_request"] == question
+    assert data.get_child.return_value["age_months"] == profile_age
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+@pytest.mark.parametrize("question", [
+    "Our daughter is weeks old. Suggest a quiet game.",
+    "My baby is 2 months old and my other child is 18 months old. Suggest breakfast ideas.",
+])
+def test_unclear_message_age_cannot_be_replaced_by_profile_or_history(client, coaching_dependencies, question):
+    data, retrieval, coaching = coaching_dependencies
+    data.get_conversation.return_value = {**conversation(), "messages": [
+        {"role": "user", "text": "Our daughter is 18 months old. Suggest a quiet game."},
+        {"role": "assistant", "text": "Try sorting large cups.", "status": "answered", "subject_age_override": 18},
+    ]}
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    assert response.json()["clarification_field"] == "age"
+    assert response.json()["subject_age_override"] is None
+    retrieval.retrieve.assert_not_called()
+    coaching.generate.assert_not_called()
+
+
+def test_age_planning_duration_without_a_child_age_still_uses_profile(client, coaching_dependencies):
+    data, _, coaching = coaching_dependencies
+    data.get_child.return_value.update(age_months=3.3, completed_months=3, age_days=100)
+    response = client.post("/coach", json=coaching_payload("Please plan my baby's vaccines for the next six months."))
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "vaccination_notice"
+    assert body["child_age_months"] == 3.3
+    assert body["subject_age_override"] is None
+    coaching.generate.assert_not_called()
+
+
+def test_unclear_age_does_not_delay_urgent_input_safety(client, coaching_dependencies):
+    _, retrieval, coaching = coaching_dependencies
+    response = client.post("/coach", json=coaching_payload("My week-old baby has a temperature of 38 C."))
+    assert response.status_code == 200
+    assert response.json()["status"] == "escalated"
+    assert response.json()["clarification_field"] is None
     retrieval.retrieve.assert_not_called()
     coaching.generate.assert_not_called()
 
@@ -559,6 +640,139 @@ def test_word_age_correction_keeps_vaccination_planning_request(client, coaching
     assert body["child_age_months"] == 1
     assert "6 weeks:" in body["answer"] and "7 months:" in body["answer"]
     assert "9 months:" not in body["answer"]
+    coaching.generate.assert_not_called()
+
+
+@pytest.mark.parametrize("question,scope", [
+    ("Explain vaccination visits over the coming two months for my eight-month-old, and give two calm dressing ideas.",
+     "Give two calm dressing ideas for an eight-month-old."),
+    ("My eight-month-old has a clinic visit coming up. I need vaccine information and ways to chat while feeding.",
+     "Explain ways to chat with an eight-month-old while feeding."),
+])
+def test_vaccination_words_do_not_replace_a_multipart_care_request(client, coaching_dependencies, question, scope):
+    data, retrieval, coaching = coaching_dependencies
+    coaching.supports_request_understanding = True
+    coaching.interpret_request.return_value = RequestUnderstanding(
+        request=question, age_months=8, age_quote="eight-month-old", other_care_request=scope,
+        vaccination_topics=["schedule"],
+    )
+    coaching.generate.return_value = CoachingResult(
+        "Use comfortable front-opening clothes and speak calmly during care.", [],
+        answer_basis="reference_assisted",
+    )
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "answered"
+    assert body["answer"].endswith(coaching.generate.return_value.answer)
+    assert "9 months:" in body["answer"]
+    assert body["citations"]
+    coaching.generate.assert_called_once()
+    assert coaching.generate.call_args.args[0] == question
+    assert coaching.generate.call_args.args[1] == 8
+    assert coaching.generate.call_args.kwargs["response_scope"] == scope
+    data.get_child.assert_called_once()
+    data.get_conversation.assert_called_once()
+    retrieval.retrieve.assert_called_once()
+
+
+def test_interpretation_timeout_does_not_drop_other_parts_of_a_vaccine_message(client, coaching_dependencies):
+    data, retrieval, coaching = coaching_dependencies
+    coaching.supports_request_understanding = True
+    coaching.interpret_request.return_value = None
+    coaching.generate.return_value = CoachingResult("Share a large picture book while waiting.", [], answer_basis="general_information")
+    question = "Vaccines over the next four months for my seven-month-old, and a calm activity for waiting."
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    body = response.json()
+    assert "9 months:" in body["answer"] and "18 months:" not in body["answer"]
+    assert body["answer"].endswith("Share a large picture book while waiting.")
+    assert coaching.generate.call_args.kwargs["response_scope"] == ADDITIONAL_CARE_SCOPE
+    retrieval.retrieve.assert_not_called()
+    assert data.save_conversation_turn.call_args.args[3] == question
+
+
+@pytest.mark.parametrize("blocked", [False, True])
+def test_internal_empty_remainder_marker_is_hidden_and_cannot_bypass_provider_refusal(client, coaching_dependencies, blocked):
+    _, _, coaching = coaching_dependencies
+    coaching.supports_request_understanding = True
+    coaching.interpret_request.return_value = None
+    coaching.generate.return_value = CoachingResult("`" + NO_ADDITIONAL_CARE + "`", [], blocked=blocked)
+    response = client.post("/coach", json=coaching_payload("What side effects can vaccines cause?"))
+    assert response.status_code == 200
+    body = response.json()
+    assert NO_ADDITIONAL_CARE not in body["answer"]
+    if blocked:
+        assert body["status"] == "safety_blocked"
+        assert body["citations"] == []
+    else:
+        assert body["status"] == "vaccination_notice"
+        assert "Temporary soreness" in body["answer"]
+
+
+def test_semantic_child_reference_uses_the_intended_child_without_changing_the_selected_profile(client, coaching_dependencies):
+    data, _, coaching = coaching_dependencies
+    data.get_child.return_value.update(age_months=3, completed_months=3, age_days=91)
+    context = [
+        {"role": "user", "text": "My baby is three months old and my other child is eighteen months. I am planning meals."},
+        {"role": "assistant", "text": "The older child can have suitable family foods.", "status": "answered"},
+    ]
+    data.get_conversation.return_value = {**conversation(), "messages": context}
+    question = "And what can I serve the older one?"
+    coaching.supports_request_understanding = True
+    coaching.interpret_request.return_value = RequestUnderstanding.from_reply(
+        '{"request":"Suggest suitable meals for the older child.","age_months":18,"age_quote":"my other child is eighteen months"}',
+        question, context,
+    )
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    assert response.json()["child_age_months"] == 18
+    assert response.json()["subject_age_override"] == 18
+    assert coaching.generate.call_args.args[:2] == (question, 18)
+    assert coaching.generate.call_args.kwargs["request_understanding"].request == "Suggest suitable meals for the older child."
+    assert data.get_child.return_value["age_months"] == 3
+    assert data.save_conversation_turn.call_args.args[3] == question
+
+
+def test_incomplete_current_age_cannot_borrow_an_age_from_the_interpretation_history(client, coaching_dependencies):
+    data, _, coaching = coaching_dependencies
+    question = "Plan vaccines for my months-old baby for the next six months."
+    context = [{"role": "user", "text": "My child is eighteen months old."},
+               {"role": "assistant", "text": "We can share a picture book.", "status": "answered"}]
+    data.get_conversation.return_value = {**conversation(), "messages": context}
+    coaching.supports_request_understanding = True
+    coaching.interpret_request.return_value = RequestUnderstanding.from_reply(
+        '{"request":"Plan vaccines.","vaccination_topics":["schedule"],"age_months":18,"age_quote":"My child is eighteen months old."}', question, context,
+    )
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    assert response.json()["clarification_field"] == "age"
+    coaching.generate.assert_not_called()
+
+
+def test_an_interpretation_cannot_override_an_explicit_current_age(client, coaching_dependencies):
+    data, _, coaching = coaching_dependencies
+    context = [{"role": "user", "text": "My daughter is eighteen months old."},
+               {"role": "assistant", "text": "Try a large picture book.", "status": "answered"}]
+    data.get_conversation.return_value = {**conversation(), "messages": context}
+    question = "My four-month-old baby needs a calm activity."
+    coaching.supports_request_understanding = True
+    coaching.interpret_request.return_value = RequestUnderstanding.from_reply(
+        '{"request":"Suggest toddler play.","age_months":18,"age_quote":"My daughter is eighteen months old."}', question, context,
+    )
+    response = client.post("/coach", json=coaching_payload(question))
+    assert response.status_code == 200
+    assert response.json()["child_age_months"] == 4
+    assert "request_understanding" not in coaching.generate.call_args.kwargs
+
+
+def test_urgent_input_does_not_wait_for_semantic_interpretation(client, coaching_dependencies):
+    _, _, coaching = coaching_dependencies
+    coaching.supports_request_understanding = True
+    response = client.post("/coach", json=coaching_payload("My baby is unconscious."))
+    assert response.status_code == 200
+    assert response.json()["status"] == "escalated"
+    coaching.interpret_request.assert_not_called()
     coaching.generate.assert_not_called()
 
 

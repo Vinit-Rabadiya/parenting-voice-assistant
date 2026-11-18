@@ -68,6 +68,17 @@ class ProviderFailoverService:
         self._lock = Lock()
         self._closed = False
 
+    @property
+    def supports_request_understanding(self):
+        return self.provider == "groq" and getattr(self.services["groq"], "supports_request_understanding", False) is True
+
+    def interpret_request(self, question, profile_age, context):
+        with self._lock:
+            available = self.clock() >= self._limited_until.get("groq", 0)
+        if available and self.supports_request_understanding:
+            return self.services["groq"].interpret_request(question, profile_age, context)
+        return None
+
     def generate(self, question, child_age_months, routine, passages, *, on_delta=None, on_reset=None, **context):
         attempted = set()
         for _ in self.order:

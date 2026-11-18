@@ -31,6 +31,43 @@ def setup_case(score=0.9):
     return case, reference, retrieval, coaching, models
 
 
+def test_groq_capture_uses_the_real_interpretation_and_generation_paths_without_false_fallback():
+    import httpx
+    from backend.services.groq_client import GroqClient
+
+    requests = []
+    question = "What can I serve the older child?"
+    history = [{"role": "user", "text": "My baby is three months old. My son is eighteen months old."},
+               {"role": "assistant", "text": "We can consider each child's feeding needs.", "status": "answered"}]
+
+    def respond(request):
+        payload = json.loads(request.content)
+        requests.append(payload)
+        content = (json.dumps({"request": "Suggest suitable meals for the older child.",
+                               "age_months": 18, "age_quote": "My son is eighteen months old."})
+                   if "response_format" in payload else "Offer suitable soft family foods with close supervision.")
+        return httpx.Response(200, json={"choices": [{"finish_reason": "stop", "message": {"content": content}}]})
+
+    client = GroqClient("PRIVATE_KEY", transport=httpx.MockTransport(respond))
+    try:
+        coaching = CoachingService(provider="groq", client=client, fallback_model="")
+        retrieval = Mock()
+        retrieval.retrieve.return_value = []
+        record = capture_case({"id": "semantic-subject", "question": question, "routine": None},
+                              profile_dates(date(2026, 11, 18), 3), retrieval, coaching, messages=history)
+        assert record["outcome"] == "answered"
+        assert record["subject_age"]["age_months"] == 18
+        assert record["fallback_used"] is False
+        assert [attempt["stage"] for attempt in record["attempts"]] == ["request_understanding", "generation"]
+        assert len(requests) == 2
+        assert question in requests[-1]["messages"][-1]["content"]
+        assert "Suggest suitable meals for the older child" in requests[-1]["messages"][-1]["content"]
+        assert "eighteen months old" in requests[-1]["messages"][1]["content"]
+        json.dumps(record)  # Evaluation output must stay serializable with native chat messages.
+    finally:
+        client.close()
+
+
 @pytest.mark.parametrize("age_reply", [False, True])
 def test_capture_uses_the_same_detailed_word_allowance_as_generation(age_reply):
     case, _, retrieval, coaching, models = setup_case()
@@ -262,6 +299,30 @@ def test_capture_uses_the_same_age_clarification_route_as_the_application():
     assert record["caregiver_request"] == "What food can I make for my toddler?"
 
 
+@pytest.mark.parametrize("reply", ["one month", "1 month"])
+def test_capture_clarifies_missing_age_and_keeps_vaccine_plan(reply):
+    case, _, retrieval, coaching, models = setup_case()
+    case.update(question="Plan vaccines for my months-old baby over the next six months. Include optional vaccines.",
+                routine=None)
+    profile = profile_dates(date(2026, 11, 18), 3)
+    first = capture_case(case, profile, retrieval, coaching)
+    assert first["response_kind"] == "clarification"
+    assert first["clarification_field"] == "age"
+    assert first["subject_age"]["source"] == "unresolved"
+    assert first["subject_age"]["override"] is None
+    messages = [{"role": "user", "text": case["question"]},
+                {"role": "assistant", "text": first["answer"], "status": first["outcome"],
+                 "response_kind": first["response_kind"], "clarification_field": first["clarification_field"]}]
+    record = capture_case({**case, "question": reply}, profile, retrieval, coaching, messages=messages)
+    assert record["outcome"] == "vaccination_notice"
+    assert record["subject_age"]["age_months"] == 1
+    assert record["caregiver_request"] == case["question"]
+    assert "6 weeks:" in record["answer"] and "7 months:" in record["answer"]
+    assert "Additional vaccines:" in record["answer"]
+    retrieval.retrieve.assert_not_called()
+    models.generate_content.assert_not_called()
+
+
 def test_development_capture_reuses_pinned_dates_and_excludes_held_out(tmp_path):
     path = tmp_path / "queries.jsonl"
     base = {"date_of_birth": "2026-04-23", "evaluation_date": "2026-10-23",
@@ -361,7 +422,8 @@ def test_capture_follow_up_uses_bounded_context_and_caregiver_search_anchor():
     assert record["outcome"] == "answered"
     assert "How can I talk during feeding?" in retrieval.retrieve.call_args.args[0]
     assert "Talk softly." not in retrieval.retrieve.call_args.args[0]
-    assert "Recent conversation" in models.generate_content.call_args.kwargs["contents"]
+    assert models.generate_content.call_args.kwargs["contents"][0].role == "user"
+    assert "Recent conversation" in models.generate_content.call_args.kwargs["contents"][-1].parts[0].text
     assert record["answer_word_count"] == 2
     assert record["within_requested_word_limit"] is True
 

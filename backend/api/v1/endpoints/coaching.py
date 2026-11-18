@@ -20,20 +20,22 @@ from backend.api.coaching_stream import CoachingStream, StreamCancelled
 from backend.services.answer_stream import AnswerStreamGuard
 from backend.schemas.coaching import CoachingRequest, CoachingResponse, CitationSchema, FeedbackRequest, FeedbackResponse
 from backend.services.caregiver_data import CaregiverDataService
-from backend.services.age import message_age_months
-from backend.services.coaching import CoachingResult, CoachingService, generation_request_id, PROVIDER_BLOCK_MESSAGE
+from backend.services.age import inspect_message_age
+from backend.services.coaching import (ADDITIONAL_CARE_SCOPE, CoachingResult, CoachingService,
+                                       generation_request_id, no_additional_care, PROVIDER_BLOCK_MESSAGE)
 from backend.services.groq_client import GenerationProviderError
 from backend.services.profile_context import child_reply_context
 from backend.services.retrieval import RetrievalService
 from backend.services.evidence import select_evidence
 from backend.services.care_guidance import select_care_references
-from backend.services.care_response import professional_assessment_response, conversation_boundary_response
-from backend.services.response_safety import SAFE_RESPONSE, review_coaching_result
+from backend.services.care_response import CareResponse, clearly_unrelated, professional_assessment_response, conversation_boundary_response
+from backend.services.request_understanding import RequestUnderstanding, ambiguous_profile_fallback
+from backend.services.response_safety import SAFE_RESPONSE, SafetyDecision, review_coaching_result
 from backend.services.input_safety import inspect_input
 from backend.services.crisis_safety import inspect_crisis
 from backend.services.language_safety import LANGUAGE_MESSAGE, supports_english
 from backend.services.kenya_contacts import emergency_resources
-from backend.services.vaccination import inspect_vaccination
+from backend.services.vaccination import vaccination_for_request
 from backend.services.conversation_context import (
     MAX_CONTEXT_MESSAGES, contextual_age_months, contextual_retrieval_query,
     caregiver_request, needs_topic_clarification, select_conversation_context, semantic_retrieval_query,
@@ -225,7 +227,8 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
     )
     if child is None:
         raise HTTPException(status_code=404, detail="Select a child profile before asking for guidance.")
-    explicit_age = message_age_months(payload.question)
+    message_age = inspect_message_age(payload.question)
+    explicit_age = message_age.months
     subject_age_override = explicit_age
     outside_age_range = explicit_age is None and child.get("in_scope") is False
     age_months = child["age_months"] if explicit_age is None else explicit_age
@@ -234,7 +237,10 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
     # Urgent reports take priority over retrieval and ordinary generation.
     triage_started = started
     with timed_stage(request_id, "input_safety"):
-        triage = inspect_input(payload.question, completed_months, child_age_days=age_days)
+        triage = inspect_input(
+            payload.question, 0 if message_age.needs_clarification else completed_months,
+            child_age_days=0 if message_age.needs_clarification else age_days,
+        )
     timing_logger.info(
         "coaching_caregiver_safety request=%s outcome=%s reasons=%s",
         request_id, crisis.kind or "not_flagged", ",".join(crisis.reasons) or "none",
@@ -289,14 +295,42 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
         revision = (child.get("health_context_revision")
                     if explicit_age is None and child.get("use_health_details") is True else None)
         context = select_conversation_context(conversation["messages"], health_context_revision=revision)
+    understanding = None
+    interpretation_attempted = False
+    if (getattr(coaching_service, "supports_request_understanding", False) is True
+            and not clearly_unrelated(payload.question)
+            and not (explicit_age is not None and explicit_age > 24)
+            and professional_assessment_response(payload.question) is None):
+        with timed_stage(request_id, "request_understanding"):
+            interpretation_attempted = True
+            candidate = await run_processing_worker(
+                request, user["uid"], coaching_service.interpret_request,
+                payload.question, child["age_months"], context,
+            )
+        if isinstance(candidate, RequestUnderstanding):
+            understanding = candidate
+            if (explicit_age is not None and understanding.age_months is not None
+                    and abs(explicit_age - understanding.age_months) > .001):
+                understanding = None
+        if stream is not None and stream.cancelled.is_set():
+            raise StreamCancelled()
     with timed_stage(request_id, "conversation_start"):
         payload = await start_conversation(data_service, user["uid"], payload)
-    retrieval_query = contextual_retrieval_query(payload.question, context)
+    retrieval_query = understanding.request if understanding else contextual_retrieval_query(payload.question, context)
+    unresolved_age = message_age.needs_clarification or (
+        interpretation_attempted and understanding is None and explicit_age is None
+        and ambiguous_profile_fallback(payload.question, child["age_months"], context)
+    )
     # A direct follow-up keeps the age explicitly stated in its caregiver topic.
     # Current profile age remains the fallback when no subject age was supplied.
     if explicit_age is None:
-        context_age = contextual_age_months(payload.question, context)
+        interpreted_age = (understanding.age_months if understanding and understanding.age_months is not None
+                           and (not message_age.incomplete or understanding.age_quote is not None
+                                and understanding.age_quote in payload.question) else None)
+        context_age = (interpreted_age if interpreted_age is not None else
+                       contextual_age_months(payload.question, context) if not unresolved_age else None)
         if context_age is not None:
+            unresolved_age = False
             subject_age_override = context_age
             age_months, completed_months = context_age, int(context_age)
             age_days = round(context_age * 30.4375)
@@ -310,29 +344,44 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
                     data_service, user["uid"], payload, age_months, triage, crisis, request_id, triage_started,
                     stream=stream,
                 )
-    vaccination = inspect_vaccination(payload.question, age_months, topic=retrieval_query)
-    unresolved_follow_up = needs_topic_clarification(payload.question, context)
-    request_topic = caregiver_request(payload.question, context)
+    vaccination = vaccination_for_request(
+        payload.question, age_months, topic=retrieval_query,
+        requested_topics=understanding.vaccination_topics if understanding else None,
+    )
+    vaccination_information = (vaccination.supporting_information or vaccination.answer if vaccination is not None
+                               and vaccination.reason not in {"individual_assessment", "schedule_unavailable"} else None)
+    other_care_request = (understanding.other_care_request if understanding and vaccination_information else
+                          ADDITIONAL_CARE_SCOPE if interpretation_attempted and vaccination_information else None)
+    unresolved_follow_up = needs_topic_clarification(payload.question, context) if understanding is None else False
+    request_topic = understanding.request if understanding else caregiver_request(payload.question, context)
     assessment = (professional_assessment_response(payload.question)
                   or professional_assessment_response(request_topic))
     boundary = conversation_boundary_response(payload.question, unresolved_follow_up=unresolved_follow_up,
-                                              child_age_months=age_months, outside_age_range=outside_age_range)
+                                              child_age_months=age_months, outside_age_range=outside_age_range,
+                                              unclear_message_age=unresolved_age)
+    if understanding and understanding.clarify and boundary is None:
+        boundary = CareResponse("clarification", understanding.clarify, clarification_field=understanding.clarification_field)
     if boundary is None and request_topic != payload.question:
         boundary = conversation_boundary_response(request_topic, child_age_months=age_months)
     stage = "Qdrant retrieval"
     reference_status = "no_match"
     health_context_used = False
     try:
-        local_references = (select_care_references(payload.question, age_months, context, [])
-                            if boundary is None and vaccination is None and assessment is None else [])
+        care_question = other_care_request or payload.question
+        local_references = (select_care_references(care_question, age_months, context, [])
+                            if boundary is None and (vaccination is None or vaccination_information) and assessment is None else [])
+        if other_care_request == ADDITIONAL_CARE_SCOPE:
+            local_references = []
         with timed_stage(request_id, "retrieval"):
             # Do not retrieve arbitrary advice for a follow-up with no safe topic.
-            if local_references or boundary is not None or vaccination is not None or assessment is not None:
+            if (local_references or boundary is not None or vaccination is not None and not other_care_request
+                    or other_care_request == ADDITIONAL_CARE_SCOPE or assessment is not None):
                 passages = []
             else:
                 try:
                     passages = await run_in_threadpool(
-                        retrieval_service.retrieve, semantic_retrieval_query(payload.question, context), completed_months,
+                        retrieval_service.retrieve,
+                        other_care_request or (understanding.request if understanding else semantic_retrieval_query(payload.question, context)), completed_months,
                         payload.routine, 3, child_age_days=age_days,
                     )
                 except Exception as exc:
@@ -348,7 +397,7 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
             "coach_timing request=%s passages=%d evidence=%d evidence_characters=%d",
             request_id, len(passages), len(evidence), sum(len(item.text) for item in evidence),
         )
-        if evidence and reference_status != "unavailable":
+        if (evidence or vaccination_information) and reference_status != "unavailable":
             reference_status = "matched"
         status = "no_evidence"
         response_kind = None
@@ -356,9 +405,9 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
             response_kind = boundary.kind
             result = CoachingResult(answer=boundary.answer, passages=[])
             vaccination = None
-        elif vaccination is not None:
+        elif vaccination is not None and not other_care_request:
             status = "vaccination_notice"
-            result = CoachingResult(answer=vaccination.answer, passages=[])
+            result = CoachingResult(answer=vaccination_information or vaccination.answer, passages=[])
         elif assessment is not None:
             response_kind = assessment.kind
             result = CoachingResult(answer=assessment.answer, passages=[])
@@ -367,13 +416,17 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
             stage = "Groq generation" if getattr(coaching_service, "provider", None) == "groq" else "Gemini generation"
             with timed_stage(request_id, "generation"):
                 context_options = {"conversation_context": context} if context else {}
+                if understanding:
+                    context_options["request_understanding"] = understanding
+                if other_care_request:
+                    context_options["response_scope"] = other_care_request
                 # An explicit subject-age override does not establish that this is the selected child.
                 if subject_age_override is None:
                     profile_context = child_reply_context(child)
                     if profile_context:
                         context_options["profile_context"] = profile_context
                         health_context_used = bool(profile_context.get("health_details"))
-                if stream is not None:
+                if stream is not None and not vaccination_information:
                     await stream.send("status", {"phase": "writing"})
                     guard = AnswerStreamGuard(payload.question, age_months, evidence, context, stream.send_from_worker)
 
@@ -394,7 +447,15 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
                 )
             stage = "Response safety"
             with timed_stage(request_id, "response_safety"):
-                result, decision = review_coaching_result(result, evidence, age_months, payload.question, context)
+                only_checked_information = bool(vaccination_information) and no_additional_care(result)
+                if only_checked_information:
+                    if other_care_request != ADDITIONAL_CARE_SCOPE:
+                        raise HTTPException(status_code=502, detail=REQUEST_ERROR)
+                    status = "vaccination_notice"
+                    result = CoachingResult(answer=vaccination_information, passages=[])
+                    decision = SafetyDecision(False, ())
+                else:
+                    result, decision = review_coaching_result(result, evidence, age_months, care_question, context)
                 timing_logger.info(
                     "coaching_safety request=%s outcome=%s reasons=%s",
                     request_id, "blocked" if decision.blocked else "replaced_with_basic_care" if decision.replaced_with_basic_care else "passed",
@@ -404,6 +465,10 @@ async def run_coaching(payload, request, user, data_service, retrieval_service, 
                     # Replace before storage and delivery; never save the blocked text.
                     status = "safety_blocked"
                     result = CoachingResult(answer=PROVIDER_BLOCK_MESSAGE if result.blocked else SAFE_RESPONSE, passages=[])
+                    vaccination = None
+                elif vaccination_information and not only_checked_information:
+                    result = CoachingResult(answer=vaccination_information + "\n\n" + result.answer,
+                                            passages=result.passages, answer_basis="reference_assisted")
     except StreamCancelled:
         raise
     except HTTPException:

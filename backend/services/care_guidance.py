@@ -59,7 +59,6 @@ FOOD_AMOUNT = re.compile(rf"\b{NUMBER}(?:\s+to\s+{NUMBER})?\s+(?:a\s+)?(?:table\
 TREATMENT_PRODUCT = re.compile(r"\b(?:apply(?:ing)?|us(?:e|ing)|try(?:ing)?|spread(?:ing)?|put(?:ting)?|recommend(?:ing)?|giv(?:e|ing)|add(?:ing)?|switch(?:ing)?)\b[^.!?\n]{0,90}\b(?:zinc oxide|hydrocortisone|steroids?|antifungals?|antibiotics?|medicated|creams?|ointments?|lotions?|thickeners?|thickened formula|anti[- ]reflux formula|hypoallergenic formula|probiotics?|gripe water|laxatives?|decongestants?|cough syrup|teething gels?)\b", re.I)
 FEED_CHANGE = re.compile(r"\b(?:smaller (?:amounts|feeds)|more (?:often|frequent(?:ly)?)|frequent(?:ly)?[^.!?\n]{0,70}\b(?:feeds?|meals?|amounts?)|(?:reduce|reducing)\b[^.!?\n]{0,35}\b(?:feed|milk))\b", re.I)
 CARE_DURATION = re.compile(rf"\b{NUMBER}(?:\s*(?:-|to)\s*{NUMBER})?\s+(?:(?:a|an)\s+)?(?:minutes?|hours?|days?|weeks?)\b(?!\s*[- ]?old\b)", re.I)
-OFF_TOPIC_ACTIVITY = re.compile(r"\b(?:talk|chat|sing) (?:with|to) (?:your |the )?(?:baby|child|toddler)|\b(?:language development|naming foods|name (?:the |different )?foods)\b", re.I)
 REFERRAL = re.compile(r"\b(?:health (?:worker|professional|facility)|doctor|clinician|clinic|medical (?:care|advice|assessment))\b", re.I)
 SAFE_SLEEP = re.compile(r"\bback\b.{0,100}\bflat\b|\bflat\b.{0,100}\bback\b", re.I | re.S)
 UNSAFE_SLEEP = re.compile(r"\b(?:put|place|let|lay)\b[^.!?\n]{0,55}\b(?:sleep|sleeping)\b[^.!?\n]{0,25}\b(?:side|front|tummy|stomach|upright|inclined|seated)\b|\b(?:raise|elevate|incline)\b[^.!?\n]{0,45}\b(?:cot|mattress|bed)\b", re.I)
@@ -116,14 +115,16 @@ class CareGuidance:
 
     @property
     def instructions(self):
-        rules = ["Answer the caregiver's request directly using these selected care facts; do not add unrelated activities."]
+        rules = ["Use these selected care facts for the matching part of the caregiver's request. "
+                 "Answer every other requested baby-care part too; these facts do not define the whole task."]
         if self.topic == "feeding":
             if not self.allow_schedule:
                 rules.append("Do not supply a meal or feeding schedule: none was requested.")
             if not self.allow_amount:
                 rules.append("Do not supply feeding quantities: none were requested.")
             if self.food_ideas:
-                rules.append("Give food examples; do not add talking, singing or play activities.")
+                rules.append("Give the requested food examples rather than replacing them with interaction ideas. "
+                             "Also answer interaction or play requests when the caregiver includes them.")
         if self.topic == "food_flavours":
             rules.append("Distinguish mild herbs/spices from very hot chilli. Follow the selected source on gradual introduction and the child's tolerance. Do not invent a universal age or time of day for chilli, or claim it damages an immature digestive system.")
             rules.append("The selected source establishes no chilli quantity, frequency or clock time. Do not recommend pinches, spoonfuls, once-a-day use, morning/afternoon use or a bedtime interval. If asked when, explain that no special feeding time is established by this guidance; discuss gradual flavour introduction without prescribing a schedule.")
@@ -187,8 +188,6 @@ class CareGuidance:
                 reasons.append("unrequested_feeding_schedule")
             if not self.allow_amount and FOOD_AMOUNT.search(answer):
                 reasons.append("unrequested_feeding_amount")
-            if self.food_ideas and OFF_TOPIC_ACTIVITY.search(answer):
-                reasons.append("unrequested_interaction_activity")
             if self.milk_only and positive_match(EARLY_SOLIDS, answer):
                 reasons.append("early_solid_or_water_advice")
             if (self.first_solids

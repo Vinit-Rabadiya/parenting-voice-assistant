@@ -3,7 +3,7 @@
 import re
 from math import isfinite
 
-from backend.services.age import age_correction_months, message_age_months, normalize_age_expressions
+from backend.services.age import age_correction_months, inspect_message_age, message_age_months, normalize_age_expressions
 from backend.services.profile_context import health_context_available
 from backend.services.care_response import AGE_CLARIFICATION_MESSAGES
 
@@ -99,8 +99,21 @@ def select_conversation_context(messages: list[dict], *, health_context_revision
         keep_request = (isinstance(request, str)
                         and 2 <= len(request.strip()) <= 1200 and request.strip() != question.strip())
         pair_size = len(question) + len(answer) + (len(request.strip()) if keep_request else 0)
-        if characters + pair_size > MAX_CONTEXT_CHARACTERS or len(selected) + 2 > MAX_CONTEXT_MESSAGES:
+        if len(selected) + 2 > MAX_CONTEXT_MESSAGES:
             break
+        if characters + pair_size > MAX_CONTEXT_CHARACTERS:
+            # An oversized latest answer must not erase the caregiver's request.
+            # Keep the whole user message and mark an omitted assistant middle;
+            # the model must not assume unseen details when resolving a reference.
+            if selected:
+                break
+            remaining = MAX_CONTEXT_CHARACTERS - len(question) - (len(request.strip()) if keep_request else 0)
+            marker = "\n[Middle of this earlier reply omitted]\n"
+            if remaining <= len(marker) + 80:
+                break
+            half = (remaining - len(marker)) // 2
+            answer = answer[:half] + marker + answer[-half:]
+            pair_size = len(question) + len(answer) + (len(request.strip()) if keep_request else 0)
         previous_answer = {"role": "assistant", "text": answer}
         if keep_request:
             previous_answer["caregiver_request"] = request.strip()
@@ -204,9 +217,9 @@ def semantic_retrieval_query(question: str, context: list[dict]) -> str:
 
 def contextual_age_months(question: str, context: list[dict]) -> float | None:
     """Use a stated subject age, accepting a short age reply only after clarification."""
-    explicit = message_age_months(question)
-    if explicit is not None:
-        return explicit
+    age = inspect_message_age(question)
+    if age.months is not None or age.needs_clarification:
+        return age.months
     clarified = _clarified_age_months(question, context)
     if clarified is not None:
         return clarified
