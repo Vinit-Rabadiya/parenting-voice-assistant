@@ -50,9 +50,11 @@ def test_keeps_recent_complete_pairs_in_chronological_order():
     assert selected[-2]["text"] == "Question 4"
 
 
-def test_limits_text_without_cutting_a_message_in_half():
+def test_oversized_reply_keeps_the_whole_caregiver_request_within_the_bound():
     selected = select_conversation_context(pair("A" * 1000, "B" * (MAX_CONTEXT_CHARACTERS - 999)))
-    assert selected == []
+    assert selected[0]["text"] == "A" * 1000
+    assert "[Middle of this earlier reply omitted]" in selected[1]["text"]
+    assert sum(len(message["text"]) for message in selected) <= MAX_CONTEXT_CHARACTERS
     selected = select_conversation_context(pair("A" * 1000, "B" * 1000) + pair("C" * 1000, "D" * 1000))
     assert len(selected) == 4
     assert sum(len(message["text"]) for message in selected) <= MAX_CONTEXT_CHARACTERS
@@ -170,6 +172,18 @@ def test_bare_age_reply_is_used_only_after_a_clarification():
     assert contextual_age_months("18 months", []) is None
     assert contextual_age_months("Three times a day", context) is None
     assert contextual_age_months("My baby is 6 weeks old", context) == pytest.approx(42 / 30.4375)
+
+
+@pytest.mark.parametrize("question", [
+    "She is months old. What can she eat?",
+    "Vaccines for my weeks-old baby?",
+    "My child is 2 months old and my other child is 18 months old. What can they eat?",
+])
+def test_unclear_current_age_does_not_borrow_a_previous_subject_age(question):
+    messages = pair("My daughter is 18 months old. Suggest breakfast ideas.")
+    messages[-1]["subject_age_override"] = 18
+    context = select_conversation_context(messages)
+    assert contextual_age_months(question, context) is None
 
 
 @pytest.mark.parametrize("reply", ["eighteen months", "She is eighteen months old", "one year old"])

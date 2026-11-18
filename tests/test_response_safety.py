@@ -112,7 +112,6 @@ def test_numbered_reference_must_also_have_a_returned_source_card():
 
 @pytest.mark.parametrize("question,age,answer,reason", [
     ("What food can I make for my toddler?", 18, "Offer soft beans. Aim for three meals and two snacks daily.", "unrequested_feeding_schedule"),
-    ("What food can I make for my toddler?", 18, "Offer soft foods. Talk with your toddler and name foods.", "unrequested_interaction_activity"),
     ("I am feeding my baby.", 6, "Give two tablespoons per meal, twice a day.", "unrequested_feeding_amount"),
     ("I am feeding my baby.", 6, "Start offering porridge and mashed vegetables.", "missing_first_food_readiness"),
     ("I am feeding my baby.", 6, "Try offering finely minced family foods like rice or fish. Keep your baby upright.", "missing_first_food_readiness"),
@@ -141,6 +140,32 @@ def test_failed_care_answer_is_replaced_with_permitted_source_text(question, age
     assert reviewed.passages == guidance.references
     assert reviewed.answer != answer
     assert len(reviewed.answer.split()) <= 160
+
+
+def test_requesting_food_and_conversation_does_not_lose_the_combined_answer_to_a_keyword_rule():
+    question = "Give food ideas for my toddler and explain how we can chat while eating."
+    guidance = get_care_guidance(question, 18)
+    answer = "Try soft lentils and rice. Talk with your toddler and name foods as you eat together."
+    result = CoachingResult(answer, guidance.references)
+    reviewed, decision = review_coaching_result(result, guidance.references, 18, question)
+    assert not decision.blocked
+    assert not decision.replaced_with_basic_care
+    assert reviewed.answer == answer
+
+
+@pytest.mark.parametrize("answer", [
+    "Use a clean cloth and ask a health worker before giving medicine.",
+    "Use a cool cloth; consult a pharmacist before considering any medication.",
+    "Use gentle comfort measures and contact your clinic to discuss medicine.",
+])
+def test_a_separate_professional_advice_clause_is_not_a_medicine_instruction(answer):
+    assert "medication_instruction" not in inspect_response(answer, [], [], 11).reasons
+
+
+def test_a_new_positive_medicine_instruction_after_other_care_is_still_blocked():
+    answer = "Use a clean cloth and give your child ibuprofen."
+    assert "medication_instruction" in inspect_response(answer, [], [], 11).reasons
+
 
 
 def test_basic_care_never_bypasses_a_provider_content_block():

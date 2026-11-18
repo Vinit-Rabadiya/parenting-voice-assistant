@@ -4,13 +4,44 @@ from pydantic import ValidationError
 
 from backend.schemas.coaching import CoachingRequest
 from backend.schemas.conversations import ConversationMessageResponse
-from backend.services.vaccination import GENERAL_CHECKED_ON, inspect_vaccination
+from backend.services.vaccination import GENERAL_CHECKED_ON, inspect_vaccination, vaccination_context
 
 
 @pytest.fixture(autouse=True)
 def checked_source_date(monkeypatch):
     monkeypatch.setattr("backend.services.vaccination.current_date", lambda: GENERAL_CHECKED_ON)
     monkeypatch.setattr("backend.services.vaccination.settings.KENYA_VACCINATION_SCHEDULE_ENABLED", True)
+
+
+def test_several_vaccination_requests_receive_each_relevant_checked_fact_set():
+    question = "How do vaccines work, what side effects can they have, and which visits follow eight months?"
+    decision = vaccination_context(inspect_vaccination(question, 8), question)
+    assert "Temporary soreness" in decision.supporting_information
+    assert "train the immune system" in decision.supporting_information
+    assert "9 months:" in decision.supporting_information
+    assert len({source.key for source in decision.sources}) == len(decision.sources)
+
+
+def test_side_effects_do_not_discard_the_separately_requested_planning_window():
+    question = "Outline expected vaccine side effects and routine visits over the next four months for my seven-month-old."
+    decision = vaccination_context(inspect_vaccination(question, 7), question, 7)
+    assert "Temporary soreness" in decision.supporting_information
+    assert "7 months:" in decision.supporting_information
+    assert "9 months:" in decision.supporting_information
+    assert "18 months:" not in decision.supporting_information
+    assert "24 months" not in decision.supporting_information
+
+
+@pytest.mark.parametrize("quantity", ["two", "2"])
+@pytest.mark.parametrize("label", ["overview", "vaccination plan", "planning window", "schedule summary"])
+def test_a_quantity_modifying_a_plan_is_an_interval_not_the_child_age_or_entire_programme(quantity, label):
+    question = f"Give a {quantity}-month {label} of vaccine visits for my eight-month-old, with expected side effects."
+    decision = vaccination_context(inspect_vaccination(question, 3), question, 8)
+    assert "next 2 month" in decision.supporting_information
+    assert "9 months:" in decision.supporting_information
+    assert "At birth:" not in decision.supporting_information
+    assert "18 months:" not in decision.supporting_information
+    assert "24 months" not in decision.supporting_information
 
 
 def test_vaccination_uses_kenya_scope_without_asking_for_country():
@@ -32,7 +63,7 @@ def test_nine_month_schedule_includes_new_programme_updates():
     assert "6 weeks:" not in decision.answer
 
 
-@pytest.mark.parametrize("age", ["1-month old", "one-month-old", "one month old"])
+@pytest.mark.parametrize("age", ["1-month old", "one-month-old", "one month old", "month old", "month-old"])
 def test_plans_next_six_months_from_stated_age_instead_of_a_single_visit(age):
     decision = inspect_vaccination(f"Provide a summary of vaccines for my {age} baby for the next six months.", 18)
     for label in ["6 weeks:", "10 weeks:", "14 weeks:", "6 months:", "7 months:"]:
@@ -51,8 +82,8 @@ def test_newborn_and_day_age_plans_do_not_return_only_the_nine_month_visit(age):
     assert "24 months (second birthday):" not in decision.answer
 
 
-def test_missing_message_age_uses_profile_age_without_borrowing_planning_duration():
-    decision = inspect_vaccination("A summary of vaccines for my month old baby for the next 6 months for planning.", 1)
+def test_singular_month_old_overrides_profile_without_borrowing_planning_duration():
+    decision = inspect_vaccination("A summary of vaccines for my month old baby for the next 6 months for planning.", 3.3)
     assert "6 weeks:" in decision.answer
     assert "7 months:" in decision.answer
     assert "9 months:" not in decision.answer
