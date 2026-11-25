@@ -155,7 +155,10 @@ it("adds a child through a dialog with optional milestones", async () => {
   fireEvent.click(screen.getByRole("button", { name: /Add child/ }));
   const dialog = screen.getByRole("dialog", { name: "Add child" });
   fireEvent.change(within(dialog).getByLabelText("Child name"), { target: { value: "New child" } });
-  fireEvent.change(within(dialog).getByLabelText("Date of birth"), { target: { value: "2026-04-21" } });
+  const birthDate = within(dialog).getByLabelText("Date of birth");
+  expect(document.getElementById(birthDate.getAttribute("aria-describedby")).textContent)
+    .toContain("birth through the second birthday (0–24 months)");
+  fireEvent.change(birthDate, { target: { value: "2026-04-21" } });
   fireEvent.click(within(dialog).getByRole("button", { name: "Save child" }));
   await waitFor(() => expect(createChild).toHaveBeenCalledWith({ name: "New child", date_of_birth: "2026-04-21", milestones: [],
     health_details: emptyHealthDetails, use_health_details: false }));

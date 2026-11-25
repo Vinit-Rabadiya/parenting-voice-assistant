@@ -50,6 +50,15 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("shows the coaching age range for new chats and flags an aged-out profile", async () => {
+  const olderChild = { id: "older", name: "Older child", age_label: "25 months", in_scope: false };
+  render(<GuidanceWorkspace userId="account" startup={{ children: [...children, olderChild] }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Select First child" }));
+  expect(await screen.findByText("Ask about caring for a child aged 0–24 months.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Select Older child" }));
+  expect(await screen.findByText("This child is past LittleCare’s supported age range of 0–24 months.")).toBeTruthy();
+});
+
 it("exposes a native chat link and leaves its right-click menu available", async () => {
   listConversations.mockResolvedValue([{ id: "saved-chat", title: "Feeding conversation" }]);
   show();
