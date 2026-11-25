@@ -163,6 +163,7 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
             setSidebarOpen(false);
             setTimeout(() => composerRef.current?.focus(), 0);
           }} />}
+        {child.in_scope === false && <p className="chat-age-notice">This child is past LittleCare’s supported age range of 0–24 months.</p>}
       </header>
       <div className="chat-stage">
       <section className="conversation-thread" aria-labelledby={threadTitleId} ref={threadRef} tabIndex={0}>
@@ -178,7 +179,7 @@ function ConversationWorkspace({ child, userId, onBusyChange, profileControls, r
               fresh={message.id === chat.newAnswerId} automaticPlayback={automatic} active={isActive && !vaccinesOpen && !chat.generating && !voiceBusy}
               conversationId={message.conversation_id === null ? null : chat.conversationId} />)}
         {!chat.messages.length && <div className="chat-welcome"><h3>What are you doing with your baby today?</h3>
-          <p>Describe the moment, or ask for guidance.</p></div>}
+          <p>{child.in_scope === false ? "Describe the moment, or ask for guidance." : "Ask about caring for a child aged 0–24 months."}</p></div>}
         {chat.generating && <p className="guidance-loading" role="status"><span className="guidance-spinner" aria-hidden="true" />{chat.streamPhase === "saving" ? "Saving reply…" : chat.streamPhase === "writing" ? "Writing reply…" : "One moment…"}</p>}
       </section>
       {readOnly ? <p className="chat-composer">Read-only access: you can review or delete existing data. Accept the notice above to request coaching.</p> : <section className="question-panel chat-composer" aria-label="Message composer">

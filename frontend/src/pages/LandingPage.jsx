@@ -10,7 +10,7 @@ export default function LandingPage({ isAuthenticated, userId, accountAccess, on
         <section className="guest-intro" aria-labelledby="guest-title">
           <p className="landing-eyebrow">FOR PARENTS AND CAREGIVERS</p>
           <h1 id="guest-title">Support for your baby’s first two years.</h1>
-          <p className="guest-description">Ask about feeding, sleep, play and development. Get guidance that takes your child’s age into account, and keep your conversations in one place.</p>
+          <p className="guest-description">LittleCare currently supports children from birth through their second birthday (0–24 months). Ask about feeding, sleep, play and development, then return to your saved conversations anytime.</p>
           <div className="guest-actions">
             <button type="button" className="guest-primary" onClick={onSignup}>Create account</button>
             <button type="button" onClick={onLogin}>Log in to your account</button>

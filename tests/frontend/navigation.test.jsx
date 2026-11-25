@@ -174,6 +174,7 @@ it("keeps the workspace hidden after a failed connection and offers retry", () =
 it("opens login from the public landing page and returns home", () => {
   render(<App />);
   expect(screen.getByRole("heading", { name: "Support for your baby’s first two years." })).toBeTruthy();
+  expect(screen.getByText(/from birth through their second birthday \(0–24 months\)/)).toBeTruthy();
   expect(microphoneMounted).not.toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: /microphone|Start recording/i })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Log in to your account" }));

@@ -129,6 +129,7 @@ main.landing-shell:not([hidden]):has(.landing-page--chat) { width: 100%; max-wid
 .chat-heading h2, .chat-heading p { margin: 0; }
 .chat-heading h2 { font-size: 17px; }
 .chat-heading p { font-size: 13px; }
+.chat-age-notice { flex-basis: 100%; color: var(--text); }
 .chat-stage { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
 .chat-main .conversation-thread { min-height: 0; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 12px max(24px, calc((100% - 880px) / 2)); gap: 14px; text-align: left; }
 .conversation-thread > * { flex-shrink: 0; }

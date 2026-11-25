@@ -30,6 +30,7 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
   const dialogRef = useRef(null);
   const pickerId = useId();
   const headingId = useId();
+  const ageScopeId = useId();
   const initialSelection = useRef(selectedChild?.id);
   const initialProfiles = useRef({ userId, children: initialChildren });
   const pickerOpen = pickerPosition !== null;
@@ -222,7 +223,11 @@ export default function ChildProfiles({ selectedChild, onSelect, userId, guidanc
       </div> : <form className="child-form" onSubmit={saveChild}>
         <fieldset disabled={busy || guidanceBusy} className="profile-form-fields">
           <label>Child name<input autoFocus required value={name} maxLength="60" onChange={(event) => setName(event.target.value)} /></label>
-          <label>Date of birth<input required type="date" value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></label>
+          <div>
+            <label>Date of birth<input required type="date" aria-describedby={ageScopeId} value={dateOfBirth}
+              onChange={(event) => setDateOfBirth(event.target.value)} /></label>
+            <p id={ageScopeId} className="profile-age-help">Coaching is currently available from birth through the second birthday (0–24 months).</p>
+          </div>
           <fieldset className="optional-milestones"><legend>Additional milestones (optional)</legend>
             <p>You can save the profile without adding milestones.</p>
             {milestones.map((milestone, index) => <div className="milestone-entry" key={index}>
