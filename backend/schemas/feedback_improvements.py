@@ -70,9 +70,9 @@ class ImprovementContent(BaseModel):
     @model_validator(mode="after")
     def validate_review_stage(self):
         if not self.fictional_confirmed:
-            raise ValueError("Use an administrator-authored fictional scenario without caregiver identifiers.")
+            raise ValueError("Confirm that the case contains no caregiver identifiers or private chat text.")
         if not within_project_scope(self.fictional_date_of_birth, self.evaluation_date):
-            raise ValueError("The fictional evaluation age must be within birth through the second birthday.")
+            raise ValueError("The child's age on the evaluation date must be between birth and the second birthday, inclusive.")
         if self.status != "investigating":
             if not (self.baseline.complete and self.candidate.complete and self.change_summary
                     and self.change_reference and self.evaluation_notes):

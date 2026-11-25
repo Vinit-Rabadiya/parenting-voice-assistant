@@ -1,11 +1,15 @@
 .admin-improvements { display: grid; gap: 16px; }
 .admin-improvements > p { margin: 0; }
 .improvement-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.improvement-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.improvement-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; max-height: 300px; overflow-y: auto; }
 .improvement-list button { width: 100%; display: grid; gap: 5px; text-align: left; overflow-wrap: anywhere; }
 .improvement-list small { color: var(--text); font-size: 12px; }
 .improvement-editor { display: grid; gap: 20px; }
-.improvement-editor h3, .improvement-editor h4 { margin: 0; }
+.improvement-editor h3, .improvement-editor h4 { margin: 0; overflow-wrap: anywhere; }
+.improvement-editor .admin-panel-heading { justify-content: space-between; flex-wrap: wrap; }
+.improvement-editor .admin-panel-heading span { font-size: 13px; color: var(--text); }
+.improvement-steps { border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+.improvement-steps button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
 .improvement-editor fieldset { min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--border); border-radius: 10px; display: grid; gap: 14px; }
 .improvement-editor legend { padding: 0 6px; font-size: 14px; font-weight: 600; }
 .improvement-editor label { display: grid; gap: 6px; min-width: 0; font-size: 13px; text-align: left; }
@@ -13,9 +17,10 @@
 .improvement-editor textarea { resize: vertical; }
 .improvement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .improvement-capture { min-width: 0; display: grid; align-content: start; gap: 12px; }
-.improvement-editor .improvement-check { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
+.improvement-editor .improvement-check { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; line-height: 1.5; }
 .improvement-check input { flex-shrink: 0; width: 16px; height: 16px; margin-top: 2px; }
 .improvement-details > summary { padding: 10px 0; cursor: pointer; font-weight: 600; }
+.improvement-capture .improvement-details[open] > .improvement-capture { padding-block: 6px 12px; }
 .improvement-editor :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .improvement-editor :disabled { opacity: .7; }
 @media (max-width: 700px) { .improvement-grid { grid-template-columns: minmax(0, 1fr); } }
