@@ -33,6 +33,10 @@ async function openCase(content = draft) {
   fireEvent.click(await screen.findByRole("button", { name: /Repeated play advice/ }));
 }
 
+function openEvaluation() {
+  fireEvent.click(screen.getByRole("button", { name: "Test a fix" }));
+}
+
 it("explains how feedback leads to reviewed changes without claiming automatic training", async () => {
   render(<AdminFeedbackImprovements />);
   await screen.findByText("No improvement cases on this page.");
@@ -46,19 +50,31 @@ it("creates only an administrator-authored fictional scenario", async () => {
   render(<AdminFeedbackImprovements />);
   await screen.findByText("No improvement cases on this page.");
   fireEvent.click(screen.getByRole("button", { name: "New improvement case" }));
-  for (const [label, value] of [["Case title", "Fictional concern"], ["Fictional reproduction scenario", "A fictional question"],
-    ["Expected answer behavior", "Offer appropriate guidance"], ["Fictional date of birth", "2026-05-10"], ["Evaluation date", "2026-11-10"]]) {
+  expect(screen.getByLabelText("Evaluation date").value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(screen.queryByRole("button", { name: "Test a fix" })).toBeNull();
+  expect(screen.queryByLabelText("Baseline answer text")).toBeNull();
+  for (const [label, value] of [["Case title", "Play advice concern"], ["Scenario", "A caregiver asks for a new play idea"],
+    ["Expected answer behavior", "Offer different age-appropriate guidance"], ["Date of birth", "2026-05-10"], ["Evaluation date", "2026-11-10"]]) {
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
   }
-  fireEvent.click(screen.getByLabelText(/I wrote a fictional case/));
+  fireEvent.click(screen.getByLabelText(/I wrote this case without caregiver identifiers/));
   fireEvent.click(screen.getByRole("button", { name: "Save investigation" }));
   await screen.findByText("Improvement case saved.");
-  expect(createFeedbackImprovement.mock.calls[0][0]).toMatchObject({ title: "Fictional concern", fictional_confirmed: true, status: "investigating" });
+  expect(createFeedbackImprovement.mock.calls[0][0]).toMatchObject({ title: "Play advice concern", fictional_confirmed: true, status: "investigating" });
   expect(createFeedbackImprovement.mock.calls[0][0].caregiver_uid).toBeUndefined();
+  openEvaluation();
+  expect(screen.getByLabelText("Baseline answer text")).toBeTruthy();
+  expect(screen.queryByLabelText("Case title")).toBeNull();
+  expect(screen.queryByLabelText("Deployed commit")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Baseline answer text"), { target: { value: "Unsaved test answer" } });
+  fireEvent.click(screen.getByRole("button", { name: "Concern" }));
+  openEvaluation();
+  expect(screen.getByLabelText("Baseline answer text").value).toBe("Unsaved test answer");
 });
 
 it("does not advance an incomplete evaluation", async () => {
   await openCase({ ...draft, baseline: { ...review, answer: "" } });
+  openEvaluation();
   fireEvent.click(screen.getByRole("button", { name: "Record successful evaluation" }));
   await screen.findByRole("alert");
   expect(screen.getByText(/Complete both answers/)).toBeTruthy();
@@ -67,11 +83,15 @@ it("does not advance an incomplete evaluation", async () => {
 
 it("records evaluation, release and reopening with the latest saved revision", async () => {
   await openCase();
+  openEvaluation();
   updateFeedbackImprovement.mockImplementation(async (_, content, version) => record(content, version + 1));
   fireEvent.click(screen.getByRole("button", { name: "Record successful evaluation" }));
   await screen.findByRole("button", { name: "Record release" });
   expect(updateFeedbackImprovement.mock.calls[0][2]).toBe(1);
+  expect(screen.queryByLabelText("Case title")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Concern" }));
   expect(screen.getByLabelText("Case title").closest("fieldset").disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Release record" }));
   fireEvent.change(screen.getByLabelText("Deployed commit"), { target: { value: "b".repeat(40) } });
   fireEvent.change(screen.getByLabelText("Release notes"), { target: { value: "Checked the applied correction." } });
   fireEvent.click(screen.getByLabelText("I checked that this correction is deployed."));
@@ -81,6 +101,7 @@ it("records evaluation, release and reopening with the latest saved revision", a
   expect(updateFeedbackImprovement.mock.calls[1][1].status).toBe("released");
   updateFeedbackImprovement.mockImplementation(async (_, content, version) => record({ ...content,
     checks: Object.fromEntries(Object.keys(content.checks).map(key => [key, false])), release_revision: "", deployment_checked: false, release_notes: "" }, version + 1));
+  fireEvent.click(screen.getByText("Case actions"));
   fireEvent.click(screen.getByRole("button", { name: "Reopen investigation" }));
   await screen.findByRole("button", { name: "Save investigation" });
   expect(updateFeedbackImprovement.mock.calls[2][2]).toBe(3);
@@ -110,6 +131,8 @@ it("keeps edited review content when discarding changes is cancelled", async () 
 
 it("requires a reason for source support being inapplicable and sends no invented score", async () => {
   await openCase();
+  openEvaluation();
+  fireEvent.click(screen.getByText("Candidate evidence and scores"));
   fireEvent.click(screen.getByLabelText("Candidate source support is not applicable (no supplied references)."));
   expect(screen.getByLabelText("Candidate source support score").disabled).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Record successful evaluation" }));
@@ -150,6 +173,7 @@ it("removes own review content when access is refused on refresh", async () => {
 it("deletes only the selected saved version and refreshes the list", async () => {
   await openCase();
   listFeedbackImprovements.mockResolvedValue({ items: [], next_cursor: null });
+  fireEvent.click(screen.getByText("Case actions"));
   fireEvent.click(screen.getByRole("button", { name: "Delete case" }));
   await screen.findByText("Improvement case deleted.");
   expect(deleteFeedbackImprovement.mock.calls[0].slice(0, 2)).toEqual([id, 1]);

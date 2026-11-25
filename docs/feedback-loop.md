@@ -15,7 +15,7 @@ The new **Answer improvement cases** workspace closes the review-record loop:
 ```mermaid
 flowchart LR
     A[Caregiver feedback] --> B[Administrator reviews a concern]
-    B --> C[Fictional reproduction case]
+    B --> C[Improvement case]
     C --> D[Baseline answer and evidence]
     D --> E[Prompt, source, retrieval or rule correction]
     E --> F[Candidate answer and regression checks]
@@ -44,18 +44,20 @@ applies. A role does not grant access to another administrator's cases.
 1. Inspect the existing rating/reason overview and shared comments. Choose a
    recurring or important concern. Do not infer how many distinct caregivers
    contributed from per-answer counts.
-2. Choose **New improvement case**. Select the feedback category, write a new
-   fictional reproduction scenario and expected behavior, and specify a fictional
-   birth date and fixed evaluation date within the supported age scope. The
-   scenario can describe a synthetic follow-up conversation. Confirm that it
-   contains no caregiver identifiers or private chat text. Nothing is copied
-   automatically from a caregiver conversation or comment.
-3. Save the investigation. Record the proposed correction area, explanation and
+2. Choose **New improvement case**. Select the feedback category, describe the
+   **Scenario** and expected answer behavior, and enter a date of birth for the
+   scenario within the supported age scope. The evaluation date defaults to today
+   and can be changed to match the case. Confirm that the case contains no caregiver
+   identifiers or private chat text. Nothing is copied automatically from a caregiver
+   conversation or comment.
+3. Save the investigation. Open **Test a fix** when you have a correction to
+   review. Record the correction area, explanation and
    commit/PR reference. Capture a baseline and a candidate answer using the same
-   fictional question, age and intended conditions. Record each answer's actual
-   model, prompt revision, corpus revision and evaluation report reference.
-4. Score both answers on source support, helpfulness, age fit, clarity and safety
-   boundaries using the existing [1–5 review rubric](../data/evaluation/coaching-quality-review.md). Record issue resolution,
+   question, age and intended conditions. Use each answer's **Evidence
+   and scores** to record the actual model, prompt revision, corpus revision and
+   evaluation report reference. **Save review draft** keeps partial evidence.
+4. In the same section, score both answers on source support, helpfulness, age fit, clarity
+   and safety boundaries using the existing [1–5 review rubric](../data/evaluation/coaching-quality-review.md). Record issue resolution,
    source/age/safety review, regression results and evaluation notes. Use real
    captures and checks; a typed reference is not automatically verified.
 5. Choose **Record successful evaluation**. The API requires complete captures,
@@ -68,7 +70,7 @@ applies. A role does not grant access to another administrator's cases.
    If no references were supplied, mark source support explicitly not applicable
    with a reason instead of inventing a score; the other checks still apply.
 6. Apply the reviewed correction through the normal source/code review and
-   deployment process. After checking the running revision, enter the full
+   deployment process. After checking the running revision, open **Release record**, enter the full
    40-character deployed commit and release notes, confirm deployment and choose
    **Record release**. This records the operator's observation; it does not
    contact GitHub/Azure or deploy anything.
@@ -80,13 +82,13 @@ applies. A role does not grant access to another administrator's cases.
 
 | Feedback category | Example investigation | Possible reviewed correction |
 | --- | --- | --- |
-| Unclear | A fictional answer is hard to understand | Clearer prompt instructions or more actionable source text |
+| Unclear | An answer is hard to understand | Clearer prompt instructions or more actionable source text |
 | Repeated advice | A synthetic follow-up repeats earlier actions | Improve follow-up instructions or context handling |
-| Did not answer | The answer misses the fictional request | Correct intent handling, retrieval wording or source coverage |
+| Did not answer | The answer misses the request | Correct intent handling, retrieval wording or source coverage |
 | Not age appropriate | The captured advice does not fit the resolved age | Review age resolution, passage eligibility and output safeguards |
 | Other concern | Reproduce and characterize the problem first | Choose an appropriate content, retrieval, prompt or rule change |
 
-For example, a repeated-advice signal can motivate a fictional request for more
+For example, a repeated-advice signal can motivate a follow-up request for more
 ideas. Capture the old response, change the relevant coaching instructions,
 capture the candidate response, and review whether it adds an appropriate distinct
 action. A recorded helpfulness change from 2/5 to 4/5 is a reviewer judgment on
@@ -96,14 +98,14 @@ that example, not a percentage accuracy gain or a population result.
 
 - New cases begin as **Investigating**. A release cannot be recorded directly
   from investigation; the evaluation stage is required first.
-- Reviewed content is locked while evaluation/release is recorded. Use **Reopen
-  investigation** before changing it. Reopening clears check attestations and
+- Reviewed content is locked while evaluation/release is recorded. Under **Case
+  actions**, use **Reopen investigation** before changing it. Reopening clears check attestations and
   release confirmation so old checks do not silently approve new content.
 - Every save/delete includes an expected version. A stale browser tab receives
   a conflict instead of overwriting another update. Refresh and open the latest
   case before retrying. This is a versioned current record, not an immutable
   history of all earlier edits.
-- **Download saved review record** exports the last saved JSON record for the
+- Under **Case actions**, **Download saved review record** exports the last saved JSON record for the
   administrator's own review/document work. It does not export original caregiver
   questions or attach account identity. Downloaded copies remain separate files
   and are not recalled by in-app deletion.
@@ -115,8 +117,8 @@ that example, not a percentage accuracy gain or a population result.
   caregiver feedback eligibility and deletion rules are unchanged. Synthetic
   case scores are not counted as caregiver feedback.
 
-Administrators must still check their own entered content. The fictional-content
-confirmation is an attestation, not automatic anonymization. No new permission
+Administrators must still check their own entered content. The privacy checkbox
+records the administrator's confirmation. No new permission
 to inspect caregiver chats or send those chats to a provider is introduced.
 
 ## Latency and evaluation limits
