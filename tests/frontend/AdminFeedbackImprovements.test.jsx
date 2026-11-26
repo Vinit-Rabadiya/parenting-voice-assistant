@@ -1,10 +1,11 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import AdminFeedbackImprovements from "../../frontend/src/components/AdminFeedbackImprovements";
-import { createFeedbackImprovement, deleteFeedbackImprovement, listFeedbackImprovements, updateFeedbackImprovement } from "../../frontend/src/services/caregiving";
+import AdminPage from "../../frontend/src/pages/AdminPage";
+import { createFeedbackImprovement, deleteFeedbackImprovement, getFeedbackSummary, listFeedbackImprovements, updateFeedbackImprovement } from "../../frontend/src/services/caregiving";
 
 vi.mock("../../frontend/src/services/caregiving", () => ({ createFeedbackImprovement: vi.fn(), deleteFeedbackImprovement: vi.fn(),
-  listFeedbackImprovements: vi.fn(), updateFeedbackImprovement: vi.fn() }));
+  getFeedbackSummary: vi.fn(), listFeedbackImprovements: vi.fn(), updateFeedbackImprovement: vi.fn() }));
 
 const id = "a".repeat(32);
 const scores = { faithfulness: 4, helpfulness: 3, age_fit: 4, clarity: 4, safety: 4 };
@@ -45,22 +46,27 @@ it("explains how feedback leads to reviewed changes without claiming automatic t
   expect(createFeedbackImprovement).not.toHaveBeenCalled();
 });
 
-it("creates only an administrator-authored fictional scenario", async () => {
-  createFeedbackImprovement.mockImplementation(async content => record(content));
+it("creates an administrator-authored scenario without asking for dates", async () => {
+  createFeedbackImprovement.mockImplementation(async content => record({
+    ...content, fictional_date_of_birth: null, evaluation_date: null,
+  }));
   render(<AdminFeedbackImprovements />);
   await screen.findByText("No improvement cases on this page.");
   fireEvent.click(screen.getByRole("button", { name: "New improvement case" }));
-  expect(screen.getByLabelText("Evaluation date").value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(screen.queryByLabelText("Date of birth")).toBeNull();
+  expect(screen.queryByLabelText("Evaluation date")).toBeNull();
   expect(screen.queryByRole("button", { name: "Test a fix" })).toBeNull();
   expect(screen.queryByLabelText("Baseline answer text")).toBeNull();
   for (const [label, value] of [["Case title", "Play advice concern"], ["Scenario", "A caregiver asks for a new play idea"],
-    ["Expected answer behavior", "Offer different age-appropriate guidance"], ["Date of birth", "2026-05-10"], ["Evaluation date", "2026-11-10"]]) {
+    ["Expected answer behavior", "Offer different age-appropriate guidance"]]) {
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
   }
   fireEvent.click(screen.getByLabelText(/I wrote this case without caregiver identifiers/));
   fireEvent.click(screen.getByRole("button", { name: "Save investigation" }));
   await screen.findByText("Improvement case saved.");
   expect(createFeedbackImprovement.mock.calls[0][0]).toMatchObject({ title: "Play advice concern", fictional_confirmed: true, status: "investigating" });
+  expect(createFeedbackImprovement.mock.calls[0][0]).not.toHaveProperty("fictional_date_of_birth");
+  expect(createFeedbackImprovement.mock.calls[0][0]).not.toHaveProperty("evaluation_date");
   expect(createFeedbackImprovement.mock.calls[0][0].caregiver_uid).toBeUndefined();
   openEvaluation();
   expect(screen.getByLabelText("Baseline answer text")).toBeTruthy();
@@ -70,6 +76,35 @@ it("creates only an administrator-authored fictional scenario", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Concern" }));
   openEvaluation();
   expect(screen.getByLabelText("Baseline answer text").value).toBe("Unsaved test answer");
+});
+
+it("starts and saves a case from a reported reason in the dashboard", async () => {
+  const comment = "My child has a private name.";
+  getFeedbackSummary.mockResolvedValue({ unit: "Saved feedback per answer", ratings: [], legacy_helpfulness: [],
+    reasons: [{ label: "Did not answer the message", count: 1 }, { label: "Unclear", count: 0 }],
+    comments: [{ comment, rating: 2, helpful: null, reasons: ["Did not answer the message"] }], comment_count: 1 });
+  createFeedbackImprovement.mockImplementation(async content => record(content));
+  render(<AdminPage />);
+  const investigateButton = await screen.findByRole("button", { name: "Investigate: Did not answer the message" });
+  expect(screen.queryByRole("button", { name: "Investigate: Unclear" })).toBeNull();
+  await waitFor(() => expect(investigateButton.disabled).toBe(false));
+  fireEvent.click(investigateButton);
+  expect(screen.getByLabelText("Feedback category").value).toBe("did_not_answer");
+  expect(screen.getByLabelText("Scenario").value).toBe("");
+  expect(createFeedbackImprovement).not.toHaveBeenCalled();
+
+  for (const [label, value] of [["Case title", "Answer missed the concern"], ["Scenario", "The caregiver asks for an alternative"],
+    ["Expected answer behavior", "Answer the follow-up with a distinct option"]]) {
+    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  }
+  fireEvent.click(screen.getByLabelText(/I wrote this case without caregiver identifiers/));
+  fireEvent.click(screen.getByRole("button", { name: "Save investigation" }));
+  await screen.findByText("Improvement case saved.");
+  const submitted = createFeedbackImprovement.mock.calls[0][0];
+  expect(submitted).toMatchObject({ category: "did_not_answer", status: "investigating" });
+  expect(JSON.stringify(submitted)).not.toContain(comment);
+  openEvaluation();
+  expect(screen.getByLabelText("Baseline answer text")).toBeTruthy();
 });
 
 it("does not advance an incomplete evaluation", async () => {
@@ -88,6 +123,9 @@ it("records evaluation, release and reopening with the latest saved revision", a
   fireEvent.click(screen.getByRole("button", { name: "Record successful evaluation" }));
   await screen.findByRole("button", { name: "Record release" });
   expect(updateFeedbackImprovement.mock.calls[0][2]).toBe(1);
+  expect(updateFeedbackImprovement.mock.calls[0][1]).toMatchObject({
+    fictional_date_of_birth: draft.fictional_date_of_birth, evaluation_date: draft.evaluation_date,
+  });
   expect(screen.queryByLabelText("Case title")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Concern" }));
   expect(screen.getByLabelText("Case title").closest("fieldset").disabled).toBe(true);

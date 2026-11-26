@@ -44,16 +44,17 @@ applies. A role does not grant access to another administrator's cases.
 1. Inspect the existing rating/reason overview and shared comments. Choose a
    recurring or important concern. Do not infer how many distinct caregivers
    contributed from per-answer counts.
-2. Choose **New improvement case**. Select the feedback category, describe the
-   **Scenario** and expected answer behavior, and enter a date of birth for the
-   scenario within the supported age scope. The evaluation date defaults to today
-   and can be changed to match the case. Confirm that the case contains no caregiver
+2. Choose **Investigate** beside a reported reason to start a new case with its
+   category selected. You can also choose **New improvement case** and select the
+   feedback category yourself. Describe the
+   **Scenario** and expected answer behavior. Include a test age in the scenario
+   if it matters to the concern. Confirm that the case contains no caregiver
    identifiers or private chat text. Nothing is copied automatically from a caregiver
    conversation or comment.
 3. Save the investigation. Open **Test a fix** when you have a correction to
    review. Record the correction area, explanation and
    commit/PR reference. Capture a baseline and a candidate answer using the same
-   question, age and intended conditions. Use each answer's **Evidence
+   question and test conditions, including any test age. Use each answer's **Evidence
    and scores** to record the actual model, prompt revision, corpus revision and
    evaluation report reference. **Save review draft** keeps partial evidence.
 4. In the same section, score both answers on source support, helpfulness, age fit, clarity

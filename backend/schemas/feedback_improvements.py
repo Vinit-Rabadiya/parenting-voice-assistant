@@ -52,8 +52,9 @@ class ImprovementContent(BaseModel):
     category: Literal["unclear", "repeated_advice", "did_not_answer", "not_age_appropriate", "other"]
     scenario: str = Field(min_length=3, max_length=1200)
     expected_behavior: str = Field(min_length=3, max_length=1200)
-    fictional_date_of_birth: date
-    evaluation_date: date
+    # Keep dates supplied by older clients and saved cases.
+    fictional_date_of_birth: date | None = None
+    evaluation_date: date | None = None
     fictional_confirmed: StrictBool
     status: Literal["investigating", "ready_for_release", "released"] = "investigating"
     change_area: Literal["prompt", "references", "retrieval", "guardrails"] = "prompt"
@@ -71,7 +72,10 @@ class ImprovementContent(BaseModel):
     def validate_review_stage(self):
         if not self.fictional_confirmed:
             raise ValueError("Confirm that the case contains no caregiver identifiers or private chat text.")
-        if not within_project_scope(self.fictional_date_of_birth, self.evaluation_date):
+        birth_date, evaluation_date = self.fictional_date_of_birth, self.evaluation_date
+        if (birth_date is None) != (evaluation_date is None):
+            raise ValueError("Provide both scenario dates together.")
+        if birth_date is not None and evaluation_date is not None and not within_project_scope(birth_date, evaluation_date):
             raise ValueError("The child's age on the evaluation date must be between birth and the second birthday, inclusive.")
         if self.status != "investigating":
             if not (self.baseline.complete and self.candidate.complete and self.change_summary
