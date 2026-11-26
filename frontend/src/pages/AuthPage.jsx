@@ -71,10 +71,9 @@ function AuthPage({ onAccountCreated, initialMode = "login" }) {
         </form>
 
         <p role="status">{message}</p>
-        <details><summary>Lost access to your authenticator?</summary>
-          {factors.length > 1 && <p>Try another authenticator from the selector above.</p>}
-          <p>If you cannot access an authenticator, contact the service owner to recover your account.</p>
-        </details>
+        {factors.length > 1 && <details><summary>Using a backup authenticator?</summary>
+          <p>Try another authenticator from the selector above.</p>
+        </details>}
 
         <button
           type="button"
