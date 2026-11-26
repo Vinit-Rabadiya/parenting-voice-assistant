@@ -21,6 +21,8 @@ main.admin-shell { width: min(1120px, calc(100% - 48px)); max-width: none; margi
 .admin-band-row dt { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--text-h); }
 .admin-rating-number { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--social-bg); font-size: 12px; font-weight: 650; color: var(--text); }
 .admin-band-row dd { margin: 0; display: flex; align-items: baseline; justify-content: flex-end; gap: 5px; white-space: nowrap; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text); }
+.admin-band-row dd:has(button) { flex-wrap: wrap; align-items: center; gap: 8px; }
+.admin-band-count { display: inline-flex; align-items: baseline; gap: 5px; }
 .admin-band-row dd strong { color: var(--text-h); font-size: 14px; font-weight: 600; }
 .admin-page .admin-report-note { font-size: 12px; line-height: 1.6; color: var(--text); }
 .admin-page .admin-load-status { text-align: left; color: var(--text); font-size: 13px; }

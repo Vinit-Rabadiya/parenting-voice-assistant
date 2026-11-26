@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   createFeedbackImprovement, deleteFeedbackImprovement, listFeedbackImprovements, updateFeedbackImprovement,
 } from "../services/caregiving";
@@ -15,8 +15,8 @@ const captureFields = { model: "Actual model", prompt_revision: "Prompt revision
 const blankReview = () => ({ answer: "", model: "", prompt_revision: "", corpus_revision: "", report_reference: "",
   faithfulness_not_applicable: false, faithfulness_note: "",
   scores: Object.fromEntries(Object.keys(dimensions).map(key => [key, null])) });
-const newContent = () => ({ title: "", category: "unclear", scenario: "", expected_behavior: "", fictional_date_of_birth: "",
-  evaluation_date: new Date().toLocaleDateString("sv-SE"), fictional_confirmed: false, status: "investigating",
+const newContent = (category = "unclear") => ({ title: "", category, scenario: "", expected_behavior: "",
+  fictional_confirmed: false, status: "investigating",
   change_area: "prompt", change_summary: "", change_reference: "",
   baseline: blankReview(), candidate: blankReview(), checks: Object.fromEntries(Object.keys(checkLabels).map(key => [key, false])),
   evaluation_notes: "", release_revision: "", deployment_checked: false, release_notes: "" });
@@ -25,8 +25,9 @@ function validRecord(record) {
   const content = record?.content;
   return /^[0-9a-f]{32}$/.test(record?.id) && Number.isSafeInteger(record.version) && record.version > 0
     && content && Object.hasOwn(stages, content.status) && Object.hasOwn(categories, content.category)
-    && ["title", "scenario", "expected_behavior", "fictional_date_of_birth", "evaluation_date", "change_area", "change_summary",
+    && ["title", "scenario", "expected_behavior", "change_area", "change_summary",
       "change_reference", "evaluation_notes", "release_revision", "release_notes"].every(key => typeof content[key] === "string")
+    && ["fictional_date_of_birth", "evaluation_date"].every(key => content[key] == null || typeof content[key] === "string")
     && typeof content.fictional_confirmed === "boolean" && typeof content.deployment_checked === "boolean"
     && ["baseline", "candidate"].every(side => content[side]
       && typeof content[side].faithfulness_not_applicable === "boolean" && typeof content[side].faithfulness_note === "string"
@@ -58,7 +59,7 @@ function evaluationProblem(content) {
   return "";
 }
 
-export default function AdminFeedbackImprovements() {
+export default function AdminFeedbackImprovements({ ref, onInvestigationDisabledChange }) {
   const [page, setPage] = useState({ items: [], next_cursor: null });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -120,12 +121,22 @@ export default function AdminFeedbackImprovements() {
       || window.confirm("Discard unsaved review changes?");
   }
 
-  function edit(record = null) {
+  function edit(record = null, category) {
     if (!canDiscard()) return;
-    setSelected(record); setContent(record ? structuredClone(record.content) : newContent());
+    setSelected(record); setContent(record ? structuredClone(record.content) : newContent(category));
     setPanel(record && record.content.status !== "investigating" ? "release" : "concern");
     setError(""); setNotice("");
+    if (editing && selectedId === record?.id) editorHeading.current?.focus();
   }
+
+  useImperativeHandle(ref, () => ({
+    startInvestigation(category) {
+      if (!busy && !denied) edit(null, category);
+    },
+  }));
+  useEffect(() => {
+    onInvestigationDisabledChange?.(busy || denied);
+  }, [busy, denied, onInvestigationDisabledChange]);
 
   const set = (key, value) => setContent(previous => ({ ...previous, [key]: value }));
   const setReview = (side, key, value) => setContent(previous => ({ ...previous, [side]: { ...previous[side], [key]: value } }));
@@ -165,7 +176,7 @@ export default function AdminFeedbackImprovements() {
         setDenied(true); setContent(null); setSelected(null); setPage({ items: [], next_cursor: null });
       }
       setError(cause.status === 409 ? cause.message : cause.status === 422
-        ? "Check the required fields, dates, review evidence and stage requirements."
+        ? "Check the required fields, review evidence and stage requirements."
         : "The case could not be saved. Refresh before retrying if its status is uncertain.");
     } finally {
       clearTimeout(timer);
@@ -240,12 +251,10 @@ export default function AdminFeedbackImprovements() {
             {Object.entries(categories).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </select></label>
         </div>
-        <label>Scenario<textarea required minLength="3" maxLength="1200" rows="3" value={content.scenario} onChange={event => set("scenario", event.target.value)} /></label>
+        <label>Scenario<textarea required minLength="3" maxLength="1200" rows="3" aria-describedby="improvement-scenario-help"
+          value={content.scenario} onChange={event => set("scenario", event.target.value)} /></label>
+        <p className="admin-report-note" id="improvement-scenario-help">Include a test age only if it matters to the concern.</p>
         <label>Expected answer behavior<textarea required minLength="3" maxLength="1200" rows="2" value={content.expected_behavior} onChange={event => set("expected_behavior", event.target.value)} /></label>
-        <div className="improvement-grid">
-          <label>Date of birth<input required type="date" max={content.evaluation_date} value={content.fictional_date_of_birth} onChange={event => set("fictional_date_of_birth", event.target.value)} /></label>
-          <label>Evaluation date<input required type="date" value={content.evaluation_date} onChange={event => set("evaluation_date", event.target.value)} /></label>
-        </div>
         <label className="improvement-check"><input required type="checkbox" checked={content.fictional_confirmed} onChange={event => set("fictional_confirmed", event.target.checked)} />
           I wrote this case without caregiver identifiers or private chat text.</label>
       </fieldset>}
@@ -256,7 +265,7 @@ export default function AdminFeedbackImprovements() {
           </select></label>
           <label>Correction summary<textarea rows="2" maxLength="1200" value={content.change_summary} onChange={event => set("change_summary", event.target.value)} /></label>
           <label>Change reference<input maxLength="300" placeholder="Commit or pull request reference" value={content.change_reference} onChange={event => set("change_reference", event.target.value)} /></label>
-          <p className="admin-report-note">Use the same scenario and child age before and after the fix.</p>
+          <p className="admin-report-note">Use the same scenario and test conditions before and after the fix.</p>
           <div className="improvement-grid">{["baseline", "candidate"].map(side => <div className="improvement-capture" key={side}>
             <h4>{side === "baseline" ? "Baseline" : "Candidate"} answer</h4>
             <label>{side === "baseline" ? "Baseline" : "Candidate"} answer text<textarea rows="5" maxLength="6000" value={content[side].answer} onChange={event => setReview(side, "answer", event.target.value)} /></label>

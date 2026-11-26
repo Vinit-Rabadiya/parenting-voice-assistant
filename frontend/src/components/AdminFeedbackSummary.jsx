@@ -1,6 +1,13 @@
 import { useEffect, useId, useState } from "react";
 import { getFeedbackSummary } from "../services/caregiving";
 
+const investigationCategories = new Map([
+  ["Unclear", "unclear"],
+  ["Repeated advice", "repeated_advice"],
+  ["Did not answer the message", "did_not_answer"],
+  ["Not suited to the child's age", "not_age_appropriate"],
+]);
+
 function validSummary(value) {
   return value?.unit === "Saved feedback per answer" && ["ratings", "reasons", "legacy_helpfulness"].every(key =>
     Array.isArray(value[key]) && value[key].every(item => typeof item?.label === "string" && item.label.trim()
@@ -14,7 +21,7 @@ function validSummary(value) {
       && item.reasons.every(reason => typeof reason === "string" && reason.trim() && reason.length <= 80));
 }
 
-export default function AdminFeedbackSummary() {
+export default function AdminFeedbackSummary({ onInvestigate, investigationDisabled }) {
   const [report, setReport] = useState({ status: "loading", summary: null });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -71,7 +78,8 @@ export default function AdminFeedbackSummary() {
       </div>}
       <div className="admin-report-grid">
         <Buckets title="Helpfulness ratings" items={summary.ratings} ratings />
-        <Buckets title="Feedback reasons" items={summary.reasons} />
+        <Buckets title="Feedback reasons" items={summary.reasons}
+          onInvestigate={onInvestigate} investigationDisabled={investigationDisabled} />
       </div>
       {summary.legacy_helpfulness.some(item => item.count > 0) && <details className="admin-legacy">
         <summary>Earlier feedback</summary><Buckets title="Helpful / Not helpful" items={summary.legacy_helpfulness} />
@@ -93,7 +101,7 @@ export default function AdminFeedbackSummary() {
   </section>;
 }
 
-function Buckets({ title, items, ratings = false }) {
+function Buckets({ title, items, ratings = false, onInvestigate, investigationDisabled }) {
   const heading = useId();
   return <section className="admin-panel" aria-labelledby={heading}>
     <header className="admin-panel-heading"><span className="admin-panel-icon" aria-hidden="true">
@@ -102,9 +110,14 @@ function Buckets({ title, items, ratings = false }) {
       </svg></span><h2 id={heading}>{title}</h2></header>
     <dl className="admin-band-list">{items.map(item => {
       const rating = ratings && /^([1-5])\s*[—-]\s*(.+)$/.exec(item.label);
+      const category = investigationCategories.get(item.label);
+      const canInvestigate = onInvestigate && category && item.count > 0;
       return <div className="admin-band-row" key={item.label}><dt>
         {rating && <span className="admin-rating-number">{rating[1]}</span>}<span>{rating ? rating[2] : item.label}</span>
-      </dt><dd><strong>{item.count}</strong><span>{item.count === 1 ? "response" : "responses"}</span></dd></div>;
+      </dt><dd><span className="admin-band-count"><strong>{item.count}</strong>
+        <span>{item.count === 1 ? "response" : "responses"}</span></span>
+        {canInvestigate && <button type="button" disabled={investigationDisabled} aria-label={`Investigate: ${item.label}`}
+          onClick={() => onInvestigate(category)}>Investigate</button>}</dd></div>;
     })}</dl>
   </section>;
 }

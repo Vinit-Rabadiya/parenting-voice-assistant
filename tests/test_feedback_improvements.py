@@ -15,11 +15,13 @@ from backend.services.feedback_improvements import (
 )
 
 
+LEGACY_DATES = {"fictional_date_of_birth": "2026-05-10", "evaluation_date": "2026-11-10"}
+
+
 def draft(**changes):
     return {"title": "Repeated alternatives", "category": "repeated_advice",
             "scenario": "A fictional caregiver asks for another play idea after receiving two suggestions.",
             "expected_behavior": "Offer a distinct source-supported action or explain the limitation.",
-            "fictional_date_of_birth": "2026-05-10", "evaluation_date": "2026-11-10",
             "fictional_confirmed": True, **changes}
 
 
@@ -105,7 +107,9 @@ def store(monkeypatch):
 
 @pytest.mark.parametrize("changes", [
     {"fictional_confirmed": False}, {"fictional_confirmed": "yes"},
-    {"evaluation_date": "2026-05-09"}, {"evaluation_date": "2029-01-01"},
+    {**LEGACY_DATES, "evaluation_date": "2026-05-09"},
+    {**LEGACY_DATES, "evaluation_date": "2029-01-01"},
+    {"evaluation_date": LEGACY_DATES["evaluation_date"]},
     {"caregiver_uid": "private-account"}, {"category": "unknown"},
 ])
 def test_invalid_or_nonfictional_case_is_rejected(changes):
@@ -155,17 +159,20 @@ def test_a_low_safety_score_cannot_be_approved_just_because_it_did_not_regress()
         ImprovementContent.model_validate(value)
 
 
-def test_owned_case_lifecycle_requires_evaluation_and_records_release(store):
+@pytest.mark.parametrize("dates", [{}, LEGACY_DATES], ids=["without-dates", "legacy-dates"])
+def test_owned_case_lifecycle_requires_evaluation_and_records_release(store, dates):
     service = FeedbackImprovementService(store)
-    first = service.create("admin-a", ImprovementContent.model_validate(draft()))
+    first = service.create("admin-a", ImprovementContent.model_validate(draft(**dates)))
     assert first.version == 1 and first.released_at is None
     with pytest.raises(ImprovementStageError):
         service.update("admin-a", first.id, 1, ImprovementContent.model_validate(reviewed(status="released",
             release_revision="a" * 40, deployment_checked=True, release_notes="Deployed correction verified.")))
-    checked = service.update("admin-a", first.id, 1, ImprovementContent.model_validate(reviewed()))
+    checked = service.update("admin-a", first.id, 1, ImprovementContent.model_validate(reviewed(**dates)))
     released = service.update("admin-a", first.id, 2, checked.content.model_copy(update={"status": "released",
         "release_revision": "a" * 40, "deployment_checked": True, "release_notes": "Deployed correction verified."}))
     assert released.version == 3 and released.released_at is not None
+    saved = service.list("admin-a")["items"][0].content.model_dump(mode="json")
+    assert {key: saved[key] for key in LEGACY_DATES} == {key: dates.get(key) for key in LEGACY_DATES}
     with pytest.raises(ImprovementStageError):
         service.update("admin-a", first.id, 3, released.content.model_copy(update={"release_revision": "b" * 40}))
     with pytest.raises(ImprovementStageError):
