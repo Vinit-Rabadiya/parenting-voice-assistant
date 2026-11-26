@@ -8,8 +8,6 @@
 .improvement-editor h3 { margin: 0; overflow-wrap: anywhere; }
 .improvement-editor .admin-panel-heading { justify-content: space-between; flex-wrap: wrap; }
 .improvement-editor .admin-panel-heading span { font-size: 13px; color: var(--text); }
-.improvement-steps { border-bottom: 1px solid var(--border); padding-bottom: 10px; }
-.improvement-steps button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
 .improvement-editor fieldset { min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--border); border-radius: 10px; display: grid; gap: 14px; }
 .improvement-editor legend { padding: 0 6px; font-size: 14px; font-weight: 600; }
 .improvement-editor label { display: grid; gap: 6px; min-width: 0; font-size: 13px; text-align: left; }
