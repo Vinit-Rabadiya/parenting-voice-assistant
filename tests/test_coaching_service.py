@@ -461,6 +461,7 @@ def test_sdk_client_has_one_attempt_without_changing_timeout(monkeypatch):
 
 def test_generation_diagnostics_log_phases_and_counts_without_content(caplog):
     client = FakeClient()
+    record_usage = Mock()
     response = SimpleNamespace(text="PRIVATE_ANSWER", usage_metadata=SimpleNamespace(
         prompt_token_count=100, candidates_token_count=20,
         thoughts_token_count=200, total_token_count=320,
@@ -471,7 +472,7 @@ def test_generation_diagnostics_log_phases_and_counts_without_content(caplog):
     token = generation_request_id.set("diagnostic-trace")
     try:
         with caplog.at_level(logging.INFO, logger="uvicorn.error.coaching_timing"):
-            result = CoachingService(api_key="PRIVATE_KEY", client=client).generate(
+            result = CoachingService(api_key="PRIVATE_KEY", client=client, usage_recorder=record_usage).generate(
                 "PRIVATE_QUESTION", 6, None, [reference],
             )
     finally:
@@ -482,6 +483,7 @@ def test_generation_diagnostics_log_phases_and_counts_without_content(caplog):
         assert f"request=diagnostic-trace provider=gemini phase={phase} event=started" in messages
         assert f"request=diagnostic-trace provider=gemini phase={phase} event=completed seconds=" in messages
     assert "prompt_tokens=100 answer_tokens=20 thought_tokens=200 total_tokens=320" in messages
+    record_usage.assert_called_once_with("gemini", input_tokens=100, output_tokens=20, thinking_tokens=200, total_tokens=320)
     for private in ("PRIVATE_KEY", "PRIVATE_QUESTION", "PRIVATE_REFERENCE", "PRIVATE_ANSWER"):
         assert private not in messages
 

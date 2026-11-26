@@ -5,8 +5,9 @@ from functools import partial
 import logging
 
 import firebase_admin
-from anyio import CancelScope, CapacityLimiter, create_task_group, move_on_after, to_thread
+from anyio import CancelScope, CapacityLimiter, create_task_group, move_on_after, sleep, to_thread
 from fastapi import FastAPI
+from firebase_admin import firestore
 from starlette.concurrency import run_in_threadpool
 
 from backend.core.config import PROJECT_ROOT, settings
@@ -20,6 +21,7 @@ from backend.services.provider_failover import ProviderFailoverService
 from backend.services.retrieval import RetrievalService
 from backend.services.account_security import AccountSecurityService
 from backend.services.auth_sessions import AuthSessionCache
+from backend.services.token_usage import TokenUsageService
 from backend.core.request_admission import RequestAdmission
 
 logger = logging.getLogger("uvicorn.error")
@@ -39,6 +41,12 @@ async def warm_references(service: RetrievalService) -> None:
             logger.warning("qdrant_warmup_error: %s", type(exc).__name__)
 
 
+async def persist_token_usage(service: TokenUsageService) -> None:
+    while True:
+        await sleep(15)
+        await to_thread.run_sync(service.flush)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.validate_deployment()
@@ -49,22 +57,27 @@ async def lifespan(app: FastAPI):
         app.state.auth_session_cache = AuthSessionCache(settings.AUTH_SESSION_CACHE_TTL_SECONDS)
         app.state.request_admission = RequestAdmission(enforce_rate=settings.APP_ENV == "production")
         app.state.account_security_service = AccountSecurityService(app.state.firebase, max_idle_sessions=8)
+        usage_service = TokenUsageService(lambda: firestore.client(app=app.state.firebase), settings.APP_ENV)
+        app.state.token_usage_service = usage_service
         # Own one wrapper per process; remote clients remain lazy until first use.
-        app.state.coaching_service = ProviderFailoverService() if settings.COACHING_PROVIDER_FAILOVER else CoachingService()
+        service_type = ProviderFailoverService if settings.COACHING_PROVIDER_FAILOVER else CoachingService
+        app.state.coaching_service = service_type(usage_recorder=usage_service.record)
         app.state.retrieval_service = RetrievalService()
         app.state.speech_service = await run_in_threadpool(SpeechService, settings.STT_MODEL)
         app.state.speech_limiter = CapacityLimiter(1)
-        async with create_task_group() as warmups:
+        async with create_task_group() as tasks:
+            tasks.start_soon(persist_token_usage, usage_service)
             if settings.QDRANT_WARMUP_ENABLED:
-                warmups.start_soon(warm_references, app.state.retrieval_service)
+                tasks.start_soon(warm_references, app.state.retrieval_service)
             try:
                 yield
             finally:
-                warmups.cancel_scope.cancel()
+                tasks.cancel_scope.cancel()
     finally:
         # Finish releasing local resources even if the lifespan was cancelled.
         with CancelScope(shield=True):
-            for name in ("request_admission", "auth_session_cache", "retrieval_service", "coaching_service", "account_security_service"):
+            for name in ("request_admission", "auth_session_cache", "retrieval_service", "coaching_service",
+                         "token_usage_service", "account_security_service"):
                 service = getattr(app.state, name, None)
                 if service is not None:
                     delattr(app.state, name)

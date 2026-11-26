@@ -6,6 +6,7 @@ import { createFeedbackImprovement, deleteFeedbackImprovement, getFeedbackSummar
 
 vi.mock("../../frontend/src/services/caregiving", () => ({ createFeedbackImprovement: vi.fn(), deleteFeedbackImprovement: vi.fn(),
   getFeedbackSummary: vi.fn(), listFeedbackImprovements: vi.fn(), updateFeedbackImprovement: vi.fn() }));
+vi.mock("../../frontend/src/components/AdminTokenUsage", () => ({ default: () => null }));
 
 const id = "a".repeat(32);
 const scores = { faithfulness: 4, helpfulness: 3, age_fit: 4, clarity: 4, safety: 4 };
@@ -34,14 +35,14 @@ async function openCase(content = draft) {
   fireEvent.click(await screen.findByRole("button", { name: /Repeated play advice/ }));
 }
 
-function openEvaluation() {
-  fireEvent.click(screen.getByRole("button", { name: "Test a fix" }));
+function openRelease() {
+  fireEvent.click(screen.getByRole("button", { name: "Release record" }));
 }
 
-it("explains how feedback leads to reviewed changes without claiming automatic training", async () => {
+it("explains when an administrator can record the release", async () => {
   render(<AdminFeedbackImprovements />);
   await screen.findByText("No improvement cases on this page.");
-  expect(screen.getByText(/does not train or deploy a model/)).toBeTruthy();
+  expect(screen.getByText(/verified on the live app/)).toBeTruthy();
   expect(listFeedbackImprovements).toHaveBeenCalledTimes(1);
   expect(createFeedbackImprovement).not.toHaveBeenCalled();
 });
@@ -56,7 +57,7 @@ it("creates an administrator-authored scenario without asking for dates", async 
   expect(screen.queryByLabelText("Date of birth")).toBeNull();
   expect(screen.queryByLabelText("Evaluation date")).toBeNull();
   expect(screen.queryByRole("button", { name: "Test a fix" })).toBeNull();
-  expect(screen.queryByLabelText("Baseline answer text")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Release record" })).toBeNull();
   for (const [label, value] of [["Case title", "Play advice concern"], ["Scenario", "A caregiver asks for a new play idea"],
     ["Expected answer behavior", "Offer different age-appropriate guidance"]]) {
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
@@ -68,14 +69,14 @@ it("creates an administrator-authored scenario without asking for dates", async 
   expect(createFeedbackImprovement.mock.calls[0][0]).not.toHaveProperty("fictional_date_of_birth");
   expect(createFeedbackImprovement.mock.calls[0][0]).not.toHaveProperty("evaluation_date");
   expect(createFeedbackImprovement.mock.calls[0][0].caregiver_uid).toBeUndefined();
-  openEvaluation();
-  expect(screen.getByLabelText("Baseline answer text")).toBeTruthy();
+  openRelease();
+  expect(screen.getByLabelText("Deployed commit")).toBeTruthy();
   expect(screen.queryByLabelText("Case title")).toBeNull();
-  expect(screen.queryByLabelText("Deployed commit")).toBeNull();
-  fireEvent.change(screen.getByLabelText("Baseline answer text"), { target: { value: "Unsaved test answer" } });
+  expect(screen.queryByRole("button", { name: "Test a fix" })).toBeNull();
+  fireEvent.change(screen.getByLabelText("Release notes"), { target: { value: "Unsaved release note" } });
   fireEvent.click(screen.getByRole("button", { name: "Concern" }));
-  openEvaluation();
-  expect(screen.getByLabelText("Baseline answer text").value).toBe("Unsaved test answer");
+  openRelease();
+  expect(screen.getByLabelText("Release notes").value).toBe("Unsaved release note");
 });
 
 it("starts and saves a case from a reported reason in the dashboard", async () => {
@@ -103,46 +104,41 @@ it("starts and saves a case from a reported reason in the dashboard", async () =
   const submitted = createFeedbackImprovement.mock.calls[0][0];
   expect(submitted).toMatchObject({ category: "did_not_answer", status: "investigating" });
   expect(JSON.stringify(submitted)).not.toContain(comment);
-  openEvaluation();
-  expect(screen.getByLabelText("Baseline answer text")).toBeTruthy();
+  openRelease();
+  expect(screen.getByLabelText("Deployed commit")).toBeTruthy();
 });
 
-it("does not advance an incomplete evaluation", async () => {
-  await openCase({ ...draft, baseline: { ...review, answer: "" } });
-  openEvaluation();
-  fireEvent.click(screen.getByRole("button", { name: "Record successful evaluation" }));
+it("requires a deployed revision, notes and verification before recording a release", async () => {
+  await openCase();
+  openRelease();
+  fireEvent.click(screen.getByRole("button", { name: "Record release" }));
   await screen.findByRole("alert");
-  expect(screen.getByText(/Complete both answers/)).toBeTruthy();
+  expect(screen.getByText(/Record the full 40-character deployed commit/)).toBeTruthy();
   expect(updateFeedbackImprovement).not.toHaveBeenCalled();
 });
 
-it("records evaluation, release and reopening with the latest saved revision", async () => {
-  await openCase();
-  openEvaluation();
+it.each(["investigating", "ready_for_release"])("records and reopens a release from an existing %s case", async (status) => {
+  await openCase({ ...draft, status });
+  if (status === "investigating") openRelease();
   updateFeedbackImprovement.mockImplementation(async (_, content, version) => record(content, version + 1));
-  fireEvent.click(screen.getByRole("button", { name: "Record successful evaluation" }));
-  await screen.findByRole("button", { name: "Record release" });
-  expect(updateFeedbackImprovement.mock.calls[0][2]).toBe(1);
-  expect(updateFeedbackImprovement.mock.calls[0][1]).toMatchObject({
-    fictional_date_of_birth: draft.fictional_date_of_birth, evaluation_date: draft.evaluation_date,
-  });
   expect(screen.queryByLabelText("Case title")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Concern" }));
-  expect(screen.getByLabelText("Case title").closest("fieldset").disabled).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Release record" }));
   fireEvent.change(screen.getByLabelText("Deployed commit"), { target: { value: "b".repeat(40) } });
   fireEvent.change(screen.getByLabelText("Release notes"), { target: { value: "Checked the applied correction." } });
   fireEvent.click(screen.getByLabelText("I checked that this correction is deployed."));
   fireEvent.click(screen.getByRole("button", { name: "Record release" }));
-  await screen.findByText("Release recorded. This does not deploy or retrain a model.");
-  expect(updateFeedbackImprovement.mock.calls[1][2]).toBe(2);
-  expect(updateFeedbackImprovement.mock.calls[1][1].status).toBe("released");
+  await screen.findByText("Release recorded.");
+  expect(updateFeedbackImprovement.mock.calls[0][2]).toBe(1);
+  expect(updateFeedbackImprovement.mock.calls[0][1]).toMatchObject({ status: "released",
+    release_without_evaluation: status === "investigating", baseline: draft.baseline, candidate: draft.candidate,
+    fictional_date_of_birth: draft.fictional_date_of_birth, evaluation_date: draft.evaluation_date,
+  });
   updateFeedbackImprovement.mockImplementation(async (_, content, version) => record({ ...content,
     checks: Object.fromEntries(Object.keys(content.checks).map(key => [key, false])), release_revision: "", deployment_checked: false, release_notes: "" }, version + 1));
   fireEvent.click(screen.getByText("Case actions"));
   fireEvent.click(screen.getByRole("button", { name: "Reopen investigation" }));
   await screen.findByRole("button", { name: "Save investigation" });
-  expect(updateFeedbackImprovement.mock.calls[2][2]).toBe(3);
+  expect(updateFeedbackImprovement.mock.calls[1][2]).toBe(2);
+  expect(updateFeedbackImprovement.mock.calls[1][1].release_without_evaluation).toBe(false);
   expect(screen.getByLabelText("Case title").closest("fieldset").disabled).toBe(false);
 });
 
@@ -165,22 +161,6 @@ it("keeps edited review content when discarding changes is cancelled", async () 
   window.confirm.mockReturnValue(true);
   fireEvent.click(screen.getByRole("button", { name: "Close editor" }));
   expect(screen.queryByLabelText("Case title")).toBeNull();
-});
-
-it("requires a reason for source support being inapplicable and sends no invented score", async () => {
-  await openCase();
-  openEvaluation();
-  fireEvent.click(screen.getByText("Candidate evidence and scores"));
-  fireEvent.click(screen.getByLabelText("Candidate source support is not applicable (no supplied references)."));
-  expect(screen.getByLabelText("Candidate source support score").disabled).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Record successful evaluation" }));
-  expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("Complete both answers"));
-  expect(updateFeedbackImprovement).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByLabelText("Candidate source-support applicability note"), { target: { value: "Fixed boundary response without reference passages." } });
-  updateFeedbackImprovement.mockImplementation(async (_, content, version) => record(content, version + 1));
-  fireEvent.click(screen.getByRole("button", { name: "Record successful evaluation" }));
-  await screen.findByRole("button", { name: "Record release" });
-  expect(updateFeedbackImprovement.mock.calls[0][1].candidate.scores.faithfulness).toBeNull();
 });
 
 it("ignores a timed-out save when its result arrives after a newer case is opened", async () => {

@@ -247,6 +247,27 @@ def test_api_create_update_list_delete_uses_only_authenticated_administrator(rev
     review_api.data.get_conversation.assert_not_called()
 
 
+def test_api_records_verified_release_from_investigation_and_can_reopen_it(review_api):
+    api = review_api.client
+    item = api.post("/admin/feedback/improvements", json={"content": draft()}).json()
+    path = f"/admin/feedback/improvements/{item['id']}"
+    correction = {**item["content"], "status": "released", "release_without_evaluation": True,
+                  "release_revision": "a" * 40, "release_notes": "Correction checked on the live app."}
+    assert api.put(path, json={"expected_version": 1, "content": correction}).status_code == 422
+    released = api.put(path, json={"expected_version": 1, "content": {**correction, "deployment_checked": True}})
+    assert released.status_code == 200, released.text
+    saved = released.json()
+    assert saved["version"] == 2 and saved["released_at"]
+    assert saved["content"]["status"] == "released" and saved["content"]["release_without_evaluation"] is True
+    assert saved["content"]["baseline"]["answer"] == "" and not any(saved["content"]["checks"].values())
+    assert api.get("/admin/feedback/improvements").json()["items"] == [saved]
+    reopened = api.put(path, json={"expected_version": 2, "content": {
+        **saved["content"], "status": "investigating", "release_without_evaluation": False,
+    }}).json()
+    assert reopened["released_at"] is None and reopened["content"]["release_revision"] == ""
+    assert not reopened["content"]["deployment_checked"]
+
+
 @pytest.mark.parametrize("change", ["role", "revoked", "mfa", "signed_out"])
 def test_administrator_authorization_is_required_for_reads_and_writes(review_api, change):
     if change == "role":

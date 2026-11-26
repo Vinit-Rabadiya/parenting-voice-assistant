@@ -1,4 +1,5 @@
 import AdminFeedbackSummary from "../components/AdminFeedbackSummary";
+import AdminTokenUsage from "../components/AdminTokenUsage";
 import { lazy, Suspense, useRef, useState } from "react";
 import "./AdminPage.css";
 
@@ -9,9 +10,9 @@ export default function AdminPage() {
   const [investigationDisabled, setInvestigationDisabled] = useState(true);
   return <section className="admin-page" aria-labelledby="admin-title">
     <header className="admin-page-heading">
-      <p className="admin-eyebrow">FEEDBACK AND IMPROVEMENTS</p>
       <h1 id="admin-title">Administrator dashboard</h1>
     </header>
+    <AdminTokenUsage />
     <AdminFeedbackSummary onInvestigate={category => caseEditor.current?.startInvestigation(category)}
       investigationDisabled={investigationDisabled} />
     <Suspense fallback={<p role="status">Loading improvement workspace...</p>}>

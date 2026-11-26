@@ -66,6 +66,7 @@ export const listChildren = (signal) => request("/children", { signal });
 export const getAccountSecurity = () => request("/me/security");
 export const disableAccountMfa = () => request("/me/security/mfa/disable", { method: "POST" });
 export const getFeedbackSummary = (signal) => request("/admin/feedback/summary", { signal });
+export const getAdminTokenUsage = (signal) => request("/admin/token-usage", { signal });
 export const listFeedbackImprovements = (signal, before = null) => request(`/admin/feedback/improvements${before ? `?before=${encodeURIComponent(before)}` : ""}`, { signal });
 export const createFeedbackImprovement = (content, signal) => request("/admin/feedback/improvements", {
   method: "POST", signal, body: JSON.stringify({ content }),

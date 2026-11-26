@@ -32,6 +32,13 @@ the administrator's own security and account deletion. Caregiver consent and usa
 controls are hidden there. Existing personal data from before a role change is
 retained until the account owner deletes it; changing role does not delete records.
 
+**Model token usage** shows the combined and per-provider totals recorded by LittleCare.
+It includes calls that return token usage for coaching and request interpretation.
+Firestore stores numeric counters and the first recording time. Production and development
+totals are independent, and **Refresh usage** reads the counters saved by the background
+writer. Tracking begins with this build. A reported overall total can include provider
+categories beyond the displayed columns.
+
 The overview contains counts for numeric ratings, optional reason categories and
 separate historical Helpful/Not helpful feedback. **Written feedback** shows up to
 50 of the most recent shared comments, with their ratings and selected reasons.
@@ -111,8 +118,8 @@ administrator must enroll and complete MFA again before opening grouped feedback
 ### Improvement workflow without private chats
 
 The dashboard now includes **Answer improvement cases**, a separate private
-workspace for each administrator. It records fictional reproduction scenarios,
-baseline/candidate answer evidence, review checks and the deployed correction.
+workspace for each administrator. It records the concern, expected behavior and
+verification of the deployed correction.
 It does not give access to caregiver conversations or attach those conversations
 to a case. See [the complete feedback loop](feedback-loop.md) for stages, storage,
 limitations and how a released correction changes future answers.
@@ -128,11 +135,8 @@ limitations and how a released correction changes future answers.
 4. Review a source, retrieval or prompt correction and compare the same
    development example before and after. Do not describe source checks or automated
    evaluation as professional validation; that review has not been obtained.
-5. Save the correction and evaluation evidence in the case and choose **Record
-   successful evaluation** when the requirements are met. Apply the reviewed
-   correction through the normal deployment process, then use **Record release**
-   to save the checked deployed commit. Neither button runs an evaluation,
-   deploys a change or trains a model.
+5. Apply the reviewed correction through the normal deployment process. Open the
+   case and use **Record release** to save the checked commit and what changed.
 
 Administrator review identifies problems to reproduce with separate evaluation
 cases. Compare a correction or candidate model on the same cases before adoption.

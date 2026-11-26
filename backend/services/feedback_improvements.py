@@ -20,6 +20,13 @@ class ImprovementStageError(Exception):
     pass
 
 
+def persisted_content(content):
+    fields = content.model_dump(mode="json")
+    if not content.release_without_evaluation:
+        fields.pop("release_without_evaluation")
+    return fields
+
+
 def updated_content(current, proposed):
     """A recorded evaluation must be reopened before its reviewed content changes."""
     allowed = {
@@ -27,7 +34,8 @@ def updated_content(current, proposed):
         "ready_for_release": {"investigating", "ready_for_release", "released"},
         "released": {"investigating", "released"},
     }
-    if proposed.status not in allowed[current.status]:
+    direct_release = current.status == "investigating" and proposed.status == "released" and proposed.release_without_evaluation
+    if proposed.status not in allowed[current.status] and not direct_release:
         raise ImprovementStageError("Record a successful evaluation before recording a release.")
     if current.status == proposed.status == "released" and current != proposed:
         raise ImprovementStageError("Reopen the case before changing a recorded release.")
@@ -37,7 +45,7 @@ def updated_content(current, proposed):
             raise ImprovementStageError("Reopen the case before changing reviewed content.")
     if current.status != "investigating" and proposed.status == "investigating":
         proposed = proposed.model_copy(update={"checks": ImprovementChecks(), "release_revision": "",
-                                               "deployment_checked": False, "release_notes": ""})
+                                               "deployment_checked": False, "release_notes": "", "release_without_evaluation": False})
     return proposed
 
 
@@ -69,7 +77,7 @@ class FeedbackImprovementService:
             raise ImprovementStageError("New cases must begin with investigation.")
         document = self.collection(uid).document(uuid4().hex)
         now = datetime.now(timezone.utc)
-        data = {"version": 1, "content": content.model_dump(mode="json"),
+        data = {"version": 1, "content": persisted_content(content),
                 "created_at": now, "updated_at": now, "released_at": None}
         document.create(data, timeout=10)
         return ImprovementRecord.model_validate({"id": document.id, **data})
@@ -88,7 +96,7 @@ class FeedbackImprovementService:
             proposed = updated_content(previous.content, content)
             now = datetime.now(timezone.utc)
             released = (previous.released_at or now) if proposed.status == "released" else None
-            data = {"version": previous.version + 1, "content": proposed.model_dump(mode="json"),
+            data = {"version": previous.version + 1, "content": persisted_content(proposed),
                     "created_at": previous.created_at, "updated_at": now, "released_at": released}
             transaction.set(document, data)
             return ImprovementRecord.model_validate({"id": identifier, **data})
