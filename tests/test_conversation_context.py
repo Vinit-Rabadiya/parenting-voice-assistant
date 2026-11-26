@@ -305,6 +305,11 @@ def test_sourced_vaccine_education_allows_follow_up_but_unsourced_notices_do_not
     "Can I pack it the night before and keep it in my bag?",
     "Please keep the same age in mind and shorten it to a three-point checklist for my partner.",
     "Could you rewrite that for someone who reads only short sentences?",
+    "How to simplify it?",
+    "That sounds tricky. Please show me how to simplify it.",
+    "I'm wondering how to simplify it.",
+    "For each, explain how to simplify it.",
+    "Suggest two activities. For each, explain how to simplify it and adapt your previous answer.",
 ])
 def test_referential_edits_and_practical_follow_ups_keep_request_and_age(follow_up):
     original = "For my eleven-month-old, suggest two portable snack ideas with no refrigerator."

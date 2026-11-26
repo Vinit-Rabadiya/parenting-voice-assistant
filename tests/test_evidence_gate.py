@@ -323,6 +323,38 @@ def test_fallback_kind_is_saved_without_generation(client, services, question, k
         retrieval.retrieve.assert_not_called()
 
 
+@pytest.mark.parametrize("conversation_id", [None, "conversation-1"])
+def test_activity_request_with_simplification_instructions_reaches_generation(client, services, conversation_id):
+    data, retrieval, coaching = services
+    retrieval.retrieve.return_value = []
+    data.get_conversation.return_value = {"messages": [
+        {"role": "user", "text": "How can I make bath time calmer?"},
+        {"role": "assistant", "text": "Talk softly during bath time.", "status": "answered"},
+    ]}
+    data.save_conversation_turn.return_value = "message-2"
+    question = (
+        "My child is 14 months old and hears English from one caregiver and Kiswahili from another. "
+        "We want to encourage communication, shared attention, movement and problem-solving during "
+        "ordinary routines rather than buying educational toys. Our home has limited floor space, "
+        "and some days we have only five minutes at a time. The child enjoys looking at household "
+        "objects, pointing, moving around and repeatedly dropping things, but their interest changes "
+        "quickly. Design four distinct activities using safe everyday materials. For each, explain "
+        "the caregiver's role, what response to watch for, how to simplify it, and how to extend it "
+        "without assuming an unreported skill. Explain how both caregivers can participate naturally "
+        "in their own language. Avoid treating milestones as a competition or requiring the child "
+        "to perform on demand. Keep the answer around 200 words."
+    )
+    payload = {"child_id": "child-1", "question": question}
+    if conversation_id:
+        payload["conversation_id"] = conversation_id
+    response = client.post("/coach", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert response.json()["caregiver_request"] == question
+    coaching.generate.assert_called_once()
+    assert coaching.generate.call_args.args[:2] == (question, 14)
+
+
 @pytest.mark.parametrize("question", ["Is that safe?", "How many times a day?", "She refuses it."])
 def test_short_follow_up_keeps_subject_age_context_and_original_saved_message(client, services, question):
     data, retrieval, coaching = services

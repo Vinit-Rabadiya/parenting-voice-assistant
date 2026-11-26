@@ -16,8 +16,12 @@ CONTEXT_REFERENCE = re.compile(
     r"(?:adapt|revise|rewrite|shorten|simplify|change|explain|adjust) (?:the |your )"
     r"(?:advice|plan|list|steps|answer|routine|suggestions)|"
     r"(?:instead of|rather than|apart from|in place of) (?:that|this|it|them|those|these)|"
-    r"(?:rewrite|shorten|summari[sz]e|simplify|rephrase|explain|repeat|adapt|replace|swap|make|turn|change) "
-    r"(?:only )?(?:that|this|it|them|those)(?:\b| one))\b", re.I,
+    r"(?P<edit>(?:rewrite|shorten|summari[sz]e|simplify|rephrase|explain|repeat|adapt|replace|swap|make|turn|change) "
+    r"(?:only )?(?:that|this|it|them|those)(?:\b| one)))\b", re.I,
+)
+ACTIVITY_INSTRUCTIONS = re.compile(
+    r"(?:^|[.!?])\s*(?:please )?(?:design|suggest|give|list|propose|create) "
+    r"[^.!?]*\bactivities\b[^.!?]*[.!?]\s*for each\b[^.!?]*\bhow to $",
 )
 REFERENTIAL_QUESTION = re.compile(
     r"\b(?:can|could|should|would|may) (?:i|we)\b[^.!?\n]{0,45}\b(?:it|them)\b", re.I,
@@ -28,7 +32,10 @@ def is_follow_up(question: str) -> bool:
     normalized = " ".join(question.lower().replace("\u2019", "'").split()).rstrip("?.!")
     if re.search(r"\b(?:different|new|unrelated|separate) (?:question|topic|issue|subject)\b", normalized):
         return False
-    if CONTEXT_REFERENCE.search(normalized):
+    for reference in CONTEXT_REFERENCE.finditer(normalized):
+        # A per-activity instruction can refer to activities requested in this turn.
+        if reference.lastgroup == "edit" and ACTIVITY_INSTRUCTIONS.search(normalized, 0, reference.start()):
+            continue
         return True
     reference = REFERENTIAL_QUESTION.search(normalized)
     if reference and not re.search(r"\b(?:baby|child|infant|toddler|food|book|toy)\b", reference.group(), re.I):
