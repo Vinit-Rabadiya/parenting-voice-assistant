@@ -159,27 +159,23 @@ def test_a_low_safety_score_cannot_be_approved_just_because_it_did_not_regress()
         ImprovementContent.model_validate(value)
 
 
-@pytest.mark.parametrize("dates", [{}, LEGACY_DATES], ids=["without-dates", "legacy-dates"])
-def test_owned_case_lifecycle_requires_evaluation_and_records_release(store, dates):
+@pytest.mark.parametrize("direct", [False, True], ids=["reviewed-release", "direct-release"])
+def test_existing_release_records_can_still_be_read_and_are_locked(store, direct):
     service = FeedbackImprovementService(store)
-    first = service.create("admin-a", ImprovementContent.model_validate(draft(**dates)))
-    assert first.version == 1 and first.released_at is None
-    with pytest.raises(ImprovementStageError):
-        service.update("admin-a", first.id, 1, ImprovementContent.model_validate(reviewed(status="released",
-            release_revision="a" * 40, deployment_checked=True, release_notes="Deployed correction verified.")))
-    checked = service.update("admin-a", first.id, 1, ImprovementContent.model_validate(reviewed(**dates)))
-    released = service.update("admin-a", first.id, 2, checked.content.model_copy(update={"status": "released",
-        "release_revision": "a" * 40, "deployment_checked": True, "release_notes": "Deployed correction verified."}))
-    assert released.version == 3 and released.released_at is not None
-    saved = service.list("admin-a")["items"][0].content.model_dump(mode="json")
-    assert {key: saved[key] for key in LEGACY_DATES} == {key: dates.get(key) for key in LEGACY_DATES}
-    with pytest.raises(ImprovementStageError):
-        service.update("admin-a", first.id, 3, released.content.model_copy(update={"release_revision": "b" * 40}))
-    with pytest.raises(ImprovementStageError):
-        service.update("admin-a", first.id, 3, released.content.model_copy(update={"scenario": "Changed reviewed scenario"}))
-    reopened = service.update("admin-a", first.id, 3, released.content.model_copy(update={"status": "investigating"}))
-    assert not any(reopened.content.checks.model_dump().values())
-    assert reopened.content.release_revision == "" and reopened.released_at is None
+    first = service.create("admin-a", ImprovementContent.model_validate(draft(**LEGACY_DATES)))
+    legacy = draft(**LEGACY_DATES) if direct else reviewed(**LEGACY_DATES)
+    legacy.update(status="released", release_revision="a" * 40, deployment_checked=True,
+                  release_notes="Deployed correction verified.")
+    if direct:
+        legacy["release_without_evaluation"] = True
+    path = f"users/admin-a/feedback_improvements/{first.id}"
+    store.rows[path].update(content=legacy, released_at=first.created_at, version=2)
+    saved = service.list("admin-a")["items"][0]
+    assert saved.content.status == "released" and saved.content.release_revision == "a" * 40
+    assert saved.content.release_without_evaluation is direct and saved.released_at == first.created_at
+    with pytest.raises(ImprovementStageError, match="read-only"):
+        service.update("admin-a", first.id, 2, first.content)
+    assert store.rows[path]["content"] == legacy
 
 
 def test_stale_writes_and_deletes_cannot_overwrite_a_new_review(store):
@@ -236,36 +232,29 @@ def test_api_create_update_list_delete_uses_only_authenticated_administrator(rev
     assert created.status_code == 201, created.text
     item = created.json()
     assert created.headers["cache-control"] == "no-store" and "uid" not in item
-    changed = api.put(f"/admin/feedback/improvements/{item['id']}", json={"expected_version": 1, "content": reviewed()})
+    changed = api.put(f"/admin/feedback/improvements/{item['id']}", json={"expected_version": 1, "content": draft(title="Updated concern")})
     assert changed.status_code == 200 and changed.json()["version"] == 2
     assert api.put(f"/admin/feedback/improvements/{item['id']}", json={"expected_version": 1, "content": draft()}).status_code == 409
     listed = api.get("/admin/feedback/improvements")
-    assert listed.json()["items"][0]["content"]["status"] == "ready_for_release"
+    assert listed.json()["items"][0]["content"]["title"] == "Updated concern"
     assert api.get("/admin/feedback/improvements?uid=someone").status_code == 422
     assert api.delete(f"/admin/feedback/improvements/{item['id']}?expected_version=2").status_code == 204
     review_api.data.get_child.assert_not_called()
     review_api.data.get_conversation.assert_not_called()
 
 
-def test_api_records_verified_release_from_investigation_and_can_reopen_it(review_api):
+def test_api_records_concerns_without_accepting_release_or_evaluation_updates(review_api):
     api = review_api.client
     item = api.post("/admin/feedback/improvements", json={"content": draft()}).json()
     path = f"/admin/feedback/improvements/{item['id']}"
-    correction = {**item["content"], "status": "released", "release_without_evaluation": True,
-                  "release_revision": "a" * 40, "release_notes": "Correction checked on the live app."}
-    assert api.put(path, json={"expected_version": 1, "content": correction}).status_code == 422
-    released = api.put(path, json={"expected_version": 1, "content": {**correction, "deployment_checked": True}})
-    assert released.status_code == 200, released.text
-    saved = released.json()
-    assert saved["version"] == 2 and saved["released_at"]
-    assert saved["content"]["status"] == "released" and saved["content"]["release_without_evaluation"] is True
-    assert saved["content"]["baseline"]["answer"] == "" and not any(saved["content"]["checks"].values())
-    assert api.get("/admin/feedback/improvements").json()["items"] == [saved]
-    reopened = api.put(path, json={"expected_version": 2, "content": {
-        **saved["content"], "status": "investigating", "release_without_evaluation": False,
-    }}).json()
-    assert reopened["released_at"] is None and reopened["content"]["release_revision"] == ""
-    assert not reopened["content"]["deployment_checked"]
+    release = draft(status="released", release_without_evaluation=True, release_revision="a" * 40,
+                    deployment_checked=True, release_notes="Correction checked on the live app.")
+    for content in (reviewed(), release):
+        assert api.put(path, json={"expected_version": 1, "content": content}).status_code == 409
+    saved = api.put(path, json={"expected_version": 1, "content": draft(title="Feedback summary", release_notes="Old client draft")})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["version"] == 2 and saved.json()["released_at"] is None
+    assert saved.json()["content"]["title"] == "Feedback summary" and saved.json()["content"]["release_notes"] == ""
 
 
 @pytest.mark.parametrize("change", ["role", "revoked", "mfa", "signed_out"])

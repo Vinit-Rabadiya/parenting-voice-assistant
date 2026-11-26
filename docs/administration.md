@@ -117,9 +117,8 @@ administrator must enroll and complete MFA again before opening grouped feedback
 
 ### Improvement workflow without private chats
 
-The dashboard now includes **Answer improvement cases**, a separate private
-workspace for each administrator. It records the concern, expected behavior and
-verification of the deployed correction.
+The dashboard includes **Answer improvement cases**, a private workspace for
+each administrator to record the concern and expected behavior.
 It does not give access to caregiver conversations or attach those conversations
 to a case. See [the complete feedback loop](feedback-loop.md) for stages, storage,
 limitations and how a released correction changes future answers.
@@ -129,14 +128,10 @@ limitations and how a released correction changes future answers.
 2. Choose **New improvement case** and write a fictional test scenario for the
    selected category. Shared comments may inform the investigation, but do not
    copy a caregiver's question, answer, private details or comment into the case.
-3. Reproduce the concern with the existing evaluation tools. Record the test
-   case, original sources, corpus fingerprint, actual model/prompt configuration
-   and evaluation split. Keep tuning separate from held-out evaluation.
-4. Review a source, retrieval or prompt correction and compare the same
-   development example before and after. Do not describe source checks or automated
-   evaluation as professional validation; that review has not been obtained.
-5. Apply the reviewed correction through the normal deployment process. Open the
-   case and use **Record release** to save the checked commit and what changed.
+3. Save the investigation and use the dashboard to monitor subsequent feedback.
+
+Project maintenance handles reproduction, evaluation, corrections and deployment
+through the regular development workflow.
 
 Administrator review identifies problems to reproduce with separate evaluation
 cases. Compare a correction or candidate model on the same cases before adoption.

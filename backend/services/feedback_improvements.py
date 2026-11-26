@@ -5,7 +5,11 @@ from uuid import uuid4
 
 from firebase_admin import firestore
 
-from backend.schemas.feedback_improvements import ImprovementChecks, ImprovementRecord
+from backend.schemas.feedback_improvements import ImprovementRecord
+
+
+CASE_FIELDS = frozenset({"title", "category", "scenario", "expected_behavior", "fictional_confirmed",
+                         "fictional_date_of_birth", "evaluation_date", "status"})
 
 
 class ImprovementNotFound(Exception):
@@ -18,35 +22,6 @@ class ImprovementConflict(Exception):
 
 class ImprovementStageError(Exception):
     pass
-
-
-def persisted_content(content):
-    fields = content.model_dump(mode="json")
-    if not content.release_without_evaluation:
-        fields.pop("release_without_evaluation")
-    return fields
-
-
-def updated_content(current, proposed):
-    """A recorded evaluation must be reopened before its reviewed content changes."""
-    allowed = {
-        "investigating": {"investigating", "ready_for_release"},
-        "ready_for_release": {"investigating", "ready_for_release", "released"},
-        "released": {"investigating", "released"},
-    }
-    direct_release = current.status == "investigating" and proposed.status == "released" and proposed.release_without_evaluation
-    if proposed.status not in allowed[current.status] and not direct_release:
-        raise ImprovementStageError("Record a successful evaluation before recording a release.")
-    if current.status == proposed.status == "released" and current != proposed:
-        raise ImprovementStageError("Reopen the case before changing a recorded release.")
-    if current.status != "investigating" and proposed.status != "investigating":
-        exclude = {"status", "release_revision", "deployment_checked", "release_notes"}
-        if current.model_dump(exclude=exclude) != proposed.model_dump(exclude=exclude):
-            raise ImprovementStageError("Reopen the case before changing reviewed content.")
-    if current.status != "investigating" and proposed.status == "investigating":
-        proposed = proposed.model_copy(update={"checks": ImprovementChecks(), "release_revision": "",
-                                               "deployment_checked": False, "release_notes": "", "release_without_evaluation": False})
-    return proposed
 
 
 class FeedbackImprovementService:
@@ -77,12 +52,14 @@ class FeedbackImprovementService:
             raise ImprovementStageError("New cases must begin with investigation.")
         document = self.collection(uid).document(uuid4().hex)
         now = datetime.now(timezone.utc)
-        data = {"version": 1, "content": persisted_content(content),
+        data = {"version": 1, "content": content.model_dump(mode="json", include=CASE_FIELDS),
                 "created_at": now, "updated_at": now, "released_at": None}
         document.create(data, timeout=10)
         return ImprovementRecord.model_validate({"id": document.id, **data})
 
     def update(self, uid, identifier, expected_version, content):
+        if content.status != "investigating":
+            raise ImprovementStageError("Feedback cases support saving investigation notes only.")
         document = self.collection(uid).document(identifier)
 
         @firestore.transactional
@@ -93,11 +70,13 @@ class FeedbackImprovementService:
             previous = self.record(snapshot)
             if previous.version != expected_version:
                 raise ImprovementConflict()
-            proposed = updated_content(previous.content, content)
+            if previous.content.status != "investigating":
+                raise ImprovementStageError("Archived feedback cases are read-only.")
+            proposed = previous.content.model_dump(mode="json", exclude={"release_without_evaluation"})
+            proposed.update(content.model_dump(mode="json", include=CASE_FIELDS))
             now = datetime.now(timezone.utc)
-            released = (previous.released_at or now) if proposed.status == "released" else None
-            data = {"version": previous.version + 1, "content": persisted_content(proposed),
-                    "created_at": previous.created_at, "updated_at": now, "released_at": released}
+            data = {"version": previous.version + 1, "content": proposed,
+                    "created_at": previous.created_at, "updated_at": now, "released_at": previous.released_at}
             transaction.set(document, data)
             return ImprovementRecord.model_validate({"id": identifier, **data})
 

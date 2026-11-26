@@ -10,7 +10,8 @@ the caregiver's question, answer, identity or child profile. Feedback points to 
 problem worth investigating; a low helpfulness rating is not proof of a factual
 or safety error.
 
-The new **Answer improvement cases** workspace closes the review-record loop:
+The **Answer improvement cases** workspace lets administrators save concerns from
+caregiver feedback. Project maintenance uses those concerns to guide corrections:
 
 ```mermaid
 flowchart LR
@@ -20,15 +21,13 @@ flowchart LR
     D --> E[Prompt, source, retrieval or rule correction]
     E --> F[Candidate answer and regression checks]
     F --> G[Reviewed correction deployed]
-    G --> H[Release recorded and future answers monitored]
+    G --> H[Administrator monitors subsequent feedback]
 ```
 
-The dashboard records this process. It does not train a model, run model
-evaluation, edit prompts or deploy code when a status button is pressed. An
-operator still makes the versioned correction, runs the appropriate evaluation
-and checks the actual deployment. The record identifies that work and its
-evidence; the correction affects future answers only when it is applied to the
-running system.
+The dashboard records the concern. A project maintainer makes the versioned
+correction, runs the appropriate evaluation, and checks the deployment through
+the regular development workflow. The correction affects future answers when
+it is applied to the running system.
 
 Gemini/Groq model weights do not change from these ratings. The application can
 improve the instructions and references supplied to its existing model, the way
@@ -51,12 +50,8 @@ applies. A role does not grant access to another administrator's cases.
    if it matters to the concern. Confirm that the case contains no caregiver
    identifiers or private chat text. Nothing is copied automatically from a caregiver
    conversation or comment.
-3. Choose **Save investigation**. Investigate, verify and deploy the correction
-   through the regular development workflow.
-4. After checking the running revision, open the saved case and select
-   **Release record**. Enter the full deployed commit and a short explanation of
-   what changed, confirm deployment and choose **Record release**.
-5. Monitor subsequent feedback as new review signals. Cumulative dashboard counts
+3. Choose **Save investigation** to keep the concern in the dashboard.
+4. Monitor subsequent feedback as new review signals. Cumulative dashboard counts
    are affected by editing and deletion and are not a causal before/after study.
    Use paired evaluation cases and a separate held-out set to assess changes.
 
@@ -78,11 +73,8 @@ that example, not a percentage accuracy gain or a population result.
 
 ## Record integrity and privacy
 
-- New cases begin as **Investigating**. A saved case can move directly to
-  **Release recorded** after the administrator confirms the deployed commit.
-- Released cases are locked. Under **Case
-  actions**, use **Reopen investigation** before changing it. Reopening clears check attestations and
-  release confirmation so old checks do not silently approve new content.
+- New cases are saved as **Investigating**. Existing cases with a recorded
+  evaluation or release are available as read-only archived cases.
 - Every save/delete includes an expected version. A stale browser tab receives
   a conflict instead of overwriting another update. Refresh and open the latest
   case before retrying. This is a versioned current record, not an immutable
@@ -111,8 +103,5 @@ caregiver coaching path. There is no extra provider request or Firestore lookup
 in ordinary chat because of this workflow. A later prompt/content correction
 can still change generation time and must be measured before adoption.
 
-The workflow validates record completeness and stage transitions. It does not
-verify that an entered report exists, rerun the stated regressions or independently
-confirm deployment. Review scores and checkboxes are attributable to the signed-in
-administrator's workspace, not professional validation of the whole system.
-Independent expert review and representative caregiver evaluation remain separate.
+The app validates the information required to save a concern. Evaluation and
+deployment verification are part of the project maintenance workflow.
