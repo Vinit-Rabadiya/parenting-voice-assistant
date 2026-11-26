@@ -364,8 +364,6 @@ function AccountPage({ verificationEmailRequested, email, accountAccess, onDataD
               onClick={() => { setSecurityAction({ intent: "disable" }); setMessage(""); setSecurityErrorCode(""); }}>Turn off MFA</button>
             <p>{factorCount < 2 ? "A backup authenticator lets you sign in if you lose your main one. Set it up on another device."
               : "Two authenticators are set up. Keep your backup on a separate device."}</p>
-            <p>If you lose access to all your authenticators, contact the account administrator for recovery.
-              Changing your password does not remove MFA.</p>
           </>}
           {pendingEnrollment ? (
             <form className="account-enrollment" onSubmit={handleConfirmEnrollment}>

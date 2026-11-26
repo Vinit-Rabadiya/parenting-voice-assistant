@@ -94,21 +94,20 @@ it("opens emergency contacts without losing the chat draft and deactivates voice
   expect(draft.value).toBe("Unsent message");
 });
 
-it("shows recovery help without referring to an absent backup selector", () => {
+it("shows the code challenge without backup controls for a single authenticator", () => {
   state.mfaHints = [{ uid: "main", displayName: "Main authenticator" }];
   render(<AuthPage />);
   fireEvent.click(screen.getByRole("button", { name: "Google sign in" }));
-  fireEvent.click(screen.getByText("Lost access to your authenticator?"));
+  expect(screen.getByLabelText("Six-digit code")).toBeTruthy();
   expect(screen.queryByLabelText("Authenticator")).toBeNull();
-  expect(screen.queryByText(/selector above/)).toBeNull();
-  expect(screen.getByText(/contact the service owner/)).toBeTruthy();
+  expect(screen.queryByText("Using a backup authenticator?")).toBeNull();
 });
 
 it("explains and submits the selected backup authenticator when available", async () => {
   state.mfaHints = [{ uid: "main", displayName: "Main authenticator" }, { uid: "backup", displayName: "Backup authenticator" }];
   render(<AuthPage />);
   fireEvent.click(screen.getByRole("button", { name: "Google sign in" }));
-  fireEvent.click(screen.getByText("Lost access to your authenticator?"));
+  fireEvent.click(screen.getByText("Using a backup authenticator?"));
   expect(screen.getByText(/Try another authenticator/)).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Authenticator"), { target: { value: "backup" } });
   fireEvent.change(screen.getByLabelText("Six-digit code"), { target: { value: "012345" } });
