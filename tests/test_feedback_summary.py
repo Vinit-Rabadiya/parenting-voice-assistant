@@ -8,6 +8,7 @@ import pytest
 from backend.api.dependencies import get_caregiver_data_service
 from backend.core.privacy import CONSENT_VERSION
 from backend.main import app
+from backend.schemas.admin import TokenCounts, TokenUsageSummary
 from backend.services.feedback_summary import (
     CONSENT_BATCH_SIZE, CONSENT_FIELDS, FeedbackSummaryService, MAX_DOCUMENTS_PER_GROUP,
     PROJECTED_FIELDS, summarize_feedback,
@@ -298,6 +299,25 @@ def test_ordinary_accounts_and_nonboolean_claims_cannot_read_summaries(client, a
 def test_no_token_cannot_read_summary(client, admin_storage):
     assert client.get("/admin/feedback/summary").status_code == 401
     admin_storage.client.collection_group.assert_not_called()
+
+
+def test_token_usage_requires_the_current_admin_role_and_completed_mfa(client, admin_storage, monkeypatch):
+    report = TokenUsageSummary(first_recorded_at=None, total=TokenCounts(), providers=[])
+    summary = MagicMock(return_value=report)
+    monkeypatch.setattr(client.app.state.token_usage_service, "summary", summary)
+    assert client.get("/admin/token-usage").status_code == 401
+    headers = {"Authorization": "Bearer test"}
+    with patch("backend.core.security.auth.verify_id_token", return_value=claims(False)):
+        assert client.get("/admin/token-usage", headers=headers).status_code == 403
+    with patch("backend.core.security.auth.verify_id_token", return_value={**claims(True), "firebase": {"sign_in_provider": "google.com"}}):
+        assert client.get("/admin/token-usage", headers=headers).status_code == 403
+    summary.assert_not_called()
+    with patch("backend.core.security.auth.verify_id_token", return_value=claims(True)):
+        assert client.get("/admin/token-usage?uid=private", headers=headers).status_code == 422
+        response = client.get("/admin/token-usage", headers=headers)
+        assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
+        assert response.json() == report.model_dump(mode="json")
+    summary.assert_called_once_with()
 
 
 def test_revoked_current_role_denies_a_previously_issued_administrator_token(client, admin_storage):

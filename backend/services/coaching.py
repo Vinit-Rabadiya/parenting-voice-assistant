@@ -105,7 +105,7 @@ def no_additional_care(result: CoachingResult) -> bool:
 
 class CoachingService:
     def __init__(self, api_key: str | None = None, model: str | None = None, client=None,
-                 fallback_model: str | None = None, provider: str | None = None):
+                 fallback_model: str | None = None, provider: str | None = None, *, usage_recorder=None):
         self.provider = provider or settings.COACHING_PROVIDER
         if self.provider not in {"gemini", "groq"}:
             raise ValueError("Unsupported coaching provider.")
@@ -119,6 +119,7 @@ class CoachingService:
         self._owns_client = client is None
         self._client_lock = Lock()
         self._closed = False
+        self._usage_recorder = usage_recorder
 
     @property
     def supports_request_understanding(self):
@@ -138,6 +139,7 @@ class CoachingService:
                                                    response_mime_type="application/json"),
                 timeout_seconds=1.2,
             )
+            self._record_usage(response, generation_request_id.get() or "none")
             return RequestUnderstanding.from_reply(response.text, question, context, profile_age=profile_age)
         except UnsupportedSubjectAge:
             if inspect_message_age(question).months is None:
@@ -147,6 +149,25 @@ class CoachingService:
         except (GenerationProviderError, ValueError, TypeError):
             timing_logger.info("request_understanding event=unavailable")
             return None
+
+    def _record_usage(self, response, request_id):
+        usage = getattr(response, "usage_metadata", None)
+
+        def count(field):
+            value = getattr(usage, field, None)
+            return value if type(value) is int and value >= 0 else None
+
+        input_tokens = count("prompt_token_count")
+        output_tokens = count("candidates_token_count")
+        thinking_tokens = count("thoughts_token_count")
+        total_tokens = count("total_token_count")
+        timing_logger.info(
+            "generation_usage request=%s provider=%s prompt_tokens=%s answer_tokens=%s thought_tokens=%s total_tokens=%s",
+            request_id, self.provider, input_tokens, output_tokens, thinking_tokens, total_tokens,
+        )
+        if self._usage_recorder is not None:
+            self._usage_recorder(self.provider, input_tokens=input_tokens, output_tokens=output_tokens,
+                                 thinking_tokens=thinking_tokens, total_tokens=total_tokens)
 
     @property
     def client(self):
@@ -344,6 +365,7 @@ class CoachingService:
                 )
         timing_logger.info("generation_selected request=%s provider=%s model=%s", request_id, self.provider, selected_model)
         with generation_phase(request_id, "response_handling", self.provider):
+            self._record_usage(response, request_id)
             feedback = getattr(response, "prompt_feedback", None)
             prompt_block = getattr(feedback, "block_reason", None)
             blocked_finishes = {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}
@@ -357,16 +379,5 @@ class CoachingService:
             answer = (response.text or "").strip()
             if not answer:
                 raise RuntimeError("The language model returned an empty answer.")
-            usage = getattr(response, "usage_metadata", None)
-
-            def count(field):
-                value = getattr(usage, field, None)
-                return value if type(value) is int and value >= 0 else None
-
-            timing_logger.info(
-                "generation_usage request=%s provider=%s prompt_tokens=%s answer_tokens=%s thought_tokens=%s total_tokens=%s",
-                request_id, self.provider, count("prompt_token_count"), count("candidates_token_count"),
-                count("thoughts_token_count"), count("total_token_count"),
-            )
         return CoachingResult(answer=answer, passages=passages,
                               answer_basis="reference_assisted" if passages else "general_information")

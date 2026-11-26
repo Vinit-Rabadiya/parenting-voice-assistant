@@ -113,7 +113,7 @@ def application(monkeypatch):
 
 def assert_services_released(app):
     for name in ("request_admission", "coaching_service", "retrieval_service", "speech_service", "speech_limiter",
-                 "caregiver_data_service", "account_security_service", "auth_session_cache", "firebase"):
+                 "caregiver_data_service", "account_security_service", "auth_session_cache", "token_usage_service", "firebase"):
         assert not hasattr(app.state, name), name
 
 

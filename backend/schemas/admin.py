@@ -1,5 +1,7 @@
-"""Administrator feedback responses omit conversation and account identifiers."""
-from pydantic import BaseModel, ConfigDict, Field
+"""Aggregate administrator reports."""
+from typing import Literal
+
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
 class FeedbackBucket(BaseModel):
@@ -24,3 +26,23 @@ class FeedbackSummary(BaseModel):
     legacy_helpfulness: list[FeedbackBucket]
     comments: list[FeedbackComment] = Field(default_factory=list, max_length=50)
     comment_count: int = Field(default=0, strict=True, ge=0)
+
+
+class TokenCounts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    input_tokens: int = Field(default=0, strict=True, ge=0)
+    output_tokens: int = Field(default=0, strict=True, ge=0)
+    thinking_tokens: int = Field(default=0, strict=True, ge=0)
+    total_tokens: int = Field(default=0, strict=True, ge=0)
+    model_calls: int = Field(default=0, strict=True, ge=0)
+
+
+class ProviderTokenCounts(TokenCounts):
+    provider: Literal["gemini", "groq"]
+
+
+class TokenUsageSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    first_recorded_at: AwareDatetime | None
+    total: TokenCounts
+    providers: list[ProviderTokenCounts]

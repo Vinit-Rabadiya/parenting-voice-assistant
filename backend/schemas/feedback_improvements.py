@@ -67,6 +67,7 @@ class ImprovementContent(BaseModel):
     release_revision: str = Field(default="", pattern=r"^(?:[0-9a-f]{40})?$")
     deployment_checked: StrictBool = False
     release_notes: str = Field(default="", max_length=1200)
+    release_without_evaluation: StrictBool = False
 
     @model_validator(mode="after")
     def validate_review_stage(self):
@@ -77,7 +78,9 @@ class ImprovementContent(BaseModel):
             raise ValueError("Provide both scenario dates together.")
         if birth_date is not None and evaluation_date is not None and not within_project_scope(birth_date, evaluation_date):
             raise ValueError("The child's age on the evaluation date must be between birth and the second birthday, inclusive.")
-        if self.status != "investigating":
+        if self.release_without_evaluation and self.status != "released":
+            raise ValueError("A deployment-only record must have a recorded release.")
+        if self.status != "investigating" and not self.release_without_evaluation:
             if not (self.baseline.complete and self.candidate.complete and self.change_summary
                     and self.change_reference and self.evaluation_notes):
                 raise ValueError("Record both reviewed answers, their provenance, the correction and evaluation notes.")

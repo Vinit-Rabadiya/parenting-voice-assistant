@@ -51,31 +51,12 @@ applies. A role does not grant access to another administrator's cases.
    if it matters to the concern. Confirm that the case contains no caregiver
    identifiers or private chat text. Nothing is copied automatically from a caregiver
    conversation or comment.
-3. Save the investigation. Open **Test a fix** when you have a correction to
-   review. Record the correction area, explanation and
-   commit/PR reference. Capture a baseline and a candidate answer using the same
-   question and test conditions, including any test age. Use each answer's **Evidence
-   and scores** to record the actual model, prompt revision, corpus revision and
-   evaluation report reference. **Save review draft** keeps partial evidence.
-4. In the same section, score both answers on source support, helpfulness, age fit, clarity
-   and safety boundaries using the existing [1–5 review rubric](../data/evaluation/coaching-quality-review.md). Record issue resolution,
-   source/age/safety review, regression results and evaluation notes. Use real
-   captures and checks; a typed reference is not automatically verified.
-5. Choose **Record successful evaluation**. The API requires complete captures,
-   provenance, scores and all checks. Candidate source-support, age-fit and
-   safety scores cannot be lower than the baseline. The status is **Evaluation
-   recorded**, meaning the administrator's evidence and attestations are saved;
-   it is not clinical approval or an independent automated evaluation result.
-   Candidate source-support, age-fit and safety scores must be at least 4/5 when
-   applicable, a development review policy rather than a clinical guarantee.
-   If no references were supplied, mark source support explicitly not applicable
-   with a reason instead of inventing a score; the other checks still apply.
-6. Apply the reviewed correction through the normal source/code review and
-   deployment process. After checking the running revision, open **Release record**, enter the full
-   40-character deployed commit and release notes, confirm deployment and choose
-   **Record release**. This records the operator's observation; it does not
-   contact GitHub/Azure or deploy anything.
-7. Monitor subsequent feedback as new review signals. Cumulative dashboard counts
+3. Choose **Save investigation**. Investigate, verify and deploy the correction
+   through the regular development workflow.
+4. After checking the running revision, open the saved case and select
+   **Release record**. Enter the full deployed commit and a short explanation of
+   what changed, confirm deployment and choose **Record release**.
+5. Monitor subsequent feedback as new review signals. Cumulative dashboard counts
    are affected by editing and deletion and are not a causal before/after study.
    Use paired evaluation cases and a separate held-out set to assess changes.
 
@@ -97,9 +78,9 @@ that example, not a percentage accuracy gain or a population result.
 
 ## Record integrity and privacy
 
-- New cases begin as **Investigating**. A release cannot be recorded directly
-  from investigation; the evaluation stage is required first.
-- Reviewed content is locked while evaluation/release is recorded. Under **Case
+- New cases begin as **Investigating**. A saved case can move directly to
+  **Release recorded** after the administrator confirms the deployed commit.
+- Released cases are locked. Under **Case
   actions**, use **Reopen investigation** before changing it. Reopening clears check attestations and
   release confirmation so old checks do not silently approve new content.
 - Every save/delete includes an expected version. A stale browser tab receives

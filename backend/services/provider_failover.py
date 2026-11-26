@@ -48,14 +48,15 @@ def retry_delay(error, default: int) -> float:
 class ProviderFailoverService:
     supports_failover = True
 
-    def __init__(self, *, services=None, primary=None, cooldown_seconds=None, clock=time.monotonic):
+    def __init__(self, *, services=None, primary=None, cooldown_seconds=None, clock=time.monotonic, usage_recorder=None):
         self.provider = primary or settings.COACHING_PROVIDER
         if self.provider not in {"groq", "gemini"}:
             raise ValueError("Unsupported coaching provider.")
         self.order = (self.provider, "gemini" if self.provider == "groq" else "groq")
         self._owns_services = services is None
         self.services = services if services is not None else {
-            provider: CoachingService(provider=provider, fallback_model="") for provider in self.order
+            provider: CoachingService(provider=provider, fallback_model="", usage_recorder=usage_recorder)
+            for provider in self.order
         }
         if set(self.services) != {"groq", "gemini"}:
             raise ValueError("Failover requires both Groq and Gemini.")

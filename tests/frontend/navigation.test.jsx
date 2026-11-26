@@ -22,6 +22,7 @@ vi.mock("../../frontend/src/components/LoginForm", () => ({ default: () => <div>
 vi.mock("../../frontend/src/components/SignUpForm", () => ({ default: () => <div>Signup form</div> }));
 vi.mock("../../frontend/src/components/GoogleSignInButton", () => ({ default: ({ onMfaRequired }) => <button onClick={() => onMfaRequired({ hints: state.mfaHints })}>Google sign in</button> }));
 vi.mock("../../frontend/src/components/AdminFeedbackSummary", () => ({ default: () => <section aria-label="Feedback overview"><h2>Caregiver feedback</h2></section> }));
+vi.mock("../../frontend/src/components/AdminTokenUsage", () => ({ default: () => <h2>Model token usage</h2> }));
 vi.mock("../../frontend/src/components/AdminFeedbackImprovements", () => ({ default: () => <section aria-label="Answer improvement workflow" /> }));
 vi.mock("../../frontend/src/pages/AccountPage", () => ({ default: ({ email, verificationEmailRequested, onDataDeleted }) => (
   <div>Account: {email}. Verification requested: {String(verificationEmailRequested)}
@@ -132,6 +133,7 @@ it("opens the administrator dashboard without mounting caregiver controls", () =
   state.accessOverride = { verified: true, checking: false, role: "administrator" };
   render(<App />);
   expect(screen.getByRole("heading", { name: "Administrator dashboard" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Model token usage" })).toBeTruthy();
   expect(screen.getByRole("region", { name: "Feedback overview" })).toBeTruthy();
   expect(screen.queryByText("Working with feedback")).toBeNull();
   expect(screen.queryByRole("button", { name: "Start recording" })).toBeNull();

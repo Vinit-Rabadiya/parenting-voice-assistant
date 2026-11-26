@@ -1,11 +1,11 @@
-"""Administrator access to feedback without conversation or profile lookup."""
+"""Administrator feedback and application usage reports."""
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 
 from backend.api.dependencies import get_caregiver_data_service
 from backend.core.security import require_authenticated_user, require_feedback_summary_admin
-from backend.schemas.admin import FeedbackSummary
+from backend.schemas.admin import FeedbackSummary, TokenUsageSummary
 from backend.services.caregiver_data import CaregiverDataService
 from backend.services.feedback_summary import FeedbackSummaryService
 from backend.schemas.feedback_improvements import ImprovementCreate, ImprovementUpdate, ImprovementRecord, ImprovementPage
@@ -13,7 +13,7 @@ from backend.services.feedback_improvements import (
     FeedbackImprovementService, ImprovementConflict, ImprovementNotFound, ImprovementStageError,
 )
 
-router = APIRouter(prefix="/admin/feedback")
+router = APIRouter(prefix="/admin")
 CaseId = Annotated[str, Path(pattern=r"^[0-9a-f]{32}$")]
 
 
@@ -30,7 +30,7 @@ def improvement_operation(operation):
         raise HTTPException(status_code=503, detail="Improvement cases are unavailable. Please retry.") from None
 
 
-@router.get("/improvements", response_model=ImprovementPage)
+@router.get("/feedback/improvements", response_model=ImprovementPage)
 def list_improvements(request: Request, response: Response,
                       limit: int = Query(default=20, ge=1, le=50),
                       before: str | None = Query(default=None, pattern=r"^[0-9a-f]{32}$"),
@@ -42,7 +42,7 @@ def list_improvements(request: Request, response: Response,
     return improvement_operation(lambda: FeedbackImprovementService(service.client).list(user["uid"], limit, before))
 
 
-@router.post("/improvements", response_model=ImprovementRecord, status_code=201)
+@router.post("/feedback/improvements", response_model=ImprovementRecord, status_code=201)
 def create_improvement(payload: ImprovementCreate, response: Response,
                        user: dict = Depends(require_feedback_summary_admin),
                        service: CaregiverDataService = Depends(get_caregiver_data_service)):
@@ -50,7 +50,7 @@ def create_improvement(payload: ImprovementCreate, response: Response,
     return improvement_operation(lambda: FeedbackImprovementService(service.client).create(user["uid"], payload.content))
 
 
-@router.put("/improvements/{identifier}", response_model=ImprovementRecord)
+@router.put("/feedback/improvements/{identifier}", response_model=ImprovementRecord)
 def update_improvement(identifier: CaseId, payload: ImprovementUpdate, response: Response,
                        user: dict = Depends(require_feedback_summary_admin),
                        service: CaregiverDataService = Depends(get_caregiver_data_service)):
@@ -60,7 +60,7 @@ def update_improvement(identifier: CaseId, payload: ImprovementUpdate, response:
     ))
 
 
-@router.delete("/improvements/{identifier}", status_code=204)
+@router.delete("/feedback/improvements/{identifier}", status_code=204)
 def delete_improvement(identifier: CaseId, response: Response,
                        expected_version: int = Query(ge=1),
                        user: dict = Depends(require_feedback_summary_admin),
@@ -69,14 +69,14 @@ def delete_improvement(identifier: CaseId, response: Response,
     improvement_operation(lambda: FeedbackImprovementService(service.client).delete(user["uid"], identifier, expected_version))
 
 
-@router.get("/access")
+@router.get("/feedback/access")
 def feedback_access(request: Request, response: Response,
                     user: dict = Depends(require_authenticated_user)):
     response.headers["Cache-Control"] = "no-store"
     return {"allowed": getattr(request.state, "feedback_summary_admin", False) is True}
 
 
-@router.get("/summary", response_model=FeedbackSummary)
+@router.get("/feedback/summary", response_model=FeedbackSummary)
 def feedback_summary(request: Request, response: Response,
                      user: dict = Depends(require_feedback_summary_admin),
                      service: CaregiverDataService = Depends(get_caregiver_data_service)):
@@ -88,3 +88,14 @@ def feedback_summary(request: Request, response: Response,
         return FeedbackSummaryService(service.client).read()
     except Exception:
         raise HTTPException(status_code=503, detail="Feedback summary is unavailable. Please try again.") from None
+
+
+@router.get("/token-usage", response_model=TokenUsageSummary, dependencies=[Depends(require_feedback_summary_admin)])
+def token_usage(request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="Token usage filters are not supported.")
+    try:
+        return request.app.state.token_usage_service.summary()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Token usage is unavailable. Please try again.") from None
